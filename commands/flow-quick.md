@@ -39,7 +39,7 @@ Continue as quick task anyway? (yes/no)
 ## Step 3: Skills Check
 
 Does this task involve specialised output (documents, spreadsheets, presentations)?
-If yes → check `.planning/skills/README.md` first.
+If yes → check `.opencode/skills/` (local) and `~/.config/opencode/skills/` (global) for a matching skill first.
 
 ## Step 4: Announce
 

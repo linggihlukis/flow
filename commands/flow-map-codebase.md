@@ -9,7 +9,7 @@ Read AGENTS.md fully before doing anything else.
 # /flow-map-codebase
 
 Run this before `/flow-new-project` when adding FLOW to an existing codebase.
-Spawns parallel agents to analyse the code, then writes PATTERNS.md and updates the skills registry.
+Spawns parallel agents to analyse the code, then writes PATTERNS.md and checks OpenCode commands directories for relevant skills.
 
 ---
 
@@ -93,11 +93,11 @@ Using the analysis findings, write `PATTERNS.md` to the project root.
 
 ---
 
-## Stage 3: Skills Detection
+## Stage 3: Skills Check
 
 Look for evidence of specialised output types in the codebase:
 
-| Evidence found | Suggested skill |
+| Evidence found | Skill name to look for |
 |---|---|
 | PDF generation (pdfkit, puppeteer, jsPDF) | pdf |
 | Excel/spreadsheet output (xlsx, exceljs) | xlsx |
@@ -105,8 +105,11 @@ Look for evidence of specialised output types in the codebase:
 | Presentation generation | pptx |
 | Chart/graph generation (chart.js, d3) | data-viz |
 
-If any detected, update `.planning/skills/README.md` Registered Skills table
-and note "suggested — add SKILL.md to activate".
+For each detected evidence, check whether a matching skill file already exists:
+1. `.opencode/skills/` (local — checked first)
+2. `~/.config/opencode/skills/` on Mac/Linux, or `%USERPROFILE%\.config\opencode\skills\` on Windows (global)
+
+Report what is found or missing. Do not create or register skills.
 
 ---
 

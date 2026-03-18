@@ -52,13 +52,14 @@ Do not write a single line of code before completing all 6 steps.
 
 ## 4. Skills Check Protocol
 
-Before generating any specialised output:
+Before generating any specialised output, check whether a relevant skill exists in OpenCode's commands directories. Do not create or register skills — only check.
 
 ```
-1. Check .planning/skills/README.md for a matching skill
-2. Found in .planning/skills/ → use project skill (project wins)
-3. Not found → check ~/.flow/skills/ for global skill
-4. Neither → proceed without, note absence in output
+1. Check .opencode/skills/ (local project skills — checked first)
+2. Check ~/.config/opencode/skills/ on Mac/Linux
+   or %USERPROFILE%\.config\opencode\skills\ on Windows (global skills)
+3. If a matching skill file is found → read it and follow its instructions
+4. If not found → proceed without, note absence in output
 ```
 
 Task types requiring skills check: documents (docx/pdf/pptx/xlsx),

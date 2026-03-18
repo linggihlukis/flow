@@ -18,18 +18,17 @@ FLOW supports three install paths depending on your setup.
 Once you've pushed this repo to GitHub:
 
 ```bash
-# OpenCode, global (available to all projects)
+# Inside your project — installs commands globally AND scaffold into this project
 npx github:YOUR_USERNAME/flow --opencode --global
 
-# OpenCode, local (current project only)
-npx github:YOUR_USERNAME/flow --opencode --local
-
-# Claude Code, global
+# Claude Code
 npx github:YOUR_USERNAME/flow --claude --global
 
-# Both runtimes, global
+# Both runtimes
 npx github:YOUR_USERNAME/flow --all --global
 ```
+
+> Both `/flow-*` commands and project scaffold files (`AGENTS.md`, `STATE.md`, `.planning/`) are always installed together. Scaffold is written to the directory where you run the command. Existing files are never overwritten.
 
 Replace `YOUR_USERNAME` with your GitHub username and `flow` with your repo name if different.
 
@@ -191,7 +190,6 @@ repeat until milestone complete → ship
 | `.planning/LESSONS.md` | Append-only cross-milestone lesson archive |
 | `.planning/PATTERNS.md` | Codebase conventions (written by map-codebase) |
 | `.planning/config.json` | FLOW configuration |
-| `.planning/skills/` | Skills registry — project and global |
 | `.planning/debug/KNOWLEDGE-BASE.md` | Append-only debug memory |
 | `.planning/handoffs/` | Phase handoff documents |
 
@@ -231,17 +229,13 @@ Edit `.planning/config.json`:
 
 ## Skills
 
-FLOW has a two-tier skills system. Before generating specialised output, the agent checks for a relevant skill file and follows its instructions.
+Before generating specialised output, the agent checks OpenCode's commands directories for a matching skill file and follows its instructions if found.
 
-**Resolution order:**
-1. `.planning/skills/` — project skills (checked first, always wins)
-2. `~/.flow/skills/` — global skills (available to all projects)
+**Check order:**
+1. `.opencode/skills/` — local project skills (checked first)
+2. `~/.config/opencode/skills/` on Mac/Linux, or `%USERPROFILE%\.config\opencode\skills\` on Windows — global skills
 
-**To add a skill:**
-1. Create `.planning/skills/[skill-name]/SKILL.md`
-2. Register it in `.planning/skills/README.md`
-
-**Global skills** live in `~/.flow/skills/` and are set up automatically by the installer.
+The agent only checks — it never creates or registers skills automatically.
 
 ---
 

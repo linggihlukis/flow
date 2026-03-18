@@ -34,12 +34,7 @@ function getGlobalClaudeDir() {
   return path.join(os.homedir(), ".claude");
 }
 
-function getFlowSkillsDir() {
-  const base = isWindows
-    ? (process.env.USERPROFILE || os.homedir())
-    : os.homedir();
-  return path.join(base, ".flow", "skills");
-}
+
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 const REPO_ROOT    = path.join(__dirname, "..");
@@ -95,11 +90,10 @@ function installScaffold(projectRoot) {
     [path.join(SCAFFOLD_DIR, ".planning", "LESSONS.md"),                path.join(projectRoot, ".planning", "LESSONS.md")],
     [path.join(SCAFFOLD_DIR, ".planning", "config.json"),               path.join(projectRoot, ".planning", "config.json")],
     [path.join(SCAFFOLD_DIR, ".planning", "debug", "KNOWLEDGE-BASE.md"),path.join(projectRoot, ".planning", "debug", "KNOWLEDGE-BASE.md")],
-    [path.join(SCAFFOLD_DIR, ".planning", "skills", "README.md"),       path.join(projectRoot, ".planning", "skills", "README.md")],
   ];
 
   // Ensure empty dirs exist
-  for (const d of ["handoffs","skills","debug","research"].map(d => path.join(projectRoot, ".planning", d))) {
+  for (const d of ["handoffs","debug","research"].map(d => path.join(projectRoot, ".planning", d))) {
     ensureDir(d);
   }
 
@@ -114,16 +108,7 @@ function installScaffold(projectRoot) {
   return skipped;
 }
 
-// ─── Global skills dir ────────────────────────────────────────────────────────
-function setupGlobalSkills() {
-  const dir = getFlowSkillsDir();
-  ensureDir(dir);
-  const readme = path.join(dir, "README.md");
-  if (!fs.existsSync(readme)) {
-    fs.writeFileSync(readme, `# Global FLOW Skills\n\n> Available to all projects. Project skills (.planning/skills/) take priority.\n\n## Registered Global Skills\n\n| Task Type | Trigger Keywords | Skill Location |\n|---|---|---|\n| *No global skills yet* | — | — |\n`);
-  }
-  return dir;
-}
+
 
 // ─── Uninstall ────────────────────────────────────────────────────────────────
 function uninstall(runtime, location) {
@@ -223,22 +208,14 @@ async function main() {
     }
   }
 
-  // Scaffold (local only)
-  if (location === "local") {
-    const skipped = installScaffold(process.cwd());
-    if (skipped.length > 0) {
-      warn("Scaffold files already exist (preserved):");
-      skipped.forEach(f => log(`    ${dim(f)}`));
-    } else {
-      ok("Project scaffold installed (AGENTS.md, STATE.md, .planning/)");
-    }
+  // Scaffold — always install into the current project directory
+  const skipped = installScaffold(process.cwd());
+  if (skipped.length > 0) {
+    warn("Scaffold files already exist (preserved):");
+    skipped.forEach(f => log(`    ${dim(f)}`));
   } else {
-    info("Run with --local inside a project to install scaffold files.");
+    ok("Project scaffold installed (AGENTS.md, STATE.md, .planning/)");
   }
-
-  // Global skills
-  const skillsDir = setupGlobalSkills();
-  ok(`Global skills directory: ${dim(skillsDir)}`);
 
   // Summary
   log("");
@@ -247,7 +224,6 @@ async function main() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   log(`  Commands:  ${commandCount} (all prefixed /flow-)`);
-  log(`  Skills:    ${skillsDir}`);
   log("");
   log(bold("  Getting started:"));
   log(`  ${dim("New project:")}      /flow-new-project`);

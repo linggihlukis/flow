@@ -65,7 +65,6 @@ KEY FILES
   .planning/LESSONS.md       Cross-milestone lessons (append-only)
   .planning/PATTERNS.md      Codebase conventions
   .planning/config.json      FLOW configuration
-  .planning/skills/          Skills registry
   .planning/debug/           Debug knowledge base
   .planning/handoffs/        Phase handoff documents
 
