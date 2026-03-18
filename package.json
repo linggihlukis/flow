@@ -1,0 +1,23 @@
+{
+  "name": "flow-init",
+  "version": "1.0.0",
+  "description": "FLOW — Balanced AI Development Workflow. OpenCode-first, model-agnostic.",
+  "bin": {
+    "flow-init": "./bin/install.js"
+  },
+  "scripts": {
+    "start": "node bin/install.js"
+  },
+  "keywords": [
+    "opencode",
+    "claude-code",
+    "ai-workflow",
+    "context-engineering",
+    "spec-driven-development"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
