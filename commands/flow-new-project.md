@@ -58,6 +58,11 @@ Do not proceed to Stage 2 until the developer confirms.
 
 Check `.planning/config.json` → `workflow.research`. If false, skip to Stage 3.
 
+Read `depth` from config:
+- `quick`: spawn 1 agent covering stack best practices and top risks only
+- `standard` (default): spawn 4 parallel agents as below
+- `comprehensive`: spawn 4 parallel agents as below with deeper investigation
+
 Spawn 4 parallel research subagents simultaneously:
 
 **Agent 1 — Stack & Ecosystem:** Best practices and conventions for the chosen stack, common pitfalls, recommended libraries, testing approach.

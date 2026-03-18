@@ -10,6 +10,9 @@ Read AGENTS.md and STATE.md before doing anything else.
 
 Phase number: **$ARGUMENTS**
 
+Read `.planning/config.json`:
+- `mode`: if `yolo`, skip the guided walkthrough (Stage 2) and proceed directly to generating fix plans from plan done-conditions vs. test results. Note this in output.
+
 Automated tests verify code exists. This step verifies the feature actually WORKS as expected.
 The developer must use the feature. This cannot be automated.
 
@@ -139,6 +142,8 @@ Next step: /flow-discuss-phase [N+1]
 ```
 
 ## Completion — Issues Found
+
+Update STATE.md: `status: needs-fixes`
 
 ```
 ⚠️  Phase $ARGUMENTS — issues found

@@ -1,21 +1,14 @@
 {
   "flow_version": "1.0.0",
-  "runtime": "opencode",
+  "runtime": "auto",
   "mode": "interactive",
   "depth": "standard",
-  "model_profile": {
-    "planning": "auto",
-    "execution": "auto",
-    "verification": "auto"
-  },
   "workflow": {
     "research": true,
     "plan_check": true,
-    "verifier": true,
     "node_repair": true,
     "node_repair_budget": 2,
-    "parallel_execution": true,
-    "commit_docs": true
+    "parallel_execution": true
   },
   "git": {
     "branching_strategy": "none",

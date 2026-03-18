@@ -16,4 +16,4 @@ Format for every entry:
 
 ---
 
-*No entries yet. Entries are added automatically when `/flow-debug` resolves an issue.*
+*No entries yet. Entries are added automatically when `/flow-verify-work` resolves an issue.*

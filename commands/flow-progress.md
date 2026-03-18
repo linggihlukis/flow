@@ -12,10 +12,10 @@ Report current position:
 ```
 📍 FLOW Progress
 
-Project:    [from PROJECT.md]
+Project:    [from PROJECT.md — if not yet created, use project name from STATE.md prose or "—"]
 Milestone:  [N] — [name]
 Phase:      [N of total] — [name]
-Status:     [not-started / planned / in-progress / executed / verified]
+Status:     [not-started / ready / planned / in-progress / executed / needs-fixes / verified / paused]
 
 Last action: [from STATE.md]
 Last commit: [hash + message from git log -1]

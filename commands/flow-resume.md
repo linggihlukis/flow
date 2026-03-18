@@ -3,6 +3,8 @@ description: Resume work — read state, surface lessons, load handoff, orient a
 agent: build
 ---
 
+Read AGENTS.md before doing anything else.
+
 # /flow-resume
 
 Execute every step in order before doing anything else.
@@ -40,9 +42,9 @@ If exists:
 ```
 
 ## Step 5: Check for Destructive Changes
-Run: `git diff HEAD~1 --name-only`
+Run: `git rev-parse HEAD~1 2>/dev/null && git diff HEAD~1 --name-only || echo "(skipped — not enough commits)"`
 
-If any Tier 3 files were touched in the last commit (.env*, migration files, git history ops):
+If the command produces output (i.e. HEAD~1 exists) and any Tier 3 files were touched in the last commit (.env*, migration files, git history ops):
 ```
 ⚠️  Last session touched Tier 3 files:
   [list]
@@ -60,8 +62,10 @@ If tests fail:
 
 ## Step 7: Announce Position
 
+If STATE.md `status` is `paused`, prefix the announcement with `⏸️  Resuming from paused session`. Otherwise use `▶️  Resuming FLOW`.
+
 ```
-▶️  Resuming FLOW
+▶️  Resuming FLOW  (or ⏸️  Resuming from paused session)
 
 Milestone:   [N] — [name]
 Phase:       [N] — [name]

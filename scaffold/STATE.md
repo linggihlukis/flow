@@ -1,6 +1,6 @@
 ---
-milestone: 0
-phase: 0
+milestone: null
+phase: null
 status: not-started
 last_plan: null
 last_commit: null
@@ -49,4 +49,4 @@ include what was decided, why, and when. These are never deleted.*
 
 ## Milestones
 
-*Populated by `/flow-new-project` and `/flow-new-milestone`.*
+*Populated by `/flow-new-project`.*

@@ -138,8 +138,8 @@ Never rewrite LESSONS.md. Append only. Always.
 | Destructive action failed | Critical | Stop, do not retry, report state, wait |
 | Plan doesn't match reality | Off-plan | Stop, document in STATE.md, surface to user |
 
-Retry budget: 2 automatic retries. After 2, stop and report clearly.
-Never silently continue past a third failure.
+Retry budget: read `workflow.node_repair_budget` from `.planning/config.json` (default: 2). After budget exhausted, stop and report clearly.
+Never silently continue past the budget limit.
 
 ---
 

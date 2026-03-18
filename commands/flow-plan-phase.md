@@ -19,6 +19,10 @@ Phase number: **$ARGUMENTS**
 2. Read `PATTERNS.md` if it exists — all new code must follow existing conventions
 3. Read last 5 entries from `.planning/LESSONS.md` — apply relevant patterns
 4. Read `REQUIREMENTS.md` — understand which requirements this phase covers
+5. Read `.planning/config.json` — apply these settings:
+   - `depth`: `quick` = 1 research agent (key risks only), `standard` = 3 agents (default), `comprehensive` = 3 agents with deeper investigation and more plan detail
+   - `mode`: if `yolo`, skip developer confirmation of plans before execution
+   - `workflow.plan_check`: if false, skip Stage 3 plan verification
 
 ---
 
@@ -26,7 +30,10 @@ Phase number: **$ARGUMENTS**
 
 Check `.planning/config.json` → `workflow.research`. If false, skip to Stage 2.
 
-Spawn 3 parallel research subagents:
+Spawn research subagents based on `depth` setting (from pre-flight):
+- `quick`: 1 agent covering implementation approach + key risks only
+- `standard` (default): 3 parallel agents as below
+- `comprehensive`: 3 parallel agents as below, with deeper investigation of each area
 
 **Agent 1 — Implementation Approach**
 How to implement the specific features locked in CONTEXT.md. Known patterns for this stack + feature combination. Code-level approaches. Implications of locked decisions.
@@ -37,13 +44,13 @@ Any new libraries needed. Compatibility with existing stack (check PATTERNS.md).
 **Agent 3 — Edge Cases & Gotchas**
 What commonly goes wrong with this type of feature. Resolving any open questions from CONTEXT.md. Security and performance considerations.
 
-Wait for all agents. Write to `.planning/phase-$ARGUMENTS-RESEARCH.md`.
+Wait for all agents. Write to `.planning/research/phase-$ARGUMENTS-research.md`.
 
 ---
 
 ## Stage 2: Generate Atomic Plans
 
-Using CONTEXT.md, RESEARCH.md, and PATTERNS.md — break the phase into the smallest possible independent units of work.
+Using CONTEXT.md, `.planning/research/phase-$ARGUMENTS-research.md`, and PATTERNS.md — break the phase into the smallest possible independent units of work.
 
 **Every plan MUST satisfy all 7 atomic rules:**
 

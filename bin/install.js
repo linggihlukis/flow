@@ -197,19 +197,33 @@ async function main() {
 
   const targets = resolveTargets(runtime, location);
   let commandCount = 0;
+  let installedCount = 0;
 
   for (const target of targets) {
     try {
-      commandCount = installCommands(target.dir);
+      installedCount = installCommands(target.dir);
+      if (commandCount === 0) commandCount = installedCount; // same files every time
       ok(`${target.label}`);
-      ok(`  ${commandCount} commands installed`);
+      ok(`  ${installedCount} commands installed`);
     } catch (e) {
       err(`Failed: ${e.message}`);
     }
   }
 
   // Scaffold — always install into the current project directory
-  const skipped = installScaffold(process.cwd());
+  const cwd = process.cwd();
+  const looksLikeProject = fs.existsSync(path.join(cwd, "package.json"))
+    || fs.existsSync(path.join(cwd, "AGENTS.md"))
+    || fs.existsSync(path.join(cwd, ".git"))
+    || fs.existsSync(path.join(cwd, "pyproject.toml"))
+    || fs.existsSync(path.join(cwd, "go.mod"))
+    || fs.existsSync(path.join(cwd, "Cargo.toml"));
+  if (!looksLikeProject) {
+    warn(`Scaffold will be written to: ${dim(cwd)}`);
+    warn("This doesn't look like a project directory. Run from inside your project to install scaffold in the right place.");
+    log("");
+  }
+  const skipped = installScaffold(cwd);
   if (skipped.length > 0) {
     warn("Scaffold files already exist (preserved):");
     skipped.forEach(f => log(`    ${dim(f)}`));
@@ -230,7 +244,12 @@ async function main() {
   log(`  ${dim("Existing code:")}    /flow-map-codebase  →  /flow-new-project`);
   log(`  ${dim("All commands:")}     /flow-help`);
   log("");
-  log(dim("  Restart OpenCode to load the new commands."));
+  if (runtime === "opencode" || runtime === "all") {
+    log(dim("  Restart OpenCode to load the new commands."));
+  }
+  if (runtime === "claude" || runtime === "all") {
+    log(dim("  Reload Claude Code (or restart your shell) to load the new commands."));
+  }
   log("");
 }
 

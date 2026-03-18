@@ -60,6 +60,7 @@ KEY FILES
 ─────────
   AGENTS.md                  Every agent reads this first
   STATE.md                   Current state — YAML + prose
+  PROJECT.md                 Vision, goals, constraints, stack
   ROADMAP.md                 Phases and milestones
   REQUIREMENTS.md            MoSCoW requirements
   .planning/LESSONS.md       Cross-milestone lessons (append-only)

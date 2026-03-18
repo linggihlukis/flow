@@ -71,6 +71,8 @@ flow-init --opencode --global
 
 `npm link` installs the package globally on your machine without publishing anywhere. Re-run `npm link` after any edits to pick up changes.
 
+> **Note:** `flow-init` will only be available as a bare command if npm's global bin directory is in your `$PATH`. Verify with `npm bin -g` and add it to your shell profile if needed (e.g. `export PATH="$(npm bin -g):$PATH"`). Alternatively, run `node bin/install.js --opencode --global` directly.
+
 ---
 
 ### Non-interactive flags (for scripts, Docker, CI)
@@ -175,7 +177,7 @@ AI agents degrade in quality when context fills up, and reset to zero between se
 /flow-plan-phase N     →  atomic plans, verified before execution
        ↓
 /flow-execute-phase N  →  parallel execution, one commit per task, auto handoff
-       ↓
+       ↓                   (handoff written to .planning/handoffs/)
 /flow-verify-work N    →  UAT + debug + fix plans
        ↓
 repeat until milestone complete → ship
@@ -187,6 +189,9 @@ repeat until milestone complete → ship
 |---|---|
 | `AGENTS.md` | Every agent reads this first — routing, rules, protocols |
 | `STATE.md` | YAML frontmatter + prose — machine and human readable |
+| `PROJECT.md` | Vision, goals, constraints, stack — written by new-project |
+| `ROADMAP.md` | Phases and milestones |
+| `REQUIREMENTS.md` | MoSCoW requirements |
 | `.planning/LESSONS.md` | Append-only cross-milestone lesson archive |
 | `.planning/PATTERNS.md` | Codebase conventions (written by map-codebase) |
 | `.planning/config.json` | FLOW configuration |
@@ -215,15 +220,15 @@ Edit `.planning/config.json`:
 }
 ```
 
-| Setting | Options | Default |
-|---|---|---|
-| `mode` | `interactive`, `yolo` | `interactive` |
-| `depth` | `quick`, `standard`, `comprehensive` | `standard` |
-| `workflow.research` | `true`, `false` | `true` |
-| `workflow.plan_check` | `true`, `false` | `true` |
-| `workflow.node_repair` | `true`, `false` | `true` |
-| `workflow.node_repair_budget` | number | `2` |
-| `workflow.parallel_execution` | `true`, `false` | `true` |
+| Setting | Options | Default | Effect |
+|---|---|---|---|
+| `mode` | `interactive`, `yolo` | `interactive` | `yolo` skips all developer confirmations |
+| `depth` | `quick`, `standard`, `comprehensive` | `standard` | Controls how many research agents are spawned and how deeply they investigate |
+| `workflow.research` | `true`, `false` | `true` | If false, skips all research stages |
+| `workflow.plan_check` | `true`, `false` | `true` | If false, skips atomic plan verification in plan-phase |
+| `workflow.node_repair` | `true`, `false` | `true` | If false, failed tasks escalate immediately with no auto-retry |
+| `workflow.node_repair_budget` | number | `2` | Max auto-retries per failed task before escalating |
+| `workflow.parallel_execution` | `true`, `false` | `true` | If false, plans execute sequentially instead of in waves |
 
 ---
 

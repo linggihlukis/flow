@@ -14,6 +14,14 @@ Same quality guarantees as a full plan. Faster path to execution.
 
 ---
 
+## Step 0: Initialisation Guard
+
+Read STATE.md. If `status: not-started`, stop immediately:
+```
+⚠️  Project not initialised.
+Run /flow-new-project first, then return to this task.
+```
+
 ## Step 1: Understand
 
 Restate the task in one sentence to confirm understanding.

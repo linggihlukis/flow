@@ -16,7 +16,6 @@ Read:
 - All `phase-N-plan-NN.md` files for this phase
 - `git log` for commits in this phase
 - `.planning/phase-N-CONTEXT.md`
-- `.planning/phase-N-VERIFICATION.md` if it exists
 
 If a handoff already exists for this phase:
 "A handoff already exists for Phase N. Overwrite with updated version? (yes/no)"
