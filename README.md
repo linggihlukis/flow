@@ -1,67 +1,142 @@
 # FLOW — Balanced AI Development Workflow
 
-> Fast by default. Careful when it counts.
+> Fast by default. Careful when it counts.  
 > Complexity in the system, not in your workflow.
 
-FLOW is a spec-driven AI development workflow built for OpenCode, adaptable
-to Claude Code and any instruction-following model. It solves context rot —
-the quality degradation that happens as AI agents lose shared understanding
-across sessions.
+FLOW is a spec-driven AI development workflow built for OpenCode, adaptable to Claude Code and any instruction-following model. It solves context rot — the quality degradation that happens as AI agents lose shared understanding across sessions.
 
 ---
 
 ## Install
 
-```bash
-npx flow-init
-```
-
-The installer will ask:
-1. **Runtime** — OpenCode, Claude Code, or both
-2. **Location** — Global (all projects) or Local (current project)
-
-**Non-interactive install:**
-
-```bash
-# OpenCode, global
-npx flow-init --opencode --global
-
-# OpenCode, local (current project)
-npx flow-init --opencode --local
-
-# Claude Code, global
-npx flow-init --claude --global
-
-# Both runtimes, global
-npx flow-init --all --global
-```
-
-**Platform support:** Mac, Linux, Windows
-
-Windows path: `%USERPROFILE%\.config\opencode\commands\`
-Mac/Linux path: `~/.config/opencode/commands/`
+FLOW supports three install paths depending on your setup.
 
 ---
 
-## Quick Start
+### Path 1 — From your private GitHub repo (recommended)
 
+Once you've pushed this repo to GitHub:
+
+```bash
+# OpenCode, global (available to all projects)
+npx github:YOUR_USERNAME/flow --opencode --global
+
+# OpenCode, local (current project only)
+npx github:YOUR_USERNAME/flow --opencode --local
+
+# Claude Code, global
+npx github:YOUR_USERNAME/flow --claude --global
+
+# Both runtimes, global
+npx github:YOUR_USERNAME/flow --all --global
 ```
-# New project
+
+Replace `YOUR_USERNAME` with your GitHub username and `flow` with your repo name if different.
+
+> **Note:** For a private repo, you need to be authenticated with GitHub on your machine (`gh auth login` or SSH key configured). npx resolves GitHub repos via `github:user/repo` shorthand using your existing git credentials.
+
+---
+
+### Path 2 — From npm (if you publish it)
+
+```bash
+npx flow-init --opencode --global
+```
+
+To publish:
+```bash
+cd flow
+npm login
+npm publish --access restricted   # private (requires paid npm account)
+# or
+npm publish                        # public
+```
+
+Once published, `npx flow-init` works for anyone with access.
+
+---
+
+### Path 3 — Local install (no GitHub, no npm)
+
+If you just want to use it on your machine right now:
+
+```bash
+# Unzip and link globally
+unzip flow.zip
+cd flow
+npm link
+
+# Now available from anywhere on this machine
+flow-init --opencode --global
+```
+
+`npm link` installs the package globally on your machine without publishing anywhere. Re-run `npm link` after any edits to pick up changes.
+
+---
+
+### Non-interactive flags (for scripts, Docker, CI)
+
+All paths support the same flags:
+
+| Flag | Description |
+|---|---|
+| `--opencode` | Install for OpenCode |
+| `--claude` | Install for Claude Code |
+| `--all` | Install for both runtimes |
+| `--global` or `-g` | Install to global config directory |
+| `--local` or `-l` | Install to current project only |
+| `--uninstall` | Remove FLOW commands (preserves scaffold files) |
+
+---
+
+### Where commands are installed
+
+| Runtime | Global path (Mac/Linux) | Global path (Windows) |
+|---|---|---|
+| OpenCode | `~/.config/opencode/commands/` | `%USERPROFILE%\.config\opencode\commands\` |
+| Claude Code | `~/.claude/commands/` | `~/.claude/commands/` |
+
+Local install always goes to `.opencode/commands/` or `.claude/commands/` in the current directory.
+
+---
+
+## Push to GitHub
+
+```bash
+unzip flow.zip
+cd flow
+
+git init
+git add .
+git commit -m "feat: initial FLOW system"
+
+# Create a new private repo on GitHub, then:
+git remote add origin https://github.com/YOUR_USERNAME/flow.git
+git push -u origin main
+```
+
+After pushing, install from anywhere with:
+```bash
+npx github:YOUR_USERNAME/flow --opencode --global
+```
+
+---
+
+## Getting Started
+
+```bash
+# 1. Install FLOW into your project
+npx github:YOUR_USERNAME/flow --opencode --local
+
+# 2. Open OpenCode and run
 /flow-new-project
 
-# Existing codebase
+# Or for an existing codebase:
 /flow-map-codebase
 /flow-new-project
-
-# Per phase (repeat until milestone complete)
-/flow-discuss-phase 1
-/flow-plan-phase 1
-/flow-execute-phase 1
-/flow-verify-work 1
-
-# All commands
-/flow-help
 ```
+
+Restart OpenCode after install to load the new commands.
 
 ---
 
@@ -69,7 +144,7 @@ Mac/Linux path: `~/.config/opencode/commands/`
 
 | Command | What it does |
 |---|---|
-| `/flow-new-project` | Init project — questions, research, requirements, roadmap |
+| `/flow-new-project` | Init — questions, research, requirements, roadmap |
 | `/flow-map-codebase` | Analyse existing codebase → PATTERNS.md → skills registry |
 | `/flow-discuss-phase N` | Capture your intent before planning |
 | `/flow-plan-phase N` | Research + atomic plans + verification |
@@ -87,12 +162,11 @@ Mac/Linux path: `~/.config/opencode/commands/`
 
 ## How It Works
 
-### Context Rot
+### The problem: Context Rot
 
-AI agents degrade in quality when context fills up and reset to zero between
-sessions. FLOW fixes this with structured, persistent context.
+AI agents degrade in quality when context fills up, and reset to zero between sessions. FLOW fixes this with structured, persistent context engineered into every session.
 
-### The Lifecycle
+### The lifecycle
 
 ```
 /flow-new-project
@@ -101,43 +175,27 @@ sessions. FLOW fixes this with structured, persistent context.
        ↓
 /flow-plan-phase N     →  atomic plans, verified before execution
        ↓
-/flow-execute-phase N  →  parallel execution, one commit per task
+/flow-execute-phase N  →  parallel execution, one commit per task, auto handoff
        ↓
 /flow-verify-work N    →  UAT + debug + fix plans
        ↓
-repeat until milestone complete
+repeat until milestone complete → ship
 ```
 
-### Key Files
+### Key files
 
 | File | Purpose |
 |---|---|
 | `AGENTS.md` | Every agent reads this first — routing, rules, protocols |
 | `STATE.md` | YAML frontmatter + prose — machine and human readable |
 | `.planning/LESSONS.md` | Append-only cross-milestone lesson archive |
-| `.planning/PATTERNS.md` | Codebase conventions (from map-codebase) |
+| `.planning/PATTERNS.md` | Codebase conventions (written by map-codebase) |
 | `.planning/config.json` | FLOW configuration |
 | `.planning/skills/` | Skills registry — project and global |
 | `.planning/debug/KNOWLEDGE-BASE.md` | Append-only debug memory |
 | `.planning/handoffs/` | Phase handoff documents |
 
----
-
-## What Makes FLOW Different from GSD
-
-| Feature | GSD | FLOW |
-|---|---|---|
-| Cross-milestone lesson memory | Partial (STATE.md, mutable) | ✅ Append-only LESSONS.md |
-| Machine-readable state | ❌ Free-form markdown | ✅ YAML frontmatter |
-| Decision traceability | ❌ | ✅ canonical_refs in CONTEXT.md |
-| Atomic task enforcement | Partial | ✅ 7-rule checker |
-| Tiered recovery | Debug command | ✅ 4-tier recovery protocol |
-| Debug memory | ❌ | ✅ Append-only KNOWLEDGE-BASE.md |
-| Skills awareness | ❌ | ✅ Project + global skills registry |
-| Codebase pattern memory | ❌ | ✅ PATTERNS.md |
-| Phase handoffs | ❌ | ✅ Auto-generated after every phase |
-| Model agnostic | Partial (Claude XML) | ✅ Plain markdown |
-| OS-aware installer | ✅ | ✅ |
+All `.planning/` files should be committed to git. They are your project's persistent memory.
 
 ---
 
@@ -147,52 +205,81 @@ Edit `.planning/config.json`:
 
 ```json
 {
-  "mode": "interactive",        // or "yolo" (auto-approve all steps)
-  "depth": "standard",          // "quick", "standard", "comprehensive"
+  "mode": "interactive",
+  "depth": "standard",
   "workflow": {
-    "research": true,           // spawn research agents before planning
-    "plan_check": true,         // verify plans before execution
-    "verifier": true,           // verify phase after execution
-    "node_repair": true,        // auto-retry failed tasks
-    "node_repair_budget": 2,    // max auto-retries before escalating
-    "parallel_execution": true  // run independent plans in parallel
+    "research": true,
+    "plan_check": true,
+    "node_repair": true,
+    "node_repair_budget": 2,
+    "parallel_execution": true
   }
 }
 ```
+
+| Setting | Options | Default |
+|---|---|---|
+| `mode` | `interactive`, `yolo` | `interactive` |
+| `depth` | `quick`, `standard`, `comprehensive` | `standard` |
+| `workflow.research` | `true`, `false` | `true` |
+| `workflow.plan_check` | `true`, `false` | `true` |
+| `workflow.node_repair` | `true`, `false` | `true` |
+| `workflow.node_repair_budget` | number | `2` |
+| `workflow.parallel_execution` | `true`, `false` | `true` |
 
 ---
 
 ## Skills
 
-FLOW has a two-tier skills system. Before generating specialised output
-(documents, spreadsheets, presentations), the agent checks for a relevant skill.
+FLOW has a two-tier skills system. Before generating specialised output, the agent checks for a relevant skill file and follows its instructions.
 
-**Project skills** — `.planning/skills/` — checked first, specific to this project
-**Global skills** — `~/.flow/skills/` — available to all projects
+**Resolution order:**
+1. `.planning/skills/` — project skills (checked first, always wins)
+2. `~/.flow/skills/` — global skills (available to all projects)
 
-To add a skill:
+**To add a skill:**
 1. Create `.planning/skills/[skill-name]/SKILL.md`
 2. Register it in `.planning/skills/README.md`
+
+**Global skills** live in `~/.flow/skills/` and are set up automatically by the installer.
 
 ---
 
 ## Uninstall
 
 ```bash
-npx flow-init --opencode --global --uninstall
-npx flow-init --opencode --local --uninstall
+# Global
+npx github:YOUR_USERNAME/flow --opencode --global --uninstall
+
+# Local
+npx github:YOUR_USERNAME/flow --opencode --local --uninstall
 ```
 
-Scaffold files (AGENTS.md, STATE.md, .planning/) are preserved.
-Remove manually if needed.
+Scaffold files (`AGENTS.md`, `STATE.md`, `.planning/`) are always preserved. Remove them manually if needed.
 
 ---
 
 ## Adapting to Claude Code
 
-FLOW commands work in Claude Code without changes — the markdown format
-is identical. The install script copies commands to `~/.claude/commands/`
-when `--claude` is specified.
+Install with `--claude` instead of `--opencode`. Commands are copied to `~/.claude/commands/` (global) or `.claude/commands/` (local). No other changes needed — all command files are plain markdown, compatible with any runtime.
+
+---
+
+## What Makes FLOW Different from GSD
+
+| Feature | GSD | FLOW |
+|---|---|---|
+| Cross-milestone lesson memory | Partial (mutable STATE.md) | ✅ Append-only LESSONS.md |
+| Machine-readable state | ❌ Free-form markdown | ✅ YAML frontmatter |
+| Decision traceability | ❌ | ✅ `canonical_refs` in CONTEXT.md |
+| Atomic task enforcement | Partial | ✅ 7-rule checker in every plan |
+| Tiered recovery | Debug command only | ✅ 4-tier recovery protocol |
+| Debug memory | ❌ | ✅ Append-only KNOWLEDGE-BASE.md |
+| Skills awareness | ❌ | ✅ Project + global skills registry |
+| Codebase pattern memory | ❌ | ✅ PATTERNS.md |
+| Phase handoffs | ❌ | ✅ Auto-generated after every phase |
+| Model agnostic | Partial (Claude XML) | ✅ Plain markdown, any model |
+| Windows support | ✅ | ✅ |
 
 ---
 
