@@ -166,6 +166,10 @@ unrelated systems, or would take more than ~30 minutes.
 ## 9. Lesson Injection
 
 At session start, load the last 5 entries from `.flow/context/LESSONS.md`.
+Filter to entries matching the current phase type (Visual/UI, API/Backend,
+Data/Content, Infrastructure). Surface only matching entries.
+If fewer than 2 matching entries exist in the last 5, expand to last 10.
+If no relevant entries found — skip silently.
 
 After every debug resolution or failed verification, append:
 ```

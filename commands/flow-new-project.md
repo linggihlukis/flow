@@ -155,9 +155,19 @@ Once roadmap is approved:
 
 1. Write `PROJECT.md` to project root (vision, goals, constraints, stack)
 2. Confirm `REQUIREMENTS.md` and `ROADMAP.md` are written
-3. Update `.flow/STATE.md`:
-   - frontmatter: `milestone: 1`, `phase: 0`, `status: ready`
-   - prose: record project name, stack, v1 scope summary, phase count
+3. Update `.flow/STATE.md` YAML frontmatter — copy this block and substitute values:
+
+   ```yaml
+   ---
+   milestone: 1
+   phase: 0
+   status: ready
+   updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
+   ---
+   ```
+
+   Do not reformat or restructure the YAML. Change only the four fields above.
+   Prose: record project name, stack, v1 scope summary, phase count.
 
 Print:
 ```

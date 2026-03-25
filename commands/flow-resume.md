@@ -20,8 +20,11 @@ Parse both YAML frontmatter and prose. Extract:
 - Health status when work paused
 
 ## Step 3: Load Relevant Lessons
-Read `.flow/context/LESSONS.md`. Extract the last 5 entries.
-Identify patterns relevant to the current phase type.
+Read `.flow/context/LESSONS.md` — load last 5 entries.
+Filter to entries matching the current phase type (Visual/UI, API/Backend,
+Data/Content, Infrastructure). Surface only matching entries.
+If fewer than 2 matching entries exist in the last 5, expand to last 10.
+If no relevant entries found — skip silently.
 
 If relevant lessons found, surface them:
 ```

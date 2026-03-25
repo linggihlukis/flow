@@ -33,6 +33,32 @@ Verify these files exist:
 | `ROADMAP.md` | After new-project | ⚠️  Warning only |
 | `PROJECT.md` | After new-project | ⚠️  Warning only |
 
+**File size check** — run after confirming files exist:
+
+| File | Warn at | Hard limit |
+|---|---|---|
+| `.flow/context/LESSONS.md` | 100 entries (`## ` lines) | 150 entries |
+| `.flow/context/debug/KNOWLEDGE-BASE.md` | 150 entries (`## ` lines) | 200 entries |
+| `.flow/STATE.md` | 200 lines | 300 lines |
+| `ROADMAP.md` | 100 lines/milestone section | — |
+
+Count entries using:
+```bash
+grep -c "^## " .flow/context/LESSONS.md
+grep -c "^## " .flow/context/debug/KNOWLEDGE-BASE.md
+wc -l < .flow/STATE.md
+```
+
+Report in the health output:
+```
+File sizes:     [✅ all within limits | ⚠️  N files approaching limits | ❌ N files at hard limit]
+  LESSONS.md:       [count] entries
+  KNOWLEDGE-BASE.md: [count] entries
+  STATE.md:          [count] lines
+```
+
+If any file is at or over its hard limit: flag as ❌ and recommend running `/flow-complete-milestone` to archive.
+
 ---
 
 ## Stage 2: STATE.md YAML Validation
@@ -85,6 +111,7 @@ If `--repair`: create any missing directories silently.
 Core files:     [✅ all present | ⚠️  N missing]
 STATE.md YAML:  [✅ valid | ❌ invalid]
 Phase files:    [✅ consistent | ⚠️  N missing for phase N]
+File sizes:     [✅ all within limits | ⚠️  N files approaching limits | ❌ N files at hard limit]
 Directories:    [✅ all present | ⚠️  N missing]
 
 [list any issues found]

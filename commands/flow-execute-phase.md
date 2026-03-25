@@ -192,10 +192,18 @@ updated_at: [ISO 8601 datetime]
 ---
 ```
 
-**LESSONS.md growth check:**
+**File growth check** — count and warn:
+
 Count entries in `.flow/context/LESSONS.md` (lines starting with `## `).
 If count exceeds 100: warn — "LESSONS.md approaching archive threshold (100+). Will archive at milestone close."
 If count exceeds 150: warn — "LESSONS.md at hard limit. Archive now or context rot risk."
+
+Count entries in `.flow/context/debug/KNOWLEDGE-BASE.md` (lines starting with `## `).
+If count exceeds 150: warn — "KNOWLEDGE-BASE.md approaching archive threshold (150+). Will archive at milestone close."
+If count exceeds 200: warn — "KNOWLEDGE-BASE.md at hard limit. Archive now or context rot risk."
+
+Count lines in `ROADMAP.md`.
+If over 150 lines total: warn — "ROADMAP.md is large. Consider running /flow-complete-milestone to archive completed milestones."
 
 ```
 ✅ Phase $ARGUMENTS executed

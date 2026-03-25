@@ -101,7 +101,16 @@ Append to `.flow/context/LESSONS.md`:
 
 ## Completion — All Pass
 
-Update .flow/STATE.md: `status: verified`
+Update `.flow/STATE.md` YAML frontmatter — copy this block and substitute values:
+
+```yaml
+---
+status: verified
+updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
+---
+```
+
+Do not reformat or restructure the YAML. Change only the two fields above.
 
 ```
 ✅ Phase $ARGUMENTS verified — all deliverables passed
@@ -111,7 +120,16 @@ Next step: /flow-discuss-phase [N+1]
 
 ## Completion — Issues Found
 
-Update .flow/STATE.md: `status: needs-fixes`
+Update `.flow/STATE.md` YAML frontmatter — copy this block and substitute values:
+
+```yaml
+---
+status: needs-fixes
+updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
+---
+```
+
+Do not reformat or restructure the YAML. Change only the two fields above.
 
 ```
 ⚠️  Phase $ARGUMENTS — issues found
