@@ -10,6 +10,7 @@ const c = {
   reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m",
   yellow: "\x1b[33m", cyan: "\x1b[36m", red: "\x1b[31m", dim: "\x1b[2m",
 };
+const pkg  = require("../package.json");
 const log  = (m) => console.log(m);
 const ok   = (m) => console.log(`${c.green}✓${c.reset} ${m}`);
 const info = (m) => console.log(`${c.cyan}→${c.reset} ${m}`);
@@ -82,18 +83,31 @@ function installCommands(commandsDir) {
   return files.length;
 }
 
+// ─── Install agents ───────────────────────────────────────────────────────────
+// Agent .md files go to the runtime's agents directory
+function installAgents(agentsDir) {
+  const AGENTS_DIR = path.join(REPO_ROOT, "agents");
+  if (!fs.existsSync(AGENTS_DIR)) return 0;
+  ensureDir(agentsDir);
+  const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
+  for (const file of files) {
+    copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
+  }
+  return files.length;
+}
+
 // ─── Install scaffold ─────────────────────────────────────────────────────────
 function installScaffold(projectRoot) {
   const files = [
-    [path.join(SCAFFOLD_DIR, "AGENTS.md"),                              path.join(projectRoot, "AGENTS.md")],
-    [path.join(SCAFFOLD_DIR, "STATE.md"),                               path.join(projectRoot, "STATE.md")],
-    [path.join(SCAFFOLD_DIR, ".planning", "LESSONS.md"),                path.join(projectRoot, ".planning", "LESSONS.md")],
-    [path.join(SCAFFOLD_DIR, ".planning", "config.json"),               path.join(projectRoot, ".planning", "config.json")],
-    [path.join(SCAFFOLD_DIR, ".planning", "debug", "KNOWLEDGE-BASE.md"),path.join(projectRoot, ".planning", "debug", "KNOWLEDGE-BASE.md")],
+    [path.join(SCAFFOLD_DIR, "AGENTS.md"),                                          path.join(projectRoot, "AGENTS.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "STATE.md"),                                  path.join(projectRoot, ".flow", "STATE.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "context", "LESSONS.md"),                    path.join(projectRoot, ".flow", "context", "LESSONS.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "context", "config.json"),                   path.join(projectRoot, ".flow", "context", "config.json")],
+    [path.join(SCAFFOLD_DIR, ".flow", "context", "debug", "KNOWLEDGE-BASE.md"),   path.join(projectRoot, ".flow", "context", "debug", "KNOWLEDGE-BASE.md")],
   ];
 
   // Ensure empty dirs exist
-  for (const d of ["handoffs","debug","research"].map(d => path.join(projectRoot, ".planning", d))) {
+  for (const d of ["handoffs","debug","research","quick"].map(d => path.join(projectRoot, ".flow", "context", d))) {
     ensureDir(d);
   }
 
@@ -121,8 +135,12 @@ function uninstall(runtime, location) {
     if (runtime === "opencode" || runtime === "all") dirs.push(path.join(process.cwd(), ".opencode", "commands"));
     if (runtime === "claude"   || runtime === "all") dirs.push(path.join(process.cwd(), ".claude", "commands"));
   }
+  // Also collect agents directories
+  const agentDirs = dirs.map(d => d.replace(/commands$/, "agents"));
+  const allDirs = [...dirs, ...agentDirs];
+
   let removed = 0;
-  for (const dir of dirs) {
+  for (const dir of allDirs) {
     if (!fs.existsSync(dir)) continue;
     for (const entry of fs.readdirSync(dir)) {
       if (entry.startsWith("flow-")) {
@@ -132,7 +150,7 @@ function uninstall(runtime, location) {
     }
   }
   removed > 0 ? ok(`Removed ${removed} FLOW command(s)`) : warn("No FLOW commands found to remove");
-  log("\nScaffold files (AGENTS.md, STATE.md, .planning/) preserved — remove manually if needed.");
+  log("\nScaffold files (AGENTS.md, .flow/) preserved — remove manually if needed.");
 }
 
 // ─── Resolve targets ──────────────────────────────────────────────────────────
@@ -142,14 +160,30 @@ function resolveTargets(runtime, location) {
 
   if (location === "global") {
     if (runtime === "opencode" || runtime === "all")
-      targets.push({ label: `OpenCode  (global) ${dim(path.join(getGlobalOpenCodeDir(), "commands"))}`, dir: path.join(getGlobalOpenCodeDir(), "commands") });
+      targets.push({
+        label: `OpenCode  (global) ${dim(path.join(getGlobalOpenCodeDir(), "commands"))}`,
+        dir: path.join(getGlobalOpenCodeDir(), "commands"),
+        agentsDir: path.join(getGlobalOpenCodeDir(), "agents"),
+      });
     if (runtime === "claude" || runtime === "all")
-      targets.push({ label: `Claude Code (global) ${dim(path.join(getGlobalClaudeDir(), "commands"))}`, dir: path.join(getGlobalClaudeDir(), "commands") });
+      targets.push({
+        label: `Claude Code (global) ${dim(path.join(getGlobalClaudeDir(), "commands"))}`,
+        dir: path.join(getGlobalClaudeDir(), "commands"),
+        agentsDir: path.join(getGlobalClaudeDir(), "agents"),
+      });
   } else {
     if (runtime === "opencode" || runtime === "all")
-      targets.push({ label: `OpenCode  (local) ${dim(path.join(cwd, ".opencode", "commands"))}`, dir: path.join(cwd, ".opencode", "commands") });
+      targets.push({
+        label: `OpenCode  (local) ${dim(path.join(cwd, ".opencode", "commands"))}`,
+        dir: path.join(cwd, ".opencode", "commands"),
+        agentsDir: path.join(cwd, ".opencode", "agents"),
+      });
     if (runtime === "claude" || runtime === "all")
-      targets.push({ label: `Claude Code (local) ${dim(path.join(cwd, ".claude", "commands"))}`, dir: path.join(cwd, ".claude", "commands") });
+      targets.push({
+        label: `Claude Code (local) ${dim(path.join(cwd, ".claude", "commands"))}`,
+        dir: path.join(cwd, ".claude", "commands"),
+        agentsDir: path.join(cwd, ".claude", "agents"),
+      });
   }
   return targets;
 }
@@ -160,7 +194,7 @@ async function main() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log(bold("  FLOW — Balanced AI Development Workflow  "));
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  log(dim(`  v1.0.0 · ${process.platform}`));
+  log(dim(`  v${pkg.version} · ${process.platform}`));
   log("");
 
   if (flagUninstall) {
@@ -199,12 +233,15 @@ async function main() {
   let commandCount = 0;
   let installedCount = 0;
 
+  let agentCount = 0;
   for (const target of targets) {
     try {
       installedCount = installCommands(target.dir);
-      if (commandCount === 0) commandCount = installedCount; // same files every time
+      if (commandCount === 0) commandCount = installedCount;
+      const ac = installAgents(target.agentsDir);
+      if (agentCount === 0) agentCount = ac;
       ok(`${target.label}`);
-      ok(`  ${installedCount} commands installed`);
+      ok(`  ${installedCount} commands + ${ac} agents installed`);
     } catch (e) {
       err(`Failed: ${e.message}`);
     }
@@ -228,7 +265,7 @@ async function main() {
     warn("Scaffold files already exist (preserved):");
     skipped.forEach(f => log(`    ${dim(f)}`));
   } else {
-    ok("Project scaffold installed (AGENTS.md, STATE.md, .planning/)");
+    ok("Project scaffold installed (AGENTS.md, .flow/)");
   }
 
   // Summary
@@ -238,6 +275,7 @@ async function main() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   log(`  Commands:  ${commandCount} (all prefixed /flow-)`);
+  log(`  Agents:    ${agentCount} (@flow-researcher, @flow-executor, @flow-debugger)`);
   log("");
   log(bold("  Getting started:"));
   log(`  ${dim("New project:")}      /flow-new-project`);

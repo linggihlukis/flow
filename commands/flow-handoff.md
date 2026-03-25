@@ -3,7 +3,7 @@ description: Manually generate or update a phase handoff document
 agent: build
 ---
 
-Read STATE.md before doing anything else.
+Read .flow/STATE.md before doing anything else.
 
 # /flow-handoff $ARGUMENTS
 
@@ -12,15 +12,15 @@ Phase number: **$ARGUMENTS** (defaults to current phase from STATE.md if not pro
 ---
 
 Read:
-- STATE.md — current position and decisions
+- `.flow/STATE.md` — current position and decisions
 - All `phase-N-plan-NN.md` files for this phase
 - `git log` for commits in this phase
-- `.planning/phase-N-CONTEXT.md`
+- `.flow/context/phase-N-CONTEXT.md`
 
 If a handoff already exists for this phase:
 "A handoff already exists for Phase N. Overwrite with updated version? (yes/no)"
 
-Write `.planning/handoffs/phase-N-handoff.md`:
+Write `.flow/context/handoffs/phase-N-handoff.md`:
 
 ```markdown
 # Phase N Handoff — [Phase Name]
@@ -55,7 +55,9 @@ Write `.planning/handoffs/phase-N-handoff.md`:
 [from git log]
 ```
 
+Update `.flow/STATE.md` prose: add one line noting the handoff was generated/updated and when.
+
 Print:
 ```
-📋 Handoff written: .planning/handoffs/phase-[N]-handoff.md
+📋 Handoff written: .flow/context/handoffs/phase-[N]-handoff.md
 ```

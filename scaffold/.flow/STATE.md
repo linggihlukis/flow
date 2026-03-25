@@ -15,6 +15,7 @@ updated_at: null
 > This file is the agent's memory between sessions.
 > The YAML frontmatter is machine-readable. The prose below is for agents.
 > Both must be updated together after every meaningful action.
+> Location: .flow/STATE.md
 
 ---
 

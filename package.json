@@ -1,6 +1,6 @@
 {
   "name": "flow-init",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "FLOW — Balanced AI Development Workflow. OpenCode-first, model-agnostic.",
   "bin": {
     "flow-init": "./bin/install.js"

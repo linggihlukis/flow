@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and STATE.md before doing anything else.
+Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 
 # /flow-execute-phase $ARGUMENTS
 
@@ -18,9 +18,13 @@ Phase number: **$ARGUMENTS**
    → If not: "Run /flow-plan-phase $ARGUMENTS first"
 2. Run health check — all existing tests must pass before execution starts
    → If tests fail: stop, report which tests fail, do not execute
-3. Read last 5 entries from `.planning/LESSONS.md` — apply patterns
+3. Read `.flow/context/LESSONS.md` — load last 5 entries.
+   Filter to entries matching the current phase type (Visual/UI, API/Backend,
+   Data/Content, Infrastructure). Apply only matching entries.
+   If fewer than 2 matching entries in the last 5, expand to last 10.
+   If none found — skip silently.
 4. Read `PATTERNS.md` — all new code must follow conventions
-5. Read `.planning/config.json` — apply these settings:
+5. Read `.flow/context/config.json` — apply these settings:
    - `workflow.parallel_execution`: if false, execute all plans sequentially (no parallel waves)
    - `workflow.node_repair`: if false, do not auto-retry failed tasks — escalate immediately
    - `workflow.node_repair_budget`: use this value as the retry limit (default 2) instead of hardcoded 2
@@ -53,53 +57,58 @@ Total: [N] plans across [N] waves
 In `interactive` mode: confirm with developer before Wave 1.
 In `yolo` mode (config): proceed immediately.
 
-Update STATE.md: `status: in-progress` before Wave 1 starts.
+Update `.flow/STATE.md` YAML frontmatter before Wave 1 starts:
+
+```yaml
+---
+phase: $ARGUMENTS
+status: in-progress
+updated_at: [ISO 8601 datetime]
+---
+```
 
 ---
 
 ## Stage 2: Execute Each Plan
 
-For each plan, spawn a subagent with a fresh context. Each executor must:
+For each plan, spawn `@flow-executor` with the following brief:
 
-**Orient first:**
-- Read the full plan before writing anything
-- Read all files listed in the plan's `Read First` section
-- Read `PATTERNS.md`
-- Understand the `Scope / Does NOT do` section
-
-**Announce before implementing:**
 ```
-Executing: [plan title]
-Deliverable: [what I will produce]
-Files to modify: [list]
-Files to create: [list]
+Plan: .flow/context/phase-$ARGUMENTS-plan-NN.md
+PATTERNS.md: [path if exists]
+node_repair_budget: [from .flow/context/config.json]
 ```
 
-**Implement:**
-Follow the plan's steps exactly. If a plan error is discovered (plan assumes something that isn't true):
-- Stop immediately
-- Do not guess or work around it
-- Report: "Plan error in [file]: [description]. Needs replanning."
+The executor will:
+1. Read only its plan, required source files, and PATTERNS.md
+2. Announce the exact files it will touch before writing anything
+3. Implement the plan steps exactly
+4. Run the plan's `<verify>` command — this must pass
+5. Run `git diff --name-only` to confirm scope wasn't exceeded
+6. Run full test suite and linter
+7. Commit and report back
 
-**Verify:**
-Run every check in the plan's Verification section. Run full test suite. Run linter.
+If the executor reports a plan error (plan assumes something that isn't true):
+- Stop all execution
+- Do not attempt workarounds
+- Report to developer: "Plan error in [file]: [description]. Needs replanning."
 
-**On verification failure — apply recovery tiers:**
+**The executor handles its own recovery within the node_repair_budget. If it exhausts the budget or hits a critical/off-plan failure, it reports back to the orchestrator (this command) which then:**
 
-*Recoverable* (test fails, code issue is clear):
-- Auto-retry up to `node_repair_budget` times (from config, default 2) — fix only the specific failing check
-- After budget exhausted with no pass: stop and report exactly what failed and what was tried
-- Append to `.planning/LESSONS.md` (format: Milestone/Phase, Context, Mistake, Fix, Pattern)
+*Recoverable — budget exhausted:*
+- Stop execution of this wave
+- Report exactly which plan failed, what was tried, what failed
+- Append to `.flow/context/LESSONS.md`
+- Ask developer: continue with remaining plans or stop?
 
-*Confused* (agent looping or contradicting itself):
-- Stop, re-read AGENTS.md Session Start Protocol, re-read the plan, re-announce position, retry once
+*Confused:*
+- Re-spawn the executor with the same brief and a note to re-read AGENTS.md first, retry once
 
-*Critical* (a Tier 3 destructive action failed partway through):
-- Stop immediately. Do not retry. Do not attempt cleanup.
-- Report exact state. Wait for explicit developer instruction.
+*Critical (Tier 3 destructive action failed):*
+- Stop all execution immediately. Do not retry. Report exact state. Wait for developer instruction.
 
-*Off-plan* (plan no longer matches codebase reality):
-- Stop all execution. Document divergence in STATE.md. Surface to developer with options.
+*Off-plan (plan doesn't match codebase reality):*
+- Stop all execution. Document divergence in `.flow/STATE.md`. Surface to developer with options.
 
 **Commit after each successful plan:**
 ```bash
@@ -117,11 +126,23 @@ Report after each plan:
 
 Wait for all plans in a wave to complete before starting the next wave.
 
+**Before starting the next wave — key-link check:**
+For each plan in the completed wave, read its `## Files` field.
+For each expected output file, run:
+```bash
+# Replace [path] with the actual file path from the plan's ## Files field
+node -e "const fs=require('fs'); process.exit(fs.existsSync('[path]') ? 0 : 1)"
+```
+If exit code is non-zero (file missing):
+  Stop execution.
+  Report: "Wave [N] artifact missing: [file] (expected from plan-NN). Wave [N+1] cannot start until this is resolved."
+  Do not proceed.
+
 ---
 
 ## Stage 3: Write Phase Handoff
 
-After all waves complete, write `.planning/handoffs/phase-$ARGUMENTS-handoff.md`:
+After all waves complete, write `.flow/context/handoffs/phase-$ARGUMENTS-handoff.md`:
 
 ```markdown
 # Phase $ARGUMENTS Handoff — [Phase Name]
@@ -161,7 +182,20 @@ After all waves complete, write `.planning/handoffs/phase-$ARGUMENTS-handoff.md`
 
 ## Completion
 
-Update STATE.md: `phase: $ARGUMENTS`, `status: executed`
+Update `.flow/STATE.md` YAML frontmatter:
+
+```yaml
+---
+phase: $ARGUMENTS
+status: executed
+updated_at: [ISO 8601 datetime]
+---
+```
+
+**LESSONS.md growth check:**
+Count entries in `.flow/context/LESSONS.md` (lines starting with `## `).
+If count exceeds 100: warn — "LESSONS.md approaching archive threshold (100+). Will archive at milestone close."
+If count exceeds 150: warn — "LESSONS.md at hard limit. Archive now or context rot risk."
 
 ```
 ✅ Phase $ARGUMENTS executed
@@ -169,7 +203,7 @@ Update STATE.md: `phase: $ARGUMENTS`, `status: executed`
 Plans completed: [count]/[total]
 Commits made:   [count]
 
-Handoff: .planning/handoffs/phase-$ARGUMENTS-handoff.md
+Handoff: .flow/context/handoffs/phase-$ARGUMENTS-handoff.md
 
 Next step: /flow-verify-work $ARGUMENTS
 ```

@@ -28,7 +28,7 @@ npx github:YOUR_USERNAME/flow --claude --global
 npx github:YOUR_USERNAME/flow --all --global
 ```
 
-> Both `/flow-*` commands and project scaffold files (`AGENTS.md`, `STATE.md`, `.planning/`) are always installed together. Scaffold is written to the directory where you run the command. Existing files are never overwritten.
+> Both `/flow-*` commands and project scaffold files (`AGENTS.md`, `.flow/`) are always installed together. Scaffold is written to the directory where you run the command. Existing files are never overwritten.
 
 Replace `YOUR_USERNAME` with your GitHub username and `flow` with your repo name if different.
 
@@ -177,7 +177,7 @@ AI agents degrade in quality when context fills up, and reset to zero between se
 /flow-plan-phase N     →  atomic plans, verified before execution
        ↓
 /flow-execute-phase N  →  parallel execution, one commit per task, auto handoff
-       ↓                   (handoff written to .planning/handoffs/)
+       ↓                   (handoff written to .flow/context/handoffs/)
 /flow-verify-work N    →  UAT + debug + fix plans
        ↓
 repeat until milestone complete → ship
@@ -192,19 +192,21 @@ repeat until milestone complete → ship
 | `PROJECT.md` | Vision, goals, constraints, stack — written by new-project |
 | `ROADMAP.md` | Phases and milestones |
 | `REQUIREMENTS.md` | MoSCoW requirements |
-| `.planning/LESSONS.md` | Append-only cross-milestone lesson archive |
-| `.planning/PATTERNS.md` | Codebase conventions (written by map-codebase) |
-| `.planning/config.json` | FLOW configuration |
-| `.planning/debug/KNOWLEDGE-BASE.md` | Append-only debug memory |
-| `.planning/handoffs/` | Phase handoff documents |
+| `.flow/context/LESSONS.md` | Append-only cross-milestone lesson archive |
+| `PATTERNS.md` | Codebase conventions (written by map-codebase) |
+| `.flow/context/config.json` | FLOW configuration |
+| `.flow/context/debug/KNOWLEDGE-BASE.md` | Append-only debug memory |
+| `.flow/context/handoffs/` | Phase handoff documents |
 
-All `.planning/` files should be committed to git. They are your project's persistent memory.
+All `.flow/` files should be committed to git. They are your project's persistent memory.
+
+> **Important:** Do not add `.flow/` to your `.gitignore`. It may look like a tooling directory, but it is the project's persistent memory — losing it means losing all state, lessons, and context across sessions.
 
 ---
 
 ## Configuration
 
-Edit `.planning/config.json`:
+Edit `.flow/context/config.json`:
 
 ```json
 {
@@ -254,7 +256,7 @@ npx github:YOUR_USERNAME/flow --opencode --global --uninstall
 npx github:YOUR_USERNAME/flow --opencode --local --uninstall
 ```
 
-Scaffold files (`AGENTS.md`, `STATE.md`, `.planning/`) are always preserved. Remove them manually if needed.
+Scaffold files (`AGENTS.md`, `.flow/`) are always preserved. Remove them manually if needed.
 
 ---
 

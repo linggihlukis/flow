@@ -3,7 +3,7 @@ description: Safely pause work — write state, commit progress, prepare for res
 agent: build
 ---
 
-Read AGENTS.md and STATE.md before doing anything else.
+Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 
 # /flow-pause
 
@@ -22,14 +22,14 @@ Determine exactly where work stopped:
 Run the project test command and linter.
 
 If tests fail:
-- Note which tests fail in STATE.md under "Active Blockers"
+- Note which tests fail in .flow/STATE.md under "Active Blockers"
 - Do NOT commit broken code
 - Describe what is broken so the next session knows immediately
 
 If tests pass:
 - Stage and commit any uncommitted work: `chore(WIP): pause session — [brief description]`
 
-### Step 3: Update STATE.md
+### Step 3: Update .flow/STATE.md
 
 Update both YAML frontmatter and prose:
 

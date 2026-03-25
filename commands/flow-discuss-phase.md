@@ -4,15 +4,25 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and STATE.md before doing anything else.
+Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 
 # /flow-discuss-phase $ARGUMENTS
 
 Phase number: **$ARGUMENTS**
 
+Flags: `--batch` — present all questions grouped at once instead of one at a time. Useful when you already know what you want and prefer to answer everything in one go.
+
 Your roadmap has 1-2 sentences per phase. That is not enough to build what you actually imagine.
 This step captures your specific preferences before research and planning happen.
 Every decision you lock here is honoured throughout execution.
+
+---
+
+## Flag Handling
+
+**Default (no flag):** Ask questions conversationally, 2-3 at a time. Listen and follow up. Stop when intent is clear.
+
+**`--batch`:** Identify all gray areas upfront, present them as a single grouped list, collect all answers at once. Skip follow-ups. Write CONTEXT.md directly from the batch answers.
 
 ---
 
@@ -64,7 +74,7 @@ Ask questions conversationally — 2-3 at a time. Listen and follow up. Stop whe
 
 ## Step 3: Write CONTEXT.md
 
-Synthesise the discussion into `.planning/phase-$ARGUMENTS-CONTEXT.md`:
+Synthesise the discussion into `.flow/context/phase-$ARGUMENTS-CONTEXT.md`:
 
 ```markdown
 # Phase $ARGUMENTS Context — [Phase Name]
@@ -110,7 +120,7 @@ Do not mark as locked until the developer confirms.
 ✅ Phase $ARGUMENTS context captured
 
 Decisions locked: [count]
-Saved to: .planning/phase-$ARGUMENTS-CONTEXT.md
+Saved to: .flow/context/phase-$ARGUMENTS-CONTEXT.md
 
 Next step: /flow-plan-phase $ARGUMENTS
 ```

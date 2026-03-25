@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and STATE.md before doing anything else.
+Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 
 # /flow-plan-phase $ARGUMENTS
 
@@ -14,12 +14,16 @@ Phase number: **$ARGUMENTS**
 
 ## Pre-flight Checks
 
-1. Confirm `.planning/phase-$ARGUMENTS-CONTEXT.md` exists
+1. Confirm `.flow/context/phase-$ARGUMENTS-CONTEXT.md` exists
    → If not: "Run /flow-discuss-phase $ARGUMENTS first"
 2. Read `PATTERNS.md` if it exists — all new code must follow existing conventions
-3. Read last 5 entries from `.planning/LESSONS.md` — apply relevant patterns
+3. Read `.flow/context/LESSONS.md` — load last 5 entries.
+   Filter to entries matching the current phase type (Visual/UI, API/Backend,
+   Data/Content, Infrastructure). Apply only matching entries.
+   If fewer than 2 matching entries in the last 5, expand to last 10.
+   If none found — skip silently.
 4. Read `REQUIREMENTS.md` — understand which requirements this phase covers
-5. Read `.planning/config.json` — apply these settings:
+5. Read `.flow/context/config.json` — apply these settings:
    - `depth`: `quick` = 1 research agent (key risks only), `standard` = 3 agents (default), `comprehensive` = 3 agents with deeper investigation and more plan detail
    - `mode`: if `yolo`, skip developer confirmation of plans before execution
    - `workflow.plan_check`: if false, skip Stage 3 plan verification
@@ -28,111 +32,92 @@ Phase number: **$ARGUMENTS**
 
 ## Stage 1: Research
 
-Check `.planning/config.json` → `workflow.research`. If false, skip to Stage 2.
+Check `.flow/context/config.json` → `workflow.research`. If false, skip to Stage 2.
 
-Spawn research subagents based on `depth` setting (from pre-flight):
-- `quick`: 1 agent covering implementation approach + key risks only
-- `standard` (default): 3 parallel agents as below
-- `comprehensive`: 3 parallel agents as below, with deeper investigation of each area
+Spawn `@flow-researcher` with the following brief:
 
-**Agent 1 — Implementation Approach**
-How to implement the specific features locked in CONTEXT.md. Known patterns for this stack + feature combination. Code-level approaches. Implications of locked decisions.
+```
+Phase: $ARGUMENTS
+CONTEXT.md: .flow/context/phase-$ARGUMENTS-CONTEXT.md
+PATTERNS.md: [path if exists]
+REQUIREMENTS.md: REQUIREMENTS.md
+depth: [quick | standard | comprehensive — from config]
+Output: .flow/context/research/phase-$ARGUMENTS-research.md
+```
 
-**Agent 2 — Dependencies & Integration**
-Any new libraries needed. Compatibility with existing stack (check PATTERNS.md). Version constraints. Third-party API documentation relevant to this phase.
-
-**Agent 3 — Edge Cases & Gotchas**
-What commonly goes wrong with this type of feature. Resolving any open questions from CONTEXT.md. Security and performance considerations.
-
-Wait for all agents. Write to `.planning/research/phase-$ARGUMENTS-research.md`.
+Wait for the researcher to complete before proceeding to Stage 2.
 
 ---
 
 ## Stage 2: Generate Atomic Plans
 
-Using CONTEXT.md, `.planning/research/phase-$ARGUMENTS-research.md`, and PATTERNS.md — break the phase into the smallest possible independent units of work.
+Spawn `@flow-planner` with the following brief:
 
-**Every plan MUST satisfy all 7 atomic rules:**
-
-1. **Single deliverable** — produces exactly one independently verifiable output
-2. **Single context** — no context-switching between unrelated systems
-3. **Verifiable done condition** — binary pass/fail, never subjective ("looks good" is not a done condition)
-4. **Minimum file scope** — touches only files necessary for the deliverable
-5. **Safe failure** — codebase not broken if plan fails midway
-6. **No assumed context** — includes everything the executor needs with a fresh context window
-7. **Context window fit** — implementation scope fits in one agent session
-
-**Plan file format** — save each as `.planning/phase-$ARGUMENTS-plan-NN.md`:
-
-```markdown
-# Phase $ARGUMENTS — Plan NN: [Descriptive Title]
-
-## Context
-**Phase goal:** [from ROADMAP.md]
-**This plan delivers:** [single specific deliverable]
-**Depends on:** [plan NN-1, or "none"]
-
-## Read First
-- [file — why]
-- PATTERNS.md — follow all conventions
-
-## Scope
-**Does:** [specific actions]
-**Does NOT do:** [explicit exclusions]
-
-## Implementation Steps
-
-### Step 1: [Name]
-[Specific instructions — what to write, where, how]
-
-### Step 2: [Name]
-[Specific instructions]
-
-## Verification
-- [ ] [specific check — command or observable outcome]
-- [ ] All existing tests still pass
-- [ ] No linting errors
-
-## Done Condition
-[Binary pass/fail statement]
-
-## Commit Message
-`type(milestone-phase-plan): description`
+```
+Phase: $ARGUMENTS
+CONTEXT.md: .flow/context/phase-$ARGUMENTS-CONTEXT.md
+Research: .flow/context/research/phase-$ARGUMENTS-research.md
+PATTERNS.md: [path if exists]
+REQUIREMENTS.md: REQUIREMENTS.md
+Output dir: .flow/context/
 ```
 
-Typical phase: 2-5 plans. If more than 8 plans are needed, consider splitting the phase.
+Wait for the planner to complete and confirm plan files exist before proceeding to Stage 3.
+
+The planner writes all plan files. Do not generate plans inline.
 
 ---
 
-## Stage 3: Plan Verification
+## Stage 3: Critic Pass
 
-Check `.planning/config.json` → `workflow.plan_check`. If false, skip to Completion.
+Check `.flow/context/config.json` → `workflow.plan_check`. If false, skip to Completion.
 
-Review every plan against all 7 atomic rules.
+Switch to critic mode. You are no longer the author of these plans — you are reviewing them with fresh eyes against a fixed rule set. Do not rationalise your own decisions. Challenge them.
+
+Check every plan against all 8 rules:
+
+1. **Single deliverable** — exactly one independently verifiable output
+2. **Single context** — no switching between unrelated systems
+3. **Verifiable done condition** — binary pass/fail only
+4. **Minimum file scope** — Files field lists only what's necessary
+5. **Safe failure** — codebase not broken if plan fails midway
+6. **No assumed context** — executor can run this with a fresh window
+7. **Context window fit** — scope fits in one agent session
+8. **Nyquist rule** — Verify field contains a real runnable command, not "check it works"
 
 For each failing plan:
 1. Rewrite to fix the violation
 2. If fix requires splitting — create additional plan files
-3. Re-check. Loop until pass.
-4. Maximum 3 rewrite loops — if still failing after 3, surface to developer:
+3. Re-check. Maximum 3 loops.
+4. If still failing after 3 loops:
 
 ```
-⚠️  Plan checker could not resolve: phase-$ARGUMENTS-plan-NN
-Rule violated: [rule]
-Issue: [description]
+⚠️  Critic could not resolve: .flow/context/phase-$ARGUMENTS-plan-NN
+Rule violated: [rule number and name]
+Issue: [specific description]
 Please review manually before proceeding.
 ```
 
 When all plans pass:
 ```
-✅ All plans verified — [count] plans satisfy atomic task rules
+✅ Critic pass complete — [count] plans satisfy all 8 rules
 ```
 
 ---
 
 ## Completion
 
-Update STATE.md: `phase: $ARGUMENTS`, `status: planned`
+Update `.flow/STATE.md` YAML frontmatter — copy this block and substitute values:
+
+```yaml
+---
+phase: $ARGUMENTS
+status: planned
+updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
+---
+```
+
+Do not reformat or restructure the YAML. Change only the three fields above.
 
 ```
 ✅ Phase $ARGUMENTS planned

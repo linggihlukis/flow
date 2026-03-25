@@ -15,7 +15,7 @@ Spawns parallel agents to analyse the code, then writes PATTERNS.md and checks O
 
 ## Stage 1: Parallel Codebase Analysis
 
-Spawn 4 parallel subagents simultaneously:
+Spawn 4 parallel `@flow-researcher` agents with the following briefs:
 
 **Agent 1 — Stack & Dependencies**
 - Detect language(s), framework(s), runtime version(s)
@@ -43,7 +43,7 @@ Spawn 4 parallel subagents simultaneously:
 - Performance-sensitive areas
 - Anything fragile or undocumented
 
-Wait for all 4 agents to complete. Consolidate into `.planning/research/codebase-analysis.md`.
+Wait for all 4 researchers to complete. Consolidate findings into `.flow/context/research/codebase-analysis.md`.
 
 ---
 

@@ -12,7 +12,7 @@ Execute every step in order before doing anything else.
 ## Step 1: Read AGENTS.md
 Re-read fully. Do not assume you remember it from a prior session.
 
-## Step 2: Read STATE.md
+## Step 2: Read .flow/STATE.md
 Parse both YAML frontmatter and prose. Extract:
 - Current milestone and phase
 - Last action taken and next step
@@ -20,7 +20,7 @@ Parse both YAML frontmatter and prose. Extract:
 - Health status when work paused
 
 ## Step 3: Load Relevant Lessons
-Read `.planning/LESSONS.md`. Extract the last 5 entries.
+Read `.flow/context/LESSONS.md`. Extract the last 5 entries.
 Identify patterns relevant to the current phase type.
 
 If relevant lessons found, surface them:
@@ -32,7 +32,7 @@ If relevant lessons found, surface them:
 If no relevant lessons — skip silently.
 
 ## Step 4: Load Handoff
-Check for `.planning/handoffs/phase-[N]-handoff.md`.
+Check for `.flow/context/handoffs/phase-[N]-handoff.md`.
 
 If exists:
 ```

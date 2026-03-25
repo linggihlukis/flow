@@ -56,24 +56,24 @@ Do not proceed to Stage 2 until the developer confirms.
 
 ## Stage 2: Research
 
-Check `.planning/config.json` → `workflow.research`. If false, skip to Stage 3.
+Check `.flow/context/config.json` → `workflow.research`. If false, skip to Stage 3.
 
 Read `depth` from config:
-- `quick`: spawn 1 agent covering stack best practices and top risks only
-- `standard` (default): spawn 4 parallel agents as below
-- `comprehensive`: spawn 4 parallel agents as below with deeper investigation
+- `quick`: 1 research brief — stack best practices and top risks only
+- `standard` (default): 4 research briefs as below, run in parallel
+- `comprehensive`: 4 research briefs as below, with deeper investigation
 
-Spawn 4 parallel research subagents simultaneously:
+Spawn `@flow-researcher` for each brief (parallel if depth is standard/comprehensive):
 
-**Agent 1 — Stack & Ecosystem:** Best practices and conventions for the chosen stack, common pitfalls, recommended libraries, testing approach.
+**Brief 1 — Stack & Ecosystem:** Best practices and conventions for the chosen stack, common pitfalls, recommended libraries, testing approach.
 
-**Agent 2 — Feature Patterns:** How similar products handle the key features, known implementation approaches with trade-offs, features that are harder than they appear.
+**Brief 2 — Feature Patterns:** How similar products handle the key features, known implementation approaches with trade-offs, features that are harder than they appear.
 
-**Agent 3 — Architecture:** Recommended project structure, data model considerations, API design patterns, scaling considerations for v1.
+**Brief 3 — Architecture:** Recommended project structure, data model considerations, API design patterns, scaling considerations for v1.
 
-**Agent 4 — Risks & Pitfalls:** Common scope creep patterns, technical debt traps, integration risks, security considerations.
+**Brief 4 — Risks & Pitfalls:** Common scope creep patterns, technical debt traps, integration risks, security considerations.
 
-Wait for all 4 agents to complete. Write consolidated findings to `.planning/research/project-research.md`.
+Each researcher writes its findings. Consolidate into `.flow/context/research/project-research.md`.
 
 ---
 
@@ -155,7 +155,7 @@ Once roadmap is approved:
 
 1. Write `PROJECT.md` to project root (vision, goals, constraints, stack)
 2. Confirm `REQUIREMENTS.md` and `ROADMAP.md` are written
-3. Update `STATE.md`:
+3. Update `.flow/STATE.md`:
    - frontmatter: `milestone: 1`, `phase: 0`, `status: ready`
    - prose: record project name, stack, v1 scope summary, phase count
 

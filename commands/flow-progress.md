@@ -3,7 +3,7 @@ description: Show current project position — milestone, phase, status, next st
 agent: build
 ---
 
-Read STATE.md and ROADMAP.md.
+Read .flow/STATE.md and ROADMAP.md.
 
 # /flow-progress
 
