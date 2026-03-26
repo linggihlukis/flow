@@ -35,6 +35,24 @@ function getGlobalClaudeDir() {
   return path.join(os.homedir(), ".claude");
 }
 
+function getGlobalAntigravityDir() {
+  return path.join(os.homedir(), ".gemini", "antigravity");
+}
+
+function parseCommandDescription(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    const match = content.match(/^description:\s*(.+)$/m);
+    return match ? match[1].trim() : "FLOW workflow command";
+  } catch {
+    return "FLOW workflow command";
+  }
+}
+
+function generateSkillWrapper(name, description) {
+  return `---\nname: ${name}\ndescription: ${description}\n---\n\n<context>\nArguments: $ARGUMENTS\n</context>\n\n<execution_context>\n@~/.gemini/antigravity/flow/workflows/${name}.md\n</execution_context>\n\n<process>\nExecute the ${name} workflow end-to-end.\nPreserve all workflow gates, validation steps, and state updates.\n</process>\n`;
+}
+
 
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
@@ -44,7 +62,7 @@ const SCAFFOLD_DIR = path.join(REPO_ROOT, "scaffold");
 
 // ─── Args ─────────────────────────────────────────────────────────────────────
 const args        = process.argv.slice(2);
-const flagRuntime  = args.find(a => ["--opencode","--claude","--all"].includes(a));
+const flagRuntime  = args.find(a => ["--opencode","--claude","--antigravity","--all"].includes(a));
 const flagLocation = args.find(a => ["--global","-g","--local","-l"].includes(a));
 const flagUninstall = args.includes("--uninstall");
 
@@ -96,10 +114,47 @@ function installAgents(agentsDir) {
   return files.length;
 }
 
+function installAntigravity(baseDir) {
+  const workflowsDir = path.join(baseDir, "flow", "workflows");
+  const agentsDir    = path.join(baseDir, "flow", "agents");
+  const skillsBase   = path.join(baseDir, "skills");
+
+  ensureDir(workflowsDir);
+  ensureDir(agentsDir);
+
+  const commandFiles = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
+  for (const file of commandFiles) {
+    copyFile(path.join(COMMANDS_DIR, file), path.join(workflowsDir, file));
+  }
+
+  const AGENTS_DIR = path.join(REPO_ROOT, "agents");
+  let agentCount = 0;
+  if (fs.existsSync(AGENTS_DIR)) {
+    const agentFiles = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
+    for (const file of agentFiles) {
+      copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
+    }
+    agentCount = agentFiles.length;
+  }
+
+  let skillCount = 0;
+  for (const file of commandFiles) {
+    const name = path.basename(file, ".md");
+    const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
+    const skillDir = path.join(skillsBase, name);
+    ensureDir(skillDir);
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillWrapper(name, description));
+    skillCount++;
+  }
+
+  return { workflows: commandFiles.length, agents: agentCount, skills: skillCount };
+}
+
 // ─── Install scaffold ─────────────────────────────────────────────────────────
 function installScaffold(projectRoot) {
   const files = [
     [path.join(SCAFFOLD_DIR, "AGENTS.md"),                                          path.join(projectRoot, "AGENTS.md")],
+    [path.join(SCAFFOLD_DIR, "GUIDE.md"),                                           path.join(projectRoot, "GUIDE.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "STATE.md"),                                  path.join(projectRoot, ".flow", "STATE.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "context", "LESSONS.md"),                    path.join(projectRoot, ".flow", "context", "LESSONS.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "context", "config.json"),                   path.join(projectRoot, ".flow", "context", "config.json")],
@@ -150,6 +205,25 @@ function uninstall(runtime, location) {
     }
   }
   removed > 0 ? ok(`Removed ${removed} FLOW command(s)`) : warn("No FLOW commands found to remove");
+
+  if (runtime === "antigravity" || runtime === "all") {
+    const agBaseDir = getGlobalAntigravityDir();
+    const skillsDir = path.join(agBaseDir, "skills");
+    if (fs.existsSync(skillsDir)) {
+      for (const entry of fs.readdirSync(skillsDir)) {
+        if (entry.startsWith("flow-")) {
+          fs.rmSync(path.join(skillsDir, entry), { recursive: true, force: true });
+          removed++;
+        }
+      }
+    }
+    const flowDir = path.join(agBaseDir, "flow");
+    if (fs.existsSync(flowDir)) {
+      fs.rmSync(flowDir, { recursive: true, force: true });
+      removed++;
+    }
+  }
+
   log("\nScaffold files (AGENTS.md, .flow/) preserved — remove manually if needed.");
 }
 
@@ -210,15 +284,18 @@ async function main() {
     runtime = flagRuntime.replace("--", "");
   } else {
     runtime = await prompt("Which runtime?", [
-      { label: "OpenCode",   value: "opencode" },
-      { label: "Claude Code", value: "claude" },
-      { label: "Both",        value: "all" },
+      { label: "OpenCode",                                    value: "opencode" },
+      { label: "Claude Code",                                 value: "claude" },
+      { label: "Antigravity  (Google, Gemini — global only)", value: "antigravity" },
+      { label: "All (OpenCode + Claude + Antigravity)",        value: "all" },
     ]);
   }
 
   // Location
   let location;
-  if (flagLocation) {
+  if (runtime === "antigravity") {
+    location = "global";
+  } else if (flagLocation) {
     location = ["--global","-g"].includes(flagLocation) ? "global" : "local";
   } else {
     location = await prompt("Install location?", [
@@ -244,6 +321,17 @@ async function main() {
       ok(`  ${installedCount} commands + ${ac} agents installed`);
     } catch (e) {
       err(`Failed: ${e.message}`);
+    }
+  }
+
+  if (runtime === "antigravity" || runtime === "all") {
+    try {
+      const agDir = getGlobalAntigravityDir();
+      const { workflows, agents, skills } = installAntigravity(agDir);
+      ok(`Antigravity (global) ${dim(agDir)}`);
+      ok(`  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
+    } catch (e) {
+      err(`Antigravity install failed: ${e.message}`);
     }
   }
 
@@ -287,6 +375,9 @@ async function main() {
   }
   if (runtime === "claude" || runtime === "all") {
     log(dim("  Reload Claude Code (or restart your shell) to load the new commands."));
+  }
+  if (runtime === "antigravity" || runtime === "all") {
+    log(dim("  Restart Antigravity to load the new skills (/flow-* commands)."));
   }
   log("");
 }

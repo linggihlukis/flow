@@ -261,6 +261,49 @@ If any expected file is missing:
 
 ---
 
+### A1 — Antigravity runtime support 🔲 Pending
+
+**Urgency:** Medium
+**Token cost:** Zero (installer-only change)
+
+**What's missing:**
+`bin/install.js` has no `--antigravity` flag. FLOW cannot be installed into Antigravity (Google's Gemini-based AI IDE). Antigravity uses a Skills-first architecture: each slash command triggers a thin `SKILL.md` wrapper that `@`-references the actual workflow logic. FLOW's `commands/*.md` files are the workflow layer unchanged.
+
+**Fix:**
+1. Add `getGlobalAntigravityDir()` — returns `~/.gemini/antigravity/`
+2. Add `installAntigravity(baseDir)` — copies `commands/*.md` → `flow/workflows/`, `agents/*.md` → `flow/agents/`, generates `SKILL.md` wrappers in `skills/flow-*/`
+
+**Files to change:** `commands/flow-execute-phase.md` — write summary at git commit stage
+
+---
+
+### A2 — Antigravity `// turbo` annotations 🔲 Pending
+
+**Urgency:** Low
+**Blocked by:** A1 (must confirm Antigravity install works first)
+**Token cost:** Zero
+
+Mark safe read-only steps in `commands/*.md` with `// turbo` for Antigravity auto-execution.
+Safe candidates: STATE.md status reads, health checks, file listing steps.
+Do NOT annotate: file writes, git commits, decision steps.
+
+**Files to change:** Safe steps across `commands/flow-*.md`
+
+---
+
+### A3 — Antigravity browser verification in `flow-verify-work` Stage 4 🔲 Pending
+
+**Urgency:** Low
+**Blocked by:** A1
+**Token cost:** Optional (only when browser UAT is triggered)
+
+`flow-verify-work` Stage 0 runs shell-based automated checks.
+A new Stage 4 could use Antigravity's native browser tool for visual screenshot verification of UI phases — a distinct capability not available in OpenCode or Claude Code.
+
+**Files to change:** `commands/flow-verify-work.md` — add Stage 4 (Antigravity browser check, optional)
+
+---
+
 ### H4 — Planner does not stop on low-confidence zones 🔲 Pending
 
 **Urgency:** High
@@ -447,6 +490,24 @@ Create `agents/flow-verifier.md` as a dedicated subagent for this check.
 
 ---
 
+### A1 — Antigravity runtime support 🔲 Pending
+
+**Urgency:** Medium
+**Token cost:** Zero (installer-only change)
+
+**What's missing:**
+`bin/install.js` has no `--antigravity` flag. FLOW cannot be installed into Antigravity (Google's Gemini-based AI IDE). Antigravity uses a Skills-first architecture: each slash command triggers a thin `SKILL.md` wrapper that `@`-references the actual workflow logic. FLOW's `commands/*.md` files are the workflow layer unchanged.
+
+**Fix:**
+1. Add `getGlobalAntigravityDir()` — returns `~/.gemini/antigravity/`
+2. Add `installAntigravity(baseDir)` — copies `commands/*.md` → `flow/workflows/`, `agents/*.md` → `flow/agents/`, generates `SKILL.md` wrappers in `skills/flow-*/`
+3. Add `--antigravity` flag to `main()` runtime prompt and `uninstall()`
+4. Global-only for initial release. Local path (`.agent/`) deferred as TBD.
+
+**Files to change:** `bin/install.js`
+
+---
+
 ## 🟢 Low
 
 ---
@@ -587,11 +648,14 @@ Given token efficiency as the primary constraint, implement in this order:
 10. M2 — Executor deviation rules
 11. C4 Part 2 — Archiving stage in complete-milestone
 12. M3 — ROADMAP archiving (part of C4)
+13. A1 — Antigravity runtime support (global)
 
 **Later (optional, specific value):**
-13. M1 — Extend flow-planner (full version)
-14. M5 — Optional verifier agent
-15. Option B — flow-tools binary (when ceiling becomes a confirmed pain point)
+14. M1 — Extend flow-planner (full version)
+15. M5 — Optional verifier agent
+16. A2 — Antigravity turbo annotations
+17. A3 — Antigravity browser verification
+18. Option B — flow-tools binary (when ceiling becomes a confirmed pain point)
 
 ---
 
