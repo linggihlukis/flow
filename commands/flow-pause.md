@@ -36,7 +36,7 @@ Update both YAML frontmatter and prose:
 ```yaml
 ---
 status: paused
-updated_at: [current datetime ISO format]
+updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
 ---
 ```
 

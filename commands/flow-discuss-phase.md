@@ -26,6 +26,47 @@ Every decision you lock here is honoured throughout execution.
 
 ---
 
+## Step 0: Codebase Conflict Check
+
+Before asking any questions, check whether codebase knowledge is available and whether it flags anything relevant to this phase.
+
+**Read if they exist:**
+- `PATTERNS.md` — scan for low confidence notes and deviation entries relevant to this phase
+- `.flow/context/SERVICE-MAP.md` — check if this phase's ROADMAP entry implies touching any service boundary
+
+**Cross-reference against the phase description in ROADMAP.md.**
+
+If PATTERNS.md has low confidence zones or deviation notes that overlap with what this phase will touch, surface them as explicit questions *before* the domain questions:
+
+```
+Before we discuss implementation details — I found some things in the 
+codebase that are relevant to this phase:
+
+• [Module/zone] has a different [pattern type] from the rest of the project.
+  Which should new code in this phase follow — the module's local pattern 
+  or the project standard?
+
+• [Zone] is flagged as low confidence in PATTERNS.md — [reason].
+  Can you describe how this area works before I plan anything in it?
+```
+
+If SERVICE-MAP.md exists and the phase touches a service boundary:
+
+```
+• This phase appears to involve [service name]. Based on SERVICE-MAP.md,
+  that service exposes [relevant endpoints]. Is this integration via 
+  [detected pattern] or has anything changed?
+
+• SERVICE-MAP.md notes: [any breaking changes in progress]. 
+  Should this phase account for that?
+```
+
+Lock all answers to these conflict questions into CONTEXT.md alongside the domain answers. They are not optional — do not skip to domain questions if conflicts exist.
+
+If no conflicts found — note "No codebase conflicts detected" and proceed directly to Step 1.
+
+---
+
 ## Step 1: Analyse the Phase
 
 Read `ROADMAP.md` and find Phase $ARGUMENTS.
@@ -81,6 +122,11 @@ Synthesise the discussion into `.flow/context/phase-$ARGUMENTS-CONTEXT.md`:
 
 > Written: YYYY-MM-DD
 > Status: Locked — do not deviate without explicit approval
+
+## Codebase Conflict Resolutions
+[Answers to Step 0 conflict questions — which pattern to follow in deviating zones,
+clarifications on low-confidence areas, service contract confirmations.
+Empty if no conflicts were detected.]
 
 ## Phase Goal
 [one sentence — what this phase must deliver]

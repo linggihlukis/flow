@@ -20,7 +20,7 @@ Read AGENTS.md and `.flow/STATE.md` before doing anything else.
    → Any handoff missing or showing non-complete status: "Phase [N] handoff shows incomplete status — resolve before closing the milestone."
 4. Confirm `/flow-audit-milestone` has been run and passed
    → If not: "Run /flow-audit-milestone first to confirm all requirements are delivered"
-5. Run health check — all tests must pass
+5. Run baseline-aware health check — apply the same check as `flow-execute-phase` pre-flight: if `.flow/context/test-baseline.md` exists, only new failures block. If no baseline file exists, all failures block. If baseline states "no test infrastructure", skip.
 
 ---
 

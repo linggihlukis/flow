@@ -12,9 +12,43 @@ Phase number: **$ARGUMENTS**
 
 Read `.flow/context/config.json`:
 - `mode`: if `yolo`, skip the guided walkthrough (Stage 2) and proceed directly to generating fix plans from plan done-conditions vs. test results. Note this in output.
+- `workflow.verifier`: if `true`, run Stage 0 (automated pre-check) before UAT. Default is `false` — skip Stage 0 if the field is absent.
 
 Automated tests verify code exists. This step verifies the feature actually WORKS as expected.
 The developer must use the feature. This cannot be automated.
+
+---
+
+## Stage 0: Automated Pre-check (only if `workflow.verifier: true`)
+
+Spawn `@flow-verifier` with this brief:
+
+```
+Phase: $ARGUMENTS
+CONTEXT.md: .flow/context/phase-$ARGUMENTS-CONTEXT.md
+Plans: all files matching .flow/context/phase-$ARGUMENTS-plan-*.md
+```
+
+The verifier will:
+1. Read CONTEXT.md — extract all locked decisions and must-deliver items
+2. For each must-deliver item, search the codebase for evidence (expected routes, functions, components, files)
+3. Run each plan's `Verify` command if it is a pure read check (no side effects)
+4. Report must-deliver items with no evidence found
+
+Wait for verifier to complete. If all must-delivers have evidence — print:
+```
+✅ Pre-check passed — all must-deliver items have evidence. Proceeding to UAT.
+```
+
+If gaps found — print:
+```
+⚠️  Pre-check found [N] must-deliver item(s) with no evidence:
+   - [item description]
+
+Proceed to UAT anyway, or fix first?
+```
+
+Wait for developer response before continuing. Do not skip to Stage 1 without confirmation.
 
 ---
 

@@ -12,16 +12,27 @@ You are a planning agent. You generate atomic plan files for one phase. You do n
 
 ## What you must read first
 
-1. The phase CONTEXT.md specified in your brief — understand every locked decision
+1. The phase CONTEXT.md specified in your brief — understand every locked decision, including any Codebase Conflict Resolutions section
 2. `.flow/context/research/phase-[N]-research.md` — replace [N] with your phase number from the brief. Use this file, do not re-investigate.
-3. `PATTERNS.md` if it exists — all plans must produce code that follows existing conventions
+3. `PATTERNS.md` if it exists — read the Module Zones table and all deviation notes. Apply the correct pattern for each zone this phase touches, not a global average.
 4. `REQUIREMENTS.md` — understand which requirements this phase covers
+5. `.flow/context/SERVICE-MAP.md` — **only if this phase crosses a service boundary.** Read relevant service sections only. Use documented contracts — never invent API shapes.
 
 ## Planning heuristics
 
 Apply these in order when deciding how to structure plans:
 
-1. **TDD first** — if test files exist in the project, generate a test plan before implementation plans
+1. **TDD branch — read PATTERNS.md `Test infrastructure health` field first, then apply the matching branch:**
+
+   - **`present and working`** — generate a test plan (plan-00) before any implementation plans. Test plan writes failing tests that define the phase's done condition. Implementation plans make them pass.
+
+   - **`partial`** — check whether `.flow/context/test-baseline.md` exists.
+     - If it does not exist yet: generate plan-00 that (a) runs the full test suite and writes the names of all currently failing tests to `.flow/context/test-baseline.md`, then (b) writes failing tests for this phase's new behaviour. Label this plan: `plan-00: establish test baseline and write phase tests`.
+     - If it already exists: generate plan-00 that writes failing tests for this phase's new behaviour only. The executor will use the existing baseline to distinguish new failures from pre-existing ones.
+
+   - **`missing`** — generate plan-00 that scaffolds a minimal test setup for the detected stack (install test framework, configure runner, write one smoke test that passes). Label it: `plan-00: test scaffold`. Feature plans follow after plan-00.
+
+   - **Field not found in PATTERNS.md** — treat as `missing` and generate the test scaffold plan-00.
 2. **Vertical slices over horizontal layers** — prefer plans that deliver a working end-to-end slice (user can do X) over plans that build entire layers (all models, then all routes, then all UI)
 3. **Explicit dependency graph** — for each plan, list its dependencies precisely in the `Depends on:` field. Do not use vague language like "after other plans complete."
 4. **Count discipline** — if more than 5 plans are required, write a brief justification before generating them. If more than 8 are required, stop and output: "Phase requires [COUNT] plans — exceeds 8-plan limit. Recommend splitting the phase before proceeding."
@@ -63,7 +74,7 @@ Save each plan as `.flow/context/phase-[N]-plan-[NN].md` (replace [N] with your 
 This field is REQUIRED. "Check manually" or "looks correct" are NOT valid.
 
 ## Done Condition
-[Binary pass/fail — the verify command passes and all existing tests still pass]
+[Binary pass/fail — the verify command passes and no new test failures introduced beyond the baseline in `.flow/context/test-baseline.md`]
 
 ## Commit Message
 `type(milestone-phase-plan): description`

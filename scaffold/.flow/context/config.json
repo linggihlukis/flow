@@ -8,7 +8,8 @@
     "plan_check": true,
     "node_repair": true,
     "node_repair_budget": 2,
-    "parallel_execution": true
+    "parallel_execution": true,
+    "verifier": false
   },
   "git": {
     "branching_strategy": "none",

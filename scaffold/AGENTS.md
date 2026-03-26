@@ -29,6 +29,8 @@ AGENTS.md                          ← you are here (root — auto-loaded by Ope
 ├── context/
 │   ├── config.json                ← workflow settings
 │   ├── LESSONS.md                 ← append-only cross-milestone memory
+│   ├── SERVICE-MAP.md             ← inter-service contracts (polyrepo/multi-service projects)
+│   ├── test-baseline.md           ← pre-existing test failures at FLOW install time (legacy codebases)
 │   ├── research/                  ← research outputs per phase
 │   ├── handoffs/                  ← phase handoff documents
 │   ├── debug/
@@ -77,7 +79,7 @@ Every session begins with these steps in order. No exceptions.
    If fewer than 2 matching entries exist in the last 5, expand to last 10.
    If no relevant entries found — skip silently.
 4. If handoff exists for current phase: read .flow/context/handoffs/phase-N-handoff.md
-5. Run health check: confirm tests pass before touching anything
+5. Run baseline-aware health check: if `.flow/context/test-baseline.md` exists, only new failures (not on the baseline list) are blocking. If no baseline file exists, all test failures are blocking. If baseline states "no test infrastructure", skip test run.
 6. Announce: "Resuming Milestone X, Phase Y — [last action]"
 ```
 
@@ -95,6 +97,7 @@ FLOW uses four specialised subagents. Each gets a fresh context window with only
 | `@flow-planner` | During `flow-plan-phase` Stage 2 | Generates atomic plan files for a phase |
 | `@flow-executor` | Per plan during `flow-execute-phase` | Implements one plan, verifies, commits |
 | `@flow-debugger` | On UAT failure in `flow-verify-work` | Diagnoses root cause, writes fix plan |
+| `@flow-verifier` | During `flow-verify-work` Stage 0 (opt-in) | Checks must-deliver items have codebase evidence before UAT |
 
 Subagents read their own brief. They do not need the full session history.
 
@@ -210,7 +213,7 @@ Examples:
 ```
 
 Never batch tasks. Never commit broken code.
-Always run health check before committing.
+Always run baseline-aware health check before committing — new test failures (not in `.flow/context/test-baseline.md`) block the commit; pre-existing baseline failures do not.
 
 ---
 
@@ -246,6 +249,8 @@ when files approach their limits.
 |---|---|---|---|
 | .flow/STATE.md | 200 lines | 300 lines | Trim oldest "Last Session" entries, keep last 2 |
 | .flow/context/LESSONS.md | 100 entries | 150 entries | Archive on next flow-complete-milestone |
+| .flow/context/SERVICE-MAP.md | — | 200 lines | Split into per-service files in .flow/context/service-maps/ |
+| .flow/context/test-baseline.md | — | — | Written once by flow-map-codebase. Never appended. Re-run flow-map-codebase to regenerate. |
 | ROADMAP.md | 100 lines/milestone | — | Archive completed milestones on flow-complete-milestone |
 | .flow/context/debug/KNOWLEDGE-BASE.md | 150 entries | 200 entries | Archive on next flow-complete-milestone |
 | Phase plan files | 400 lines | 600 lines | Critic pass must split if exceeded |
@@ -264,6 +269,10 @@ If over 100 lines:
 - ROADMAP.md: read only the section matching the current milestone header
 - REQUIREMENTS.md: read only Must Have requirements unless doing an audit
 - KNOWLEDGE-BASE.md: search for matching symptom keywords, do not read whole file
+
+For `.flow/context/SERVICE-MAP.md`: never read the whole file.
+Read only the service sections relevant to the current phase.
+If the phase has no service boundary crossing — skip entirely.
 
 Never use a glob read pattern on the .flow/context/ directory.
 Read files individually and only when needed.
@@ -297,3 +306,31 @@ and gives every phase the full context window.
 Running multiple phases in a single session will degrade plan quality
 on complex projects. This is not a recommendation — it is the intended
 usage model.
+
+---
+
+## 18. SERVICE-MAP Protocol
+
+If `.flow/context/SERVICE-MAP.md` exists, it documents inter-service contracts
+for a multi-service or polyrepo architecture.
+
+**When to read it:**
+- During `flow-discuss-phase` Step 0 — check if the phase touches a service boundary
+- During `flow-plan-phase` — researcher and planner must read relevant service sections
+  when a phase involves cross-service calls, shared contracts, or integration points
+- During `flow-execute-phase` — executor reads relevant service sections before
+  implementing any code that calls another service or exposes an API
+
+**How to read it:**
+Do not load the full file on every phase. Read only the sections for services
+this phase will interact with. If the phase is purely internal with no service
+boundary crossing, skip it.
+
+**Agent rules for cross-service work:**
+- Never guess at API contracts — read SERVICE-MAP.md for the shape
+- If SERVICE-MAP.md is missing a contract you need, stop and ask the developer
+  to update it before proceeding
+- If SERVICE-MAP.md notes a breaking change in progress, surface it in
+  flow-discuss-phase before locking any CONTEXT.md decisions that depend on it
+- Never write integration code that contradicts SERVICE-MAP.md without
+  explicit developer confirmation in CONTEXT.md

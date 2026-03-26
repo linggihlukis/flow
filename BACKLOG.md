@@ -2,7 +2,7 @@
 
 > Issues identified through deep analysis comparing FLOW against GSD.
 > Each item includes the reason, urgency, why it matters, and the exact fix required.
-> Last updated: 2026-03-25
+> Last updated: 2026-03-26
 
 ---
 
@@ -13,6 +13,10 @@
 - 🟠 **High** — real failure modes that appear under normal usage
 - 🟡 **Medium** — quality gaps or friction that surface on complex projects
 - 🟢 **Low** — nice-to-have improvements with no urgency
+
+**Status:**
+- ✅ **Done** — implemented
+- 🔲 **Pending** — not yet implemented
 
 **Token cost labels:**
 - `zero` — fix lives in instructions, no additional runtime tokens
@@ -26,7 +30,26 @@
 
 ---
 
-### C1 — `flow-complete-milestone` pre-flight logic bug
+### C0 — Nyquist Validation Layer breaks on legacy codebases ✅ Done
+
+**Urgency:** Critical
+**Token cost:** Zero
+
+**What was broken:**
+Three binary checks assumed a clean, fully passing test suite: the `flow-execute-phase` pre-flight ("all existing tests must pass"), the `flow-planner` TDD heuristic ("if test files exist"), and the AGENTS.md session start health check. On any legacy codebase with pre-existing broken tests, `flow-execute-phase` hard-stopped permanently — impossible to unblock without cleaning up all pre-existing debt first.
+
+**Fix applied:**
+- `flow-map-codebase` Stage 1: detects test run command, captures all currently failing tests to `.flow/context/test-baseline.md` at install time. Three-case output: failures found → write baseline; all passing → no file; no infrastructure → write "no infrastructure" marker.
+- `flow-execute-phase` pre-flight and executor inner loop: three-way baseline-aware check. No baseline file → strict. Baseline with failures → only new failures block. Baseline with "no infrastructure" marker → skip test run.
+- `flow-planner` TDD heuristic: replaced with three-way branch reading PATTERNS.md `Test infrastructure health` field: `present and working` → standard TDD; `partial` → plan-00 establishes baseline then writes phase tests; `missing` → plan-00 scaffolds test framework first.
+- `AGENTS.md` Section 4 step 5 and Section 11: both health check references updated to baseline-aware logic. `test-baseline.md` added to file locations map and size limits table.
+- `flow-complete-milestone` pre-flight step 5: updated to baseline-aware check.
+
+**Files changed:** `commands/flow-map-codebase.md`, `commands/flow-execute-phase.md`, `commands/flow-complete-milestone.md`, `agents/flow-planner.md`, `scaffold/AGENTS.md`
+
+---
+
+### C1 — `flow-complete-milestone` pre-flight logic bug ✅ Done
 
 **Urgency:** Critical
 **Token cost:** Zero
@@ -44,7 +67,7 @@ Remove step 3. Replace with: "Read each phase handoff file and confirm it record
 
 ---
 
-### C2 — LESSONS.md relevance filtering
+### C2 — LESSONS.md relevance filtering ✅ Done
 
 **Urgency:** Critical
 **Token cost:** Net saving (loads fewer, more relevant entries)
@@ -70,7 +93,7 @@ Change AGENTS.md Session Start Protocol step 3 to:
 
 ---
 
-### C3 — No dedicated `@flow-planner` agent
+### C3 — No dedicated `@flow-planner` agent ✅ Done
 
 **Urgency:** Critical
 **Token cost:** Net saving (fresh context vs accumulated orchestrator context)
@@ -95,7 +118,7 @@ Update `flow-plan-phase` Stage 2 to spawn `@flow-planner` instead of planning in
 
 ---
 
-### C4 — File size limits undocumented, no archiving protocol
+### C4 — File size limits undocumented, no archiving protocol ✅ Done
 
 **Urgency:** Critical
 **Token cost:** Zero to document; one-time per milestone for archiving
@@ -143,7 +166,7 @@ Add a stage before the milestone summary that:
 
 ---
 
-### H1 — STATE.md updates use prose instructions, not explicit templates
+### H1 — STATE.md updates use prose instructions, not explicit templates ✅ Done
 
 **Urgency:** High
 **Token cost:** Zero (saves tokens via cleaner writes)
@@ -171,7 +194,7 @@ Agents copy this template, substituting only the placeholder values. They do not
 
 ---
 
-### H2 — Large file reads have no payload protection
+### H2 — Large file reads have no payload protection ✅ Done
 
 **Urgency:** High
 **Token cost:** Zero (saves tokens via scoped reads)
@@ -209,7 +232,7 @@ Read files individually and only when needed.
 
 ---
 
-### H3 — Pre-wave key-link check missing
+### H3 — Pre-wave key-link check missing ✅ Done
 
 **Urgency:** High
 **Token cost:** Negligible (one bash call per wave boundary)
@@ -238,11 +261,46 @@ If any expected file is missing:
 
 ---
 
-## 🟡 Medium
+### H4 — Planner does not stop on low-confidence zones 🔲 Pending
+
+**Urgency:** High
+**Token cost:** Zero
+
+**What's broken:**
+`flow-planner` reads PATTERNS.md and applies patterns per zone — but it doesn't differentiate between high-confidence and low-confidence zones. PATTERNS.md has a `## Confidence Notes` section flagging areas where analysis confidence is LOW. The planner receives this as part of the document but has no instruction to treat low-confidence zones differently — it will generate plans for them with the same confidence as well-understood zones.
+
+**Why it matters:**
+On a legacy codebase, low-confidence zones are exactly the areas where plans are most likely to be wrong. A planner that treats "confidence: low — dead code mixed with live code, unknown ownership" the same as "confidence: high" will generate wrong plans that hit the Off-plan failure at execution time. The correct behaviour is to stop and surface these as open questions in CONTEXT.md for `flow-discuss-phase` to resolve.
+
+**Fix:**
+Add to `agents/flow-planner.md` under "What you must read first":
+After reading PATTERNS.md, check the `## Confidence Notes` section. For any low-confidence zone that this phase will touch, do not generate plans for that zone. Instead, add an entry to the phase CONTEXT.md `## Open Questions` section: "Low confidence zone: [zone] — [reason from PATTERNS.md]. Planner cannot plan this area without developer clarification. Run /flow-discuss-phase to resolve before planning proceeds."
+
+**Files to change:** `agents/flow-planner.md`
 
 ---
 
-### M1 — `@flow-planner` full version
+### H5 — `## Do Not Change` section has no enforcement ✅ Done (partially — PATTERNS.md section exists; agent rule missing)
+
+**Urgency:** High
+**Token cost:** Zero
+
+**What's broken:**
+PATTERNS.md has a `## Do Not Change` section listing locked interfaces, DB schemas, and external contracts that must not be modified. The planner and executor both read PATTERNS.md but neither has an explicit rule to check this section before touching existing files.
+
+**Why it matters:**
+An executor generating a migration plan won't stop because something in `## Do Not Change` says "this table has live integrations." The section exists but is effectively advisory — no agent is instructed to treat it as a hard stop.
+
+**Fix:**
+Add to `agents/flow-planner.md` planning heuristics and `agents/flow-executor.md` pre-implementation steps: "Before planning/touching any existing schema, interface, config file, or API contract, check the `## Do Not Change` section of PATTERNS.md. If the item appears there, stop. Do not plan or modify it without explicit developer instruction in CONTEXT.md overriding the restriction."
+
+**Files to change:** `agents/flow-planner.md`, `agents/flow-executor.md`
+
+---
+
+
+
+### M1 — `@flow-planner` full version ✅ Done
 
 **Urgency:** Medium
 **Token cost:** Zero (extends existing agent)
@@ -258,7 +316,7 @@ The basic planner from C3 handles plan generation and TDD detection. The full ve
 
 ---
 
-### M2 — Executor deviation rules too binary
+### M2 — Executor deviation rules too binary ✅ Done
 
 **Urgency:** Medium
 **Token cost:** Zero
@@ -297,7 +355,7 @@ Stop — do not proceed:
 
 ---
 
-### M3 — ROADMAP.md accumulates all milestones
+### M3 — ROADMAP.md accumulates all milestones ✅ Done
 
 **Urgency:** Medium
 **Token cost:** One-time per milestone (net saving ongoing)
@@ -319,7 +377,7 @@ Implement as part of C4's archiving stage in `flow-complete-milestone`. On miles
 
 ---
 
-### M4 — No context accumulation guardrail
+### M4 — No context accumulation guardrail ✅ Done
 
 **Urgency:** Medium
 **Token cost:** Zero
@@ -351,7 +409,7 @@ and discard the full report from active context.
 
 ---
 
-### M5 — Optional goal-backward verifier
+### M5 — Optional goal-backward verifier ✅ Done
 
 **Urgency:** Medium
 **Token cost:** Optional (one context window when `workflow.verifier: true`)
@@ -393,7 +451,7 @@ Create `agents/flow-verifier.md` as a dedicated subagent for this check.
 
 ---
 
-### L1 — Model profile routing
+### L1 — Model profile routing 🔲 Pending
 
 **Urgency:** Low
 **Token cost:** Zero (changes which model is used, not how many tokens)
@@ -402,7 +460,7 @@ Run a lighter model for execution (routine implementation) and a stronger model 
 
 ---
 
-### L2 — `--auto` flag chaining discuss → plan → execute
+### L2 — `--auto` flag chaining discuss → plan → execute 🔲 Pending
 
 **Urgency:** Low
 **Token cost:** Zero
@@ -411,7 +469,7 @@ For phases where intent is already clear, chaining the three commands without st
 
 ---
 
-### L3 — FLOW test suite
+### L3 — FLOW test suite 🔲 Pending
 
 **Urgency:** Low
 **Token cost:** Zero
@@ -420,7 +478,7 @@ A fixture-based test suite that validates command files are internally consisten
 
 ---
 
-### L4 — Per-plan SUMMARY.md after execution
+### L4 — Per-plan SUMMARY.md after execution 🔲 Pending
 
 **Urgency:** Low
 **Token cost:** Zero (written by executor at commit time, not loaded by orchestrator)
@@ -456,7 +514,7 @@ With all fixes applied, this is manageable up to roughly 12 phases across 2 mile
 
 ---
 
-### Option A — Accept the ceiling (recommended for now)
+### Option A — Accept the ceiling ✅ Done (documented in AGENTS.md Section 17)
 
 **What it means:** FLOW works well up to ~12 phases / 2 milestones. Beyond that range, plan quality softens gradually and session quality degrades. This is documented, not hidden.
 
@@ -477,7 +535,7 @@ and gives every phase the full context window.
 
 ---
 
-### Option B — `flow-tools` minimal binary
+### Option B — `flow-tools` minimal binary 🔲 Pending
 
 **What it means:** A small Node.js script (`flow-tools.js`) that handles mechanical operations deterministically. Orchestrators call it instead of reading files directly — receiving small JSON payloads instead of full file contents.
 
@@ -498,7 +556,7 @@ flow-tools files-check [path...]        → checks each path exists, returns JSO
 
 ---
 
-### Option C — Mandatory session discipline (recommended alongside Option A)
+### Option C — Mandatory session discipline ✅ Done (documented in AGENTS.md Section 17)
 
 **What it means:** Enforce "one phase per session" as a documented rule, not just a recommendation. Make `flow-pause` the required exit from every phase. Make `flow-resume` the required entry to every phase.
 

@@ -14,7 +14,8 @@ You are an execution agent. You implement exactly one plan. You do not plan, res
 
 1. Your assigned plan file — read it completely before touching anything
 2. Every file listed in the plan's Read First section
-3. PATTERNS.md — all new code must follow existing conventions
+3. PATTERNS.md — check the Module Zones table and deviation notes for each file you will touch. Apply the zone's local pattern if it deviates from the project standard, unless CONTEXT.md explicitly says otherwise.
+4. `.flow/context/SERVICE-MAP.md` — **only if this plan involves calling another service or exposing an API contract.** Read only the relevant service sections. Never write integration code that contradicts SERVICE-MAP.md without explicit developer confirmation.
 
 ## Before writing a single line
 

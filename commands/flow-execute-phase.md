@@ -16,8 +16,18 @@ Phase number: **$ARGUMENTS**
 
 1. Confirm all `phase-$ARGUMENTS-plan-NN.md` files exist
    → If not: "Run /flow-plan-phase $ARGUMENTS first"
-2. Run health check — all existing tests must pass before execution starts
-   → If tests fail: stop, report which tests fail, do not execute
+2. Run baseline-aware health check:
+   - Check whether `.flow/context/test-baseline.md` exists.
+   - **If `test-baseline.md` does not exist (clean codebase):** run full test suite. If any tests fail → stop, report failures, do not execute.
+   - **If `test-baseline.md` exists and lists pre-existing failures:** run full test suite. Compare failures against the baseline list.
+     - Failures that appear on the baseline list → note them, continue.
+     - Failures NOT on the baseline list → stop, report as new regression, do not execute.
+   - **If `test-baseline.md` exists and states "no test infrastructure":** skip test suite run. Proceed directly to execution.
+   - In all cases where you note pre-existing baseline failures, print once at the start:
+     ```
+     ⚠️  [N] pre-existing test failure(s) noted from baseline — not blocking execution.
+        See .flow/context/test-baseline.md for the full list.
+     ```
 3. Read `.flow/context/LESSONS.md` — load last 5 entries.
    Filter to entries matching the current phase type (Visual/UI, API/Backend,
    Data/Content, Infrastructure). Apply only matching entries.
@@ -85,7 +95,7 @@ The executor will:
 3. Implement the plan steps exactly
 4. Run the plan's `<verify>` command — this must pass
 5. Run `git diff --name-only` to confirm scope wasn't exceeded
-6. Run full test suite and linter
+6. Run full test suite and linter — apply the same baseline-aware check as pre-flight: only failures not in `.flow/context/test-baseline.md` block the commit
 7. Commit and report back
 
 If the executor reports a plan error (plan assumes something that isn't true):
