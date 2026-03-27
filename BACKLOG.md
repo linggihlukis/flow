@@ -261,19 +261,21 @@ If any expected file is missing:
 
 ---
 
-### A1 — Antigravity runtime support 🔲 Pending
+### A1 — Antigravity runtime support ✅ Done
 
 **Urgency:** Medium
 **Token cost:** Zero (installer-only change)
 
-**What's missing:**
-`bin/install.js` has no `--antigravity` flag. FLOW cannot be installed into Antigravity (Google's Gemini-based AI IDE). Antigravity uses a Skills-first architecture: each slash command triggers a thin `SKILL.md` wrapper that `@`-references the actual workflow logic. FLOW's `commands/*.md` files are the workflow layer unchanged.
+**What was implemented:**
+`bin/install.js` now supports `--antigravity` as a runtime flag. Uses a Skills-first architecture: each slash command triggers a thin `SKILL.md` wrapper that `@`-references the actual workflow logic from `flow/workflows/`.
 
-**Fix:**
-1. Add `getGlobalAntigravityDir()` — returns `~/.gemini/antigravity/`
-2. Add `installAntigravity(baseDir)` — copies `commands/*.md` → `flow/workflows/`, `agents/*.md` → `flow/agents/`, generates `SKILL.md` wrappers in `skills/flow-*/`
+- `getGlobalAntigravityDir()` — returns `~/.gemini/antigravity/`
+- `installAntigravity(baseDir)` — copies `commands/*.md` → `flow/workflows/`, `agents/*.md` → `flow/agents/`, generates `SKILL.md` wrappers in `skills/flow-*/`
+- `parseCommandDescription()` reads `description:` from each command's frontmatter for wrapper metadata
+- Antigravity is global-only — location prompt is skipped when this runtime is selected
+- Uninstall removes `skills/flow-*` dirs and the entire `flow/` directory
 
-**Files to change:** `commands/flow-execute-phase.md` — write summary at git commit stage
+**Files changed:** `bin/install.js`
 
 ---
 
@@ -304,40 +306,28 @@ A new Stage 4 could use Antigravity's native browser tool for visual screenshot 
 
 ---
 
-### H4 — Planner does not stop on low-confidence zones 🔲 Pending
+### H4 — Planner does not stop on low-confidence zones ✅ Done
 
 **Urgency:** High
 **Token cost:** Zero
 
-**What's broken:**
-`flow-planner` reads PATTERNS.md and applies patterns per zone — but it doesn't differentiate between high-confidence and low-confidence zones. PATTERNS.md has a `## Confidence Notes` section flagging areas where analysis confidence is LOW. The planner receives this as part of the document but has no instruction to treat low-confidence zones differently — it will generate plans for them with the same confidence as well-understood zones.
+**What was implemented:**
+Added to `agents/flow-planner.md` under `## What you must read first`, after item 3 (read PATTERNS.md): after reading PATTERNS.md, the planner checks `## Confidence Notes` for any low-confidence zones this phase will touch. For each such zone, it does not generate plans — instead it adds an Open Questions entry to CONTEXT.md and halts planning for that zone. Planning only proceeds if CONTEXT.md has an explicit `## Codebase Conflict Resolutions` entry addressing the zone.
 
-**Why it matters:**
-On a legacy codebase, low-confidence zones are exactly the areas where plans are most likely to be wrong. A planner that treats "confidence: low — dead code mixed with live code, unknown ownership" the same as "confidence: high" will generate wrong plans that hit the Off-plan failure at execution time. The correct behaviour is to stop and surface these as open questions in CONTEXT.md for `flow-discuss-phase` to resolve.
-
-**Fix:**
-Add to `agents/flow-planner.md` under "What you must read first":
-After reading PATTERNS.md, check the `## Confidence Notes` section. For any low-confidence zone that this phase will touch, do not generate plans for that zone. Instead, add an entry to the phase CONTEXT.md `## Open Questions` section: "Low confidence zone: [zone] — [reason from PATTERNS.md]. Planner cannot plan this area without developer clarification. Run /flow-discuss-phase to resolve before planning proceeds."
-
-**Files to change:** `agents/flow-planner.md`
+**Files changed:** `agents/flow-planner.md`
 
 ---
 
-### H5 — `## Do Not Change` section has no enforcement ✅ Done (partially — PATTERNS.md section exists; agent rule missing)
+### H5 — `## Do Not Change` section has no enforcement ✅ Done
 
 **Urgency:** High
 **Token cost:** Zero
 
-**What's broken:**
-PATTERNS.md has a `## Do Not Change` section listing locked interfaces, DB schemas, and external contracts that must not be modified. The planner and executor both read PATTERNS.md but neither has an explicit rule to check this section before touching existing files.
+**What was implemented:**
+- `agents/flow-planner.md`: added heuristic 0 — before generating any plan touching an existing file, check PATTERNS.md `## Do Not Change`. If the item appears there, do not plan changes; add to CONTEXT.md `## Open Questions`. Only proceed if CONTEXT.md has an explicit `## Codebase Conflict Resolutions` entry granting permission.
+- `agents/flow-executor.md`: added hard stop after scope announcement — checks PATTERNS.md `## Do Not Change` against announced file list. If any match, stops with `⛔` report and blocks execution until CONTEXT.md grants explicit permission.
 
-**Why it matters:**
-An executor generating a migration plan won't stop because something in `## Do Not Change` says "this table has live integrations." The section exists but is effectively advisory — no agent is instructed to treat it as a hard stop.
-
-**Fix:**
-Add to `agents/flow-planner.md` planning heuristics and `agents/flow-executor.md` pre-implementation steps: "Before planning/touching any existing schema, interface, config file, or API contract, check the `## Do Not Change` section of PATTERNS.md. If the item appears there, stop. Do not plan or modify it without explicit developer instruction in CONTEXT.md overriding the restriction."
-
-**Files to change:** `agents/flow-planner.md`, `agents/flow-executor.md`
+**Files changed:** `agents/flow-planner.md`, `agents/flow-executor.md`
 
 ---
 
@@ -490,24 +480,6 @@ Create `agents/flow-verifier.md` as a dedicated subagent for this check.
 
 ---
 
-### A1 — Antigravity runtime support 🔲 Pending
-
-**Urgency:** Medium
-**Token cost:** Zero (installer-only change)
-
-**What's missing:**
-`bin/install.js` has no `--antigravity` flag. FLOW cannot be installed into Antigravity (Google's Gemini-based AI IDE). Antigravity uses a Skills-first architecture: each slash command triggers a thin `SKILL.md` wrapper that `@`-references the actual workflow logic. FLOW's `commands/*.md` files are the workflow layer unchanged.
-
-**Fix:**
-1. Add `getGlobalAntigravityDir()` — returns `~/.gemini/antigravity/`
-2. Add `installAntigravity(baseDir)` — copies `commands/*.md` → `flow/workflows/`, `agents/*.md` → `flow/agents/`, generates `SKILL.md` wrappers in `skills/flow-*/`
-3. Add `--antigravity` flag to `main()` runtime prompt and `uninstall()`
-4. Global-only for initial release. Local path (`.agent/`) deferred as TBD.
-
-**Files to change:** `bin/install.js`
-
----
-
 ## 🟢 Low
 
 ---
@@ -631,31 +603,23 @@ flow-tools files-check [path...]        → checks each path exists, returns JSO
 
 ## Implementation Order
 
-Given token efficiency as the primary constraint, implement in this order:
+**All critical and high items are complete.** Remaining items are low priority or blocked on real-world usage validation.
 
-**Immediate (zero cost, high impact):**
-1. C1 — Fix complete-milestone pre-flight logic bug
-2. C2 — LESSONS.md relevance filtering in AGENTS.md
-3. C4 Part 1 — Document file size limits in AGENTS.md
-4. H1 — Explicit YAML templates for STATE.md updates
-5. H2 — Large file read discipline in AGENTS.md
-6. M4 — Context accumulation guardrail in AGENTS.md
-7. Option A+C — Document session discipline in AGENTS.md
+**Completed (all sessions):**
+- C0, C1, C2, C3, C4 — critical fixes
+- H1, H2, H3, H4, H5 — high priority fixes
+- M1, M2, M3, M4, M5 — medium priority improvements
+- A1 — Antigravity runtime support
+- Option A, C — session discipline documented
 
-**Next (small engineering, high impact):**
-8. C3 — Create `@flow-planner` agent
-9. H3 — Pre-wave key-link check in execute-phase
-10. M2 — Executor deviation rules
-11. C4 Part 2 — Archiving stage in complete-milestone
-12. M3 — ROADMAP archiving (part of C4)
-13. A1 — Antigravity runtime support (global)
-
-**Later (optional, specific value):**
-14. M1 — Extend flow-planner (full version)
-15. M5 — Optional verifier agent
-16. A2 — Antigravity turbo annotations
-17. A3 — Antigravity browser verification
-18. Option B — flow-tools binary (when ceiling becomes a confirmed pain point)
+**Pending (low / when ready):**
+1. A2 — Antigravity `// turbo` annotations (blocked: confirm A1 works in practice first)
+2. A3 — Antigravity browser verification in flow-verify-work (blocked: A1)
+3. L1 — Model profile routing (blocked: OpenCode stability check)
+4. L2 — `--auto` flag chaining
+5. L3 — FLOW test suite (do before public release)
+6. L4 — Per-plan SUMMARY.md
+7. Option B — flow-tools binary (only if context ceiling confirmed as real pain in practice)
 
 ---
 

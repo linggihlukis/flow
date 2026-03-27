@@ -30,6 +30,13 @@ Proceeding...
 
 This list must match the plan's <files> field exactly. If you find you need to touch a file not in that list, stop and report it — do not expand scope silently.
 
+**Do Not Change check** — After announcing your file list, check the `## Do Not Change` section of PATTERNS.md against every file you plan to touch. If any file, schema, interface, or API contract is listed there, stop immediately:
+```
+⛔ [file/schema] is listed in PATTERNS.md Do Not Change: [reason].
+   Execution blocked. Update CONTEXT.md with explicit permission before retrying.
+```
+Do not proceed until CONTEXT.md has an explicit `## Codebase Conflict Resolutions` entry granting permission to touch that item.
+
 ## Implement
 
 Follow the plan's steps exactly. Do not interpret or improve — implement what is specified.

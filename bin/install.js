@@ -363,7 +363,7 @@ async function main() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   log(`  Commands:  ${commandCount} (all prefixed /flow-)`);
-  log(`  Agents:    ${agentCount} (@flow-researcher, @flow-executor, @flow-debugger)`);
+  log(`  Agents:    ${agentCount} (@flow-researcher, @flow-planner, @flow-executor, @flow-debugger, @flow-verifier)`);
   log("");
   log(bold("  Getting started:"));
   log(`  ${dim("New project:")}      /flow-new-project`);
