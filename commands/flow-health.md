@@ -27,25 +27,25 @@ Verify these files exist:
 | `AGENTS.md` | Always | ❌ Critical — FLOW cannot function |
 | `.flow/STATE.md` | Always | ❌ Critical — repair: create blank scaffold |
 | `.flow/context/config.json` | Always | ⚠️  repair: restore default config |
-| `.flow/context/LESSONS.md` | Always | ⚠️  repair: create blank scaffold |
-| `.flow/context/debug/KNOWLEDGE-BASE.md` | Always | ⚠️  repair: create blank scaffold |
-| `REQUIREMENTS.md` | After new-project | ⚠️  Warning only |
-| `ROADMAP.md` | After new-project | ⚠️  Warning only |
-| `PROJECT.md` | After new-project | ⚠️  Warning only |
+| `.flow/memory/LESSONS.md` | Always | ⚠️  repair: create blank scaffold |
+| `.flow/memory/KNOWLEDGE-BASE.md` | Always | ⚠️  repair: create blank scaffold |
+| `.flow/docs/REQUIREMENTS.md` | After new-project | ⚠️  Warning only |
+| `.flow/docs/ROADMAP.md` | After new-project | ⚠️  Warning only |
+| `.flow/docs/PROJECT.md` | After new-project | ⚠️  Warning only |
 
 **File size check** — run after confirming files exist:
 
 | File | Warn at | Hard limit |
 |---|---|---|
-| `.flow/context/LESSONS.md` | 100 entries (`## ` lines) | 150 entries |
-| `.flow/context/debug/KNOWLEDGE-BASE.md` | 150 entries (`## ` lines) | 200 entries |
+| `.flow/memory/LESSONS.md` | 100 entries (`## ` lines) | 150 entries |
+| `.flow/memory/KNOWLEDGE-BASE.md` | 150 entries (`## ` lines) | 200 entries |
 | `.flow/STATE.md` | 200 lines | 300 lines |
-| `ROADMAP.md` | 100 lines/milestone section | — |
+| `.flow/docs/ROADMAP.md` | 100 lines/milestone section | — |
 
 Count entries using:
 ```bash
-grep -c "^## " .flow/context/LESSONS.md
-grep -c "^## " .flow/context/debug/KNOWLEDGE-BASE.md
+grep -c "^## " .flow/memory/LESSONS.md
+grep -c "^## " .flow/memory/KNOWLEDGE-BASE.md
 wc -l < .flow/STATE.md
 ```
 
@@ -79,9 +79,9 @@ If YAML is malformed and `--repair` is set:
 
 Read current `phase` from STATE.md. If not null, check:
 
-- `.flow/context/phase-N-CONTEXT.md` exists if status is `planned` or beyond
-- `.flow/context/phase-N-plan-NN.md` files exist if status is `planned` or beyond
-- `.flow/context/handoffs/phase-N-handoff.md` exists if status is `executed` or beyond
+- `.flow/context/phases/N/CONTEXT.md` exists if status is `planned` or beyond
+- `.flow/context/phases/N/plan-NN.md` files exist if status is `planned` or beyond
+- `.flow/context/phases/N/handoff.md` exists if status is `executed` or beyond
 
 Report any missing files for the current phase position.
 
@@ -94,9 +94,9 @@ Confirm these directories exist:
 ```
 .flow/
 .flow/context/
-.flow/context/research/
-.flow/context/handoffs/
-.flow/context/debug/
+.flow/context/phases/
+.flow/context/milestones/
+.flow/memory/
 ```
 
 If `--repair`: create any missing directories silently.

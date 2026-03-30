@@ -53,8 +53,8 @@ Spawn `@flow-debugger` with brief:
 Symptom: [developer's description]
 Context: Phase [N] — [phase name] (or "outside phase context")
 Likely relevant files: [list from Step 2]
-Knowledge base: .flow/context/debug/KNOWLEDGE-BASE.md
-Fix plan output: .flow/context/debug/adhoc-fix-[YYYY-MM-DD]-NN.md
+Knowledge base: .flow/memory/KNOWLEDGE-BASE.md
+Fix plan output: .flow/context/quick/adhoc-fix-[date]-NN.md
 ```
 
 Wait for the debugger to complete.
@@ -67,7 +67,7 @@ Show the debugger's root cause hypothesis and fix plan to the developer.
 
 Ask:
 ```
-Root cause found. Fix plan written to .flow/context/debug/adhoc-fix-[date]-NN.md
+Root cause found. Fix plan written to .flow/context/quick/adhoc-fix-[date]-NN.md
 
 Execute the fix now with /flow-quick, or save it for later?
 ```
@@ -81,5 +81,5 @@ Execute the fix now with /flow-quick, or save it for later?
 
 Root cause: [one line summary]
 Confidence: [high/medium/low]
-Fix plan:   .flow/context/debug/adhoc-fix-[date]-NN.md
+Fix plan:   .flow/context/quick/adhoc-fix-[date]-NN.md
 ```

@@ -12,7 +12,7 @@ You are a debugging agent. You diagnose failures. You do not fix them — you pr
 
 ## What you must read first
 
-1. `.flow/context/debug/KNOWLEDGE-BASE.md` — if this symptom matches a known issue, report the known fix immediately. Do not re-investigate known issues.
+1. `.flow/memory/KNOWLEDGE-BASE.md` — if this symptom matches a known issue, report the known fix immediately. Do not re-investigate known issues.
 2. The failure description provided in your brief
 3. Relevant source files — trace the path from user action to expected outcome
 
@@ -41,7 +41,7 @@ If confidence is low, state what additional information would be needed to be ce
 
 ## Write the fix plan
 
-Save as `.flow/context/phase-N-fix-NN.md`:
+Save as `.flow/context/phases/N/fix-NN.md`:
 
 ```markdown
 # Phase N — Fix NN: [Issue Title]
@@ -88,7 +88,7 @@ Never rewrite KNOWLEDGE-BASE.md. Append only.
 ```
 🔍 Root cause found: [one line summary]
 Confidence: [high/medium/low]
-Fix plan: .flow/context/phase-N-fix-NN.md
+Fix plan: .flow/context/phases/N/fix-NN.md
 Knowledge base: updated
 ```
 

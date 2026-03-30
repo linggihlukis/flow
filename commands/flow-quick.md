@@ -1,5 +1,5 @@
 ---
-description: Execute an ad-hoc task with FLOW guarantees — atomic commit, state tracking. Flags: --discuss (gather intent first), --research (investigate approach first), --full (adds plan-checking and verification)
+description: "Execute an ad-hoc task with FLOW guarantees — atomic commit, state tracking. Flags: --discuss (gather intent first), --research (investigate approach first), --full (adds plan-checking and verification)"
 agent: build
 ---
 
@@ -77,8 +77,8 @@ Continue as quick task anyway? (yes/no)
 Spawn `@flow-researcher` with brief:
 ```
 Task: [one sentence description]
-Stack: [from PROJECT.md or detected]
-PATTERNS.md: [path if exists]
+Stack: [from `.flow/docs/PROJECT.md` or detected]
+PATTERNS.md: .flow/docs/PATTERNS.md (if exists)
 depth: quick
 Output: .flow/context/quick/[task-slug]-research.md
 ```

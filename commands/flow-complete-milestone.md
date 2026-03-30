@@ -12,10 +12,10 @@ Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 
 ## Pre-flight
 
-1. Read `ROADMAP.md` — get all phase numbers for the current milestone
-2. Confirm every phase has a handoff file in `.flow/context/handoffs/phase-N-handoff.md`
+1. Read `.flow/docs/ROADMAP.md` — get all phase numbers for the current milestone
+2. Confirm every phase has a handoff file in `.flow/context/phases/N/handoff.md`
    → Any missing handoffs: "Phase [N] has no handoff — run /flow-verify-work [N] first"
-3. Read each phase handoff file in `.flow/context/handoffs/phase-N-handoff.md` for all phases in this milestone.
+3. Read each phase handoff file in `.flow/context/phases/N/handoff.md` for all phases in this milestone.
    Confirm every handoff contains `**Status:** Complete` (not "Partially complete").
    → Any handoff missing or showing non-complete status: "Phase [N] handoff shows incomplete status — resolve before closing the milestone."
 4. Confirm `/flow-audit-milestone` has been run and passed
@@ -30,20 +30,20 @@ Run this stage before generating the milestone summary.
 
 **LESSONS.md:** Count entries (lines starting with `## `).
 If count exceeds 150 entries:
-- Copy entries older than 2 milestones to `.flow/context/LESSONS-archive-M[N].md`
-- Remove those entries from `.flow/context/LESSONS.md`
+- Copy entries older than 2 milestones to `.flow/context/milestones/LESSONS-archive-MN.md`
+- Remove those entries from `.flow/memory/LESSONS.md`
 - Note: never delete LESSONS.md itself, never reorder remaining entries
 
 **KNOWLEDGE-BASE.md:** Count entries (lines starting with `## `).
 If count exceeds 200 entries:
-- Copy the oldest half to `.flow/context/debug/KNOWLEDGE-BASE-archive-M[N].md`
-- Remove those entries from `.flow/context/debug/KNOWLEDGE-BASE.md`
+- Copy the oldest half to `.flow/context/milestones/KNOWLEDGE-BASE-archive-MN.md`
+- Remove those entries from `.flow/memory/KNOWLEDGE-BASE.md`
 
 **ROADMAP.md:** For each completed phase in the current milestone, replace its full entry with:
 ```
-### Phase N: [Name] ✅ — completed M[N] — archived to handoffs/milestone-[N]-roadmap-archive.md
+### Phase N: [Name] ✅ — completed M[N] — archived to milestones/N-roadmap-archive.md
 ```
-Move the full phase entries to `.flow/context/handoffs/milestone-[N]-roadmap-archive.md`.
+Move the full phase entries to `.flow/context/milestones/N-roadmap-archive.md`.
 
 If no files exceed their limits — note "Archive check passed, no action needed" and continue.
 
@@ -51,9 +51,9 @@ If no files exceed their limits — note "Archive check passed, no action needed
 
 ## Stage 1: Generate Milestone Summary
 
-Read all phase handoffs for this milestone from `.flow/context/handoffs/`.
+Read all phase handoffs for this milestone from `.flow/context/phases/`.
 
-Write `.flow/context/handoffs/milestone-[N]-summary.md`:
+Write `.flow/context/milestones/N-summary.md`:
 
 ```markdown
 # Milestone [N] — [Name] — Complete
@@ -126,7 +126,7 @@ Next: /flow-new-milestone to start Milestone [N+1]
 
 Phases:    [count] verified
 Tag:       milestone-[N]
-Summary:   .flow/context/handoffs/milestone-[N]-summary.md
+Summary:   .flow/context/milestones/N-summary.md
 
 Next step: /flow-new-milestone
 ```

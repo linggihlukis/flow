@@ -14,8 +14,8 @@ Phase to remove: **$ARGUMENTS**
 
 ## Pre-flight
 
-1. Confirm `ROADMAP.md` exists
-2. Read `ROADMAP.md` — find Phase $ARGUMENTS
+1. Confirm `.flow/docs/ROADMAP.md` exists
+2. Read `.flow/docs/ROADMAP.md` — find Phase $ARGUMENTS
 3. Check `.flow/STATE.md` — confirm Phase $ARGUMENTS has NOT been started
 
 If the phase has started (status `planned`, `in-progress`, `executed`, or `verified`):
@@ -30,7 +30,7 @@ Type CONFIRM to proceed anyway, or stop here.
 
 ## Step 1: Check Dependencies
 
-Scan ROADMAP.md for any phase that lists Phase $ARGUMENTS in its `Depends on:` field.
+Scan `.flow/docs/ROADMAP.md` for any phase that lists Phase $ARGUMENTS in its `Depends on:` field.
 
 If found:
 ```
@@ -56,15 +56,15 @@ Show the full diff to the developer before writing.
 
 ## Step 3: Clean Up Context Files
 
-Check `.flow/context/` for any files belonging to Phase $ARGUMENTS:
-- `phase-$ARGUMENTS-CONTEXT.md`
-- `phase-$ARGUMENTS-plan-NN.md`
-- `phase-$ARGUMENTS-research.md`
+Check `.flow/context/phases/$ARGUMENTS/` for files belonging to Phase $ARGUMENTS:
+- `CONTEXT.md`
+- `plan-NN.md`
+- `research.md`
 
 If any exist, list them:
 ```
 The following context files belong to Phase $ARGUMENTS:
-  - [file list]
+  - .flow/context/phases/$ARGUMENTS/ (directory and all contents)
 
 Delete these files? (yes/no)
 ```
@@ -90,5 +90,5 @@ Phase $ARGUMENTS ([name]) removed [date] — [reason if provided]
 Phases renumbered: [old] → [new] (list)
 Context files: [deleted / preserved]
 
-Roadmap updated. Review ROADMAP.md to confirm.
+Roadmap updated. Review `.flow/docs/ROADMAP.md` to confirm.
 ```

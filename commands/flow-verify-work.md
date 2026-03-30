@@ -25,8 +25,8 @@ Spawn `@flow-verifier` with this brief:
 
 ```
 Phase: $ARGUMENTS
-CONTEXT.md: .flow/context/phase-$ARGUMENTS-CONTEXT.md
-Plans: all files matching .flow/context/phase-$ARGUMENTS-plan-*.md
+CONTEXT.md: .flow/context/phases/$ARGUMENTS/CONTEXT.md
+Plans: all files matching .flow/context/phases/$ARGUMENTS/plan-*.md
 ```
 
 The verifier will:
@@ -54,7 +54,7 @@ Wait for developer response before continuing. Do not skip to Stage 1 without co
 
 ## Stage 1: Extract Testable Deliverables
 
-Read all `phase-$ARGUMENTS-plan-NN.md` files, `ROADMAP.md` Phase $ARGUMENTS, and `.flow/context/phase-$ARGUMENTS-CONTEXT.md`.
+Read all `phase-$ARGUMENTS-plan-NN.md` files, `.flow/docs/ROADMAP.md` Phase $ARGUMENTS, and `.flow/context/phases/$ARGUMENTS/CONTEXT.md`.
 
 For each plan's done condition, write a plain-language testable statement:
 
@@ -62,7 +62,7 @@ Example transformation:
 - Done condition: "Returns 200 with user object on valid credentials"
 - UAT deliverable: "POST to /api/auth/login with valid email + password. You should receive a 200 response with id, email, and token fields."
 
-Write all deliverables to `.flow/context/phase-$ARGUMENTS-UAT.md` and show the list to the developer.
+Write all deliverables to `.flow/context/phases/$ARGUMENTS/UAT.md` and show the list to the developer.
 
 ---
 
@@ -100,15 +100,15 @@ For each failed deliverable, spawn `@flow-debugger` with the following brief:
 Phase: $ARGUMENTS
 Failed deliverable: [UAT title]
 Symptom: [exactly what the developer described]
-Relevant plan: .flow/context/phase-$ARGUMENTS-plan-NN.md
-Knowledge base: .flow/context/debug/KNOWLEDGE-BASE.md
-Fix plan output: .flow/context/phase-$ARGUMENTS-fix-NN.md
+Relevant plan: .flow/context/phases/$ARGUMENTS/plan-NN.md
+Knowledge base: .flow/memory/KNOWLEDGE-BASE.md
+Fix plan output: .flow/context/phases/$ARGUMENTS/fix-NN.md
 ```
 
 The debugger will:
 1. Check KNOWLEDGE-BASE.md for known matching issues first
 2. Investigate root cause with evidence
-3. Write a fix plan to `.flow/context/phase-$ARGUMENTS-fix-NN.md`
+3. Write a fix plan to `.flow/context/phases/$ARGUMENTS/fix-NN.md`
 4. Append to KNOWLEDGE-BASE.md
 
 Wait for all debuggers to complete before Stage 4.
@@ -122,7 +122,7 @@ Review each fix plan written by the debugger. Confirm:
 - The fix steps are atomic and implementable
 - The verify command will actually prove the UAT item passes
 
-Append to `.flow/context/LESSONS.md`:
+Append to `.flow/memory/LESSONS.md`:
 ```
 ## [Milestone X / Phase $ARGUMENTS] — YYYY-MM-DD
 **Context:** [what was being built]

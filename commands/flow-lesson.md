@@ -14,7 +14,7 @@ If $ARGUMENTS is empty, ask:
 
 Read .flow/STATE.md to get current milestone and phase.
 
-Format the entry and append to `.flow/context/LESSONS.md`:
+Format the entry and append to `.flow/memory/LESSONS.md`:
 
 ```markdown
 ## [Milestone X / Phase Y] — YYYY-MM-DD

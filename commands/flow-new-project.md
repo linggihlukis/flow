@@ -73,7 +73,7 @@ Spawn `@flow-researcher` for each brief (parallel if depth is standard/comprehen
 
 **Brief 4 — Risks & Pitfalls:** Common scope creep patterns, technical debt traps, integration risks, security considerations.
 
-Each researcher writes its findings. Consolidate into `.flow/context/research/project-research.md`.
+Each researcher writes its findings. Consolidate into `.flow/context/phases/project-research.md`.
 
 ---
 
@@ -86,7 +86,7 @@ Rules:
 - Each requirement gets a unique ID: REQ-001, REQ-002, etc.
 - If a requirement is too large for one phase, split it
 
-Write `REQUIREMENTS.md` to project root:
+Write `.flow/docs/REQUIREMENTS.md`:
 
 ```
 # Requirements — [Project Name]
@@ -143,7 +143,7 @@ Group into milestones:
 - Milestone 1 = v1 shippable (Must Have requirements)
 - Milestone 2 = Should Have additions (if scoped)
 
-Write `ROADMAP.md` to project root. Show it to the developer.
+Write `.flow/docs/ROADMAP.md`. Show it to the developer.
 Ask: "Does this roadmap match your vision? Any phases to add, remove, or reorder?"
 Iterate until the developer approves.
 
@@ -153,18 +153,18 @@ Iterate until the developer approves.
 
 Once roadmap is approved:
 
-1. Write `PROJECT.md` to project root (vision, goals, constraints, stack)
-2. Confirm `REQUIREMENTS.md` and `ROADMAP.md` are written
+1. Write `.flow/docs/PROJECT.md` (vision, goals, constraints, stack)
+2. Confirm `.flow/docs/REQUIREMENTS.md` and `.flow/docs/ROADMAP.md` are written
 3. Update `.flow/STATE.md` YAML frontmatter — copy this block and substitute values:
 
-   ```yaml
-   ---
-   milestone: 1
-   phase: 0
-   status: ready
-   updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
-   ---
-   ```
+```yaml
+---
+milestone: 1
+phase: 0
+status: ready
+updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
+---
+```
 
    Do not reformat or restructure the YAML. Change only the four fields above.
    Prose: record project name, stack, v1 scope summary, phase count.

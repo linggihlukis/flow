@@ -20,7 +20,7 @@ Parse both YAML frontmatter and prose. Extract:
 - Health status when work paused
 
 ## Step 3: Load Relevant Lessons
-Read `.flow/context/LESSONS.md` — load last 5 entries.
+Read `.flow/memory/LESSONS.md` — load last 5 entries.
 Filter to entries matching the current phase type (Visual/UI, API/Backend,
 Data/Content, Infrastructure). Surface only matching entries.
 If fewer than 2 matching entries exist in the last 5, expand to last 10.
@@ -35,7 +35,8 @@ If relevant lessons found, surface them:
 If no relevant lessons — skip silently.
 
 ## Step 4: Load Handoff
-Check for `.flow/context/handoffs/phase-[N]-handoff.md`.
+
+Check for `.flow/context/phases/N/handoff.md`.
 
 If exists:
 ```
@@ -43,6 +44,25 @@ If exists:
   Last built: [what was completed]
   Watch out for: [gotchas from handoff]
 ```
+
+If status is `in-progress` (mid-phase crash — no handoff written yet):
+Check for plan summary files:
+```bash
+ls .flow/context/phases/N/summary-*.md 2>/dev/null
+```
+If any summaries exist, surface them:
+```
+⚠️  Resuming mid-phase execution — no handoff yet.
+
+Plans completed before interruption:
+  ✅ plan-NN — [title] — [commit hash from summary]
+  ✅ plan-NN — [title] — [commit hash from summary]
+
+Plans not yet started: [remaining plan files with no corresponding summary]
+
+Resume with: /flow-execute-phase [N]
+```
+If no summaries exist: note "No plan summaries found — check git log for last commit."
 
 ## Step 5: Check for Destructive Changes
 Run: `git rev-parse HEAD~1 2>/dev/null && git diff HEAD~1 --name-only || echo "(skipped — not enough commits)"`

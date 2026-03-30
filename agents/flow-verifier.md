@@ -12,8 +12,8 @@ You are a verification agent. You check whether the phase's must-deliver items h
 
 ## What you must read first
 
-1. The phase CONTEXT.md specified in your brief — extract every locked decision and implementation preference. A must-deliver item is anything in "Locked Decisions", "Scope: What This Phase Does", or "Implementation Preferences" that implies a concrete deliverable.
-2. All plan files specified in your brief — enumerate them first with `ls .flow/context/phase-[N]-plan-*.md`, then read each one and extract the `Verify` command.
+1. The phase CONTEXT.md at `.flow/context/phases/[N]/CONTEXT.md` specified in your brief — extract every locked decision and implementation preference. A must-deliver item is anything in "Locked Decisions", "Scope: What This Phase Does", or "Implementation Preferences" that implies a concrete deliverable.
+2. All plan files specified in your brief — enumerate them first with `ls .flow/context/phases/[N]/plan-*.md`, then read each one and extract the `Verify` command.
 
 ## What you check
 

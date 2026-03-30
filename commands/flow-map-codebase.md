@@ -9,7 +9,7 @@ Read AGENTS.md fully before doing anything else.
 # /flow-map-codebase
 
 Run this before `/flow-new-project` when adding FLOW to an existing codebase.
-Spawns parallel agents to analyse the code, then writes PATTERNS.md and checks OpenCode commands directories for relevant skills.
+Spawns parallel agents to analyse the code, then writes `.flow/docs/PATTERNS.md` and checks OpenCode commands directories for relevant skills.
 
 ---
 
@@ -44,7 +44,7 @@ Spawn 4 parallel `@flow-researcher` agents with the following briefs:
 - Performance-sensitive areas
 - Anything fragile or undocumented
 
-Wait for all 4 researchers to complete. Consolidate findings into `.flow/context/research/codebase-analysis.md`.
+Wait for all 4 researchers to complete. Consolidate findings into `.flow/context/phases/codebase-analysis.md`.
 
 **Test baseline capture — run after consolidation:**
 
@@ -90,7 +90,7 @@ Any failure NOT on this list is a new regression and WILL block execution.
 # Test Baseline — captured by flow-map-codebase [date]
 
 No test infrastructure detected or test suite could not be run.
-See PATTERNS.md Test Infrastructure Health field for details.
+See `.flow/docs/PATTERNS.md` Test Infrastructure Health field for details.
 
 The planner will generate a test scaffold plan (plan-00) before feature plans.
 The executor will not run a test suite health check — no baseline exists to check against.
@@ -104,14 +104,14 @@ The executor will not run a test suite health check — no baseline exists to ch
 
 ## Stage 2: Write PATTERNS.md
 
-Using the analysis findings, write `PATTERNS.md` to the project root.
+Using the analysis findings, write `.flow/docs/PATTERNS.md`.
 
 **Important:** This codebase may be inconsistent. Do not average patterns into false uniformity.
 Every entry must reflect what the code *actually does*, not what it *should* do.
 Use the coverage and deviation fields to capture reality — the planner depends on this accuracy.
 
 ```markdown
-# PATTERNS.md — Codebase Reality Map
+# `.flow/docs/PATTERNS.md` — Codebase Reality Map
 
 > Written by: flow-map-codebase [date]
 > The planner and executor read this before every phase.
@@ -352,7 +352,7 @@ Print:
 ✅ Codebase mapped
 
 Stack:          [detected]
-Patterns:       written to PATTERNS.md
+Patterns:       written to .flow/docs/PATTERNS.md
 Confidence:     [high / moderate / low]
 Polyrepo:       [detected — SERVICE-MAP.md created | not detected]
 Skills:         [detected skills or "none detected"]

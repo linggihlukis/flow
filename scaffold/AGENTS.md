@@ -23,31 +23,43 @@ assume context that hasn't been given to you.
 All FLOW files live under `.flow/`. AGENTS.md is the only exception — it stays at root because OpenCode loads it automatically.
 
 ```
-AGENTS.md                          ← you are here (root — auto-loaded by OpenCode)
+AGENTS.md                              ← you are here (root — auto-loaded by OpenCode)
 .flow/
-├── STATE.md                       ← session state (YAML + prose)
-├── context/
-│   ├── config.json                ← workflow settings
-│   ├── LESSONS.md                 ← append-only cross-milestone memory
-│   ├── SERVICE-MAP.md             ← inter-service contracts (polyrepo/multi-service projects)
-│   ├── test-baseline.md           ← pre-existing test failures at FLOW install time (legacy codebases)
-│   ├── research/                  ← research outputs per phase
-│   ├── handoffs/                  ← phase handoff documents
-│   ├── debug/
-│   │   └── KNOWLEDGE-BASE.md      ← append-only debug memory
-│   └── [per-phase files]
-│       ├── phase-N-CONTEXT.md
-│       ├── phase-N-plan-NN.md
-│       ├── phase-N-fix-NN.md
-│       └── phase-N-UAT.md
-```
-
-Project files (written once by commands, rarely edited by hand):
-```
-PROJECT.md        ← vision, goals, constraints, stack
-ROADMAP.md        ← phases and milestones
-REQUIREMENTS.md   ← MoSCoW requirements with IDs
-PATTERNS.md       ← codebase conventions (written by flow-map-codebase)
+├── STATE.md                           ← session state (YAML + prose)
+│
+├── docs/                              ← project definition files
+│   ├── PROJECT.md                     ← vision, goals, constraints, stack
+│   ├── REQUIREMENTS.md                ← MoSCoW requirements with IDs
+│   ├── ROADMAP.md                     ← milestones and phases
+│   └── PATTERNS.md                    ← codebase reality map (written by flow-map-codebase)
+│
+├── memory/                            ← append-only cross-session memory
+│   ├── LESSONS.md                     ← cross-milestone lessons
+│   └── KNOWLEDGE-BASE.md              ← debug knowledge (append-only)
+│
+└── context/                           ← working files
+    ├── config.json                    ← workflow settings
+    ├── SERVICE-MAP.md                 ← inter-service contracts (polyrepo projects)
+    ├── test-baseline.md               ← pre-existing failures at install time
+    │
+    ├── phases/                        ← one folder per phase
+    │   └── N/
+    │       ├── CONTEXT.md             ← locked implementation decisions
+    │       ├── plan-01.md             ← atomic plan files
+    │       ├── fix-01.md              ← fix plans from flow-verify-work
+    │       ├── UAT.md                 ← UAT deliverables
+    │       ├── handoff.md             ← written by flow-execute-phase
+    │       ├── summary-01.md          ← written by flow-executor after each plan commit
+    │       └── research.md            ← written by flow-researcher
+    │
+    ├── milestones/                    ← milestone-level outputs
+    │   ├── N-summary.md               ← written by flow-complete-milestone
+    │   ├── N-roadmap-archive.md       ← archived roadmap entries
+    │   └── LESSONS-archive-MN.md      ← archived lessons
+    │
+    └── quick/                         ← ad-hoc task outputs
+        ├── [task-slug]-research.md
+        └── adhoc-fix-[date]-01.md
 ```
 
 ---
@@ -73,13 +85,16 @@ Every session begins with these steps in order. No exceptions.
 ```
 1. Read this file (AGENTS.md)
 2. Read .flow/STATE.md
-3. Read .flow/context/LESSONS.md — load last 5 entries.
+3. Read .flow/memory/LESSONS.md — load last 5 entries.
    Filter to entries matching the current phase type (Visual/UI, API/Backend,
    Data/Content, Infrastructure). Surface only matching entries.
    If fewer than 2 matching entries exist in the last 5, expand to last 10.
    If no relevant entries found — skip silently.
-4. If handoff exists for current phase: read .flow/context/handoffs/phase-N-handoff.md
-5. Run baseline-aware health check: if `.flow/context/test-baseline.md` exists, only new failures (not on the baseline list) are blocking. If no baseline file exists, all test failures are blocking. If baseline states "no test infrastructure", skip test run.
+4. If handoff exists for current phase: read .flow/context/phases/N/handoff.md
+5. Run baseline-aware health check: if .flow/context/test-baseline.md exists,
+   only new failures (not on the baseline list) are blocking. If no baseline
+   file exists, all test failures are blocking. If baseline states "no test
+   infrastructure", skip test run.
 6. Announce: "Resuming Milestone X, Phase Y — [last action]"
 ```
 
@@ -89,12 +104,13 @@ Do not write a single line of code before completing all 6 steps.
 
 ## 5. Subagents
 
-FLOW uses four specialised subagents. Each gets a fresh context window with only what it needs.
+FLOW uses six specialised subagents. Each gets a fresh context window with only what it needs.
 
 | Agent | When spawned | What it does |
 |---|---|---|
 | `@flow-researcher` | During `flow-plan-phase` Stage 1 | Investigates implementation approach for this phase |
 | `@flow-planner` | During `flow-plan-phase` Stage 2 | Generates atomic plan files for a phase |
+| `@flow-critic` | During `flow-plan-phase` Stage 3 | Checks plan files against 8 atomic rules — fresh context, no session history |
 | `@flow-executor` | Per plan during `flow-execute-phase` | Implements one plan, verifies, commits |
 | `@flow-debugger` | On UAT failure in `flow-verify-work` | Diagnoses root cause, writes fix plan |
 | `@flow-verifier` | During `flow-verify-work` Stage 0 (opt-in) | Checks must-deliver items have codebase evidence before UAT |
@@ -168,7 +184,7 @@ unrelated systems, or would take more than ~30 minutes.
 
 ## 9. Lesson Injection
 
-At session start, load the last 5 entries from `.flow/context/LESSONS.md`.
+At session start, load the last 5 entries from `.flow/memory/LESSONS.md`.
 Filter to entries matching the current phase type (Visual/UI, API/Backend,
 Data/Content, Infrastructure). Surface only matching entries.
 If fewer than 2 matching entries exist in the last 5, expand to last 10.
@@ -213,7 +229,9 @@ Examples:
 ```
 
 Never batch tasks. Never commit broken code.
-Always run baseline-aware health check before committing — new test failures (not in `.flow/context/test-baseline.md`) block the commit; pre-existing baseline failures do not.
+Always run baseline-aware health check before committing — new test failures
+(not in `.flow/context/test-baseline.md`) block the commit; pre-existing
+baseline failures do not.
 
 ---
 
@@ -247,12 +265,12 @@ when files approach their limits.
 
 | File | Soft limit | Hard limit | Action at hard limit |
 |---|---|---|---|
-| .flow/STATE.md | 200 lines | 300 lines | Trim oldest "Last Session" entries, keep last 2 |
-| .flow/context/LESSONS.md | 100 entries | 150 entries | Archive on next flow-complete-milestone |
-| .flow/context/SERVICE-MAP.md | — | 200 lines | Split into per-service files in .flow/context/service-maps/ |
-| .flow/context/test-baseline.md | — | — | Written once by flow-map-codebase. Never appended. Re-run flow-map-codebase to regenerate. |
-| ROADMAP.md | 100 lines/milestone | — | Archive completed milestones on flow-complete-milestone |
-| .flow/context/debug/KNOWLEDGE-BASE.md | 150 entries | 200 entries | Archive on next flow-complete-milestone |
+| `.flow/STATE.md` | 200 lines | 300 lines | Trim oldest "Last Session" entries, keep last 2 |
+| `.flow/memory/LESSONS.md` | 100 entries | 150 entries | Archive on next flow-complete-milestone |
+| `.flow/memory/KNOWLEDGE-BASE.md` | 150 entries | 200 entries | Archive on next flow-complete-milestone |
+| `.flow/docs/ROADMAP.md` | 100 lines/milestone | — | Archive completed milestones on flow-complete-milestone |
+| `.flow/context/SERVICE-MAP.md` | — | 200 lines | Split into per-service files in .flow/context/service-maps/ |
+| `.flow/context/test-baseline.md` | — | — | Written once by flow-map-codebase. Re-run to regenerate. |
 | Phase plan files | 400 lines | 600 lines | Critic pass must split if exceeded |
 | Phase CONTEXT.md | — | 400 lines | Planner must summarise if exceeded |
 
@@ -260,21 +278,22 @@ when files approach their limits.
 
 ## 15. Reading Discipline
 
-Before reading any accumulating file (.flow/context/LESSONS.md,
-ROADMAP.md, REQUIREMENTS.md, .flow/context/debug/KNOWLEDGE-BASE.md),
-run `wc -l [file]` first (on Windows: `Get-Content [file] | Measure-Object -Line`).
+Before reading any accumulating file (`.flow/memory/LESSONS.md`,
+`.flow/docs/ROADMAP.md`, `.flow/docs/REQUIREMENTS.md`,
+`.flow/memory/KNOWLEDGE-BASE.md`), run `wc -l [file]` first
+(on Windows: `Get-Content [file] | Measure-Object -Line`).
 
 If over 100 lines:
-- LESSONS.md: read only the last 50 lines then filter for relevance
-- ROADMAP.md: read only the section matching the current milestone header
-- REQUIREMENTS.md: read only Must Have requirements unless doing an audit
-- KNOWLEDGE-BASE.md: search for matching symptom keywords, do not read whole file
+- `LESSONS.md`: read only the last 50 lines then filter for relevance
+- `ROADMAP.md`: read only the section matching the current milestone header
+- `REQUIREMENTS.md`: read only Must Have requirements unless doing an audit
+- `KNOWLEDGE-BASE.md`: search for matching symptom keywords, do not read whole file
 
 For `.flow/context/SERVICE-MAP.md`: never read the whole file.
 Read only the service sections relevant to the current phase.
 If the phase has no service boundary crossing — skip entirely.
 
-Never use a glob read pattern on the .flow/context/ directory.
+Never use a glob read pattern on the `.flow/` directory.
 Read files individually and only when needed.
 
 ---

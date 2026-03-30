@@ -1,8 +1,8 @@
 # FLOW — Backlog
 
-> Issues identified through deep analysis comparing FLOW against GSD.
+> Issues and improvements identified through development and architectural review.
 > Each item includes the reason, urgency, why it matters, and the exact fix required.
-> Last updated: 2026-03-26
+> Last updated: 2026-03-29
 
 ---
 
@@ -331,7 +331,40 @@ Added to `agents/flow-planner.md` under `## What you must read first`, after ite
 
 ---
 
+### H6 — Intent Verification Layer ✅ Done
 
+**Urgency:** High
+**Token cost:** Zero (instructions only — no additional file reads)
+
+**What's missing:**
+`flow-do` routes correctly but has no mechanism to confirm the agent's interpretation before work begins. On discuss → plan this is recoverable. On plan → execute, a misread intent means committed code. There is currently no echo, no confidence signal, and no abort window. The `--auto` flag (L2) cannot be safely built without this layer existing first.
+
+**Why it matters:**
+This is the prerequisite for any auto-chaining. Without intent verification, `--auto` is fast mistakes. With it, full automation is genuinely safe. A solo developer running FLOW on a legacy codebase cannot afford to discover intent drift at execution time.
+
+**Fix:**
+Add to `flow-do` and `flow-discuss-phase` before any routing or stage execution:
+
+```
+## Intent Verification
+
+Before routing or proceeding to Stage 1, output:
+
+→ I understood this as: [one sentence paraphrase of what you'll do]
+  Confidence: HIGH / MEDIUM / LOW
+  [If MEDIUM or LOW: explain what is ambiguous]
+
+Proceed? (enter to confirm, n to stop)
+```
+
+In `yolo` mode: skip the pause but still print the echo and confidence rating.
+In future `--auto` mode: only chain automatically if confidence is HIGH and no reply is received within the echo window.
+
+**Files to change:**
+`commands/flow-do.md` — add intent verification block before routing table
+`commands/flow-discuss-phase.md` — add intent echo at session start
+
+---
 
 ### M1 — `@flow-planner` full version ✅ Done
 
@@ -403,7 +436,7 @@ Feeds directly into context accumulation. A ROADMAP.md with 3 milestones × 6 ph
 **Fix:**
 Implement as part of C4's archiving stage in `flow-complete-milestone`. On milestone complete, replace each completed phase's full entry in ROADMAP.md with:
 ```
-### Phase N: [Name] ✅ — completed M[N] — archived to handoffs/milestone-[N]-roadmap-archive.md
+### Phase N: [Name] ✅ — completed M[N] — archived to milestones/N-roadmap-archive.md
 ```
 
 **Files to change:** `commands/flow-complete-milestone.md` — archiving stage (implement as part of C4)
@@ -480,6 +513,30 @@ Create `agents/flow-verifier.md` as a dedicated subagent for this check.
 
 ---
 
+### M6 — @flow-critic subagent ✅ Done
+
+**Urgency:** Medium
+**Token cost:** Net saving (fresh ~250-line critic context vs critic running inside the 1670-line orchestrator context)
+
+**What's missing:**
+The critic pass in `flow-plan-phase` Stage 3 runs inside the orchestrator — the same context that loaded AGENTS.md, STATE.md, LESSONS.md, PATTERNS.md, REQUIREMENTS.md, CONTEXT.md, and research output before the planner ran. It is the author reviewing their own work in a heavy context, not a fresh perspective. A critic rationalising from accumulated context will pass weaker plans than a cold agent reading them for the first time. This is where plan quality diverges most on complex phases.
+
+**Fix:**
+Create `agents/flow-critic.md` as a dedicated subagent:
+- Reads: plan files only + the 8 atomic rules
+- No access to: AGENTS.md, STATE.md, LESSONS.md, PATTERNS.md, or any context the planner had
+- `temperature: 0.1` — strict rule checking, not creative
+- `tools: write: false, edit: false, bash: false` — read-only, returns structured report only
+- Output: pass/fail annotation per rule per plan, returned to orchestrator
+
+Update `flow-plan-phase` Stage 3 to spawn `@flow-critic` instead of running the critic inline. Orchestrator handles rewrites based on critic annotations — does not re-read plans itself.
+
+**Files to change:**
+Create `agents/flow-critic.md`
+Update `commands/flow-plan-phase.md` — Stage 3 spawns `@flow-critic` instead of inline critic
+
+---
+
 ## 🟢 Low
 
 ---
@@ -496,13 +553,16 @@ Run a lighter model for execution (routine implementation) and a stronger model 
 ### L2 — `--auto` flag chaining discuss → plan → execute 🔲 Pending
 
 **Urgency:** Low
+**Blocked by:** H6 (Intent Verification Layer must exist and be confirmed working in practice first)
 **Token cost:** Zero
 
-For phases where intent is already clear, chaining the three commands without stopping saves time. The current manual flow is deliberate by design — this flag would let you opt out of the stops when you don't need them.
+Once H6 is built, `--auto` becomes a small addition to `flow-do`: if confidence is HIGH and no response received in the echo window, chain automatically to the next command. If MEDIUM or LOW, always stop for confirmation regardless of the flag.
+
+Without H6, this flag is unsafe regardless of implementation quality — there is no mechanism to detect intent drift before execution begins. Do not build until H6 is live and validated on a real project.
 
 ---
 
-### L3 — FLOW test suite 🔲 Pending
+### L3 — FLOW test suite ✅ Done
 
 **Urgency:** Low
 **Token cost:** Zero
@@ -511,7 +571,7 @@ A fixture-based test suite that validates command files are internally consisten
 
 ---
 
-### L4 — Per-plan SUMMARY.md after execution 🔲 Pending
+### L4 — Per-plan SUMMARY.md after execution ✅ Done
 
 **Urgency:** Low
 **Token cost:** Zero (written by executor at commit time, not loaded by orchestrator)
@@ -601,25 +661,278 @@ flow-tools files-check [path...]        → checks each path exists, returns JSO
 
 ---
 
+---
+
+### S1 — Folder structure redesign ✅ Done
+
+**Urgency:** Structural
+**Token cost:** Zero
+
+**What was done:**
+Replaced the flat `.flow/context/` dump with a purposeful four-directory hierarchy. Every command, agent, `AGENTS.md`, and `install.js` updated to match.
+
+New structure:
+- `.flow/docs/` — project definition files (ROADMAP, REQUIREMENTS, PATTERNS, PROJECT). Moved from root. Agents and developers both read here.
+- `.flow/memory/` — append-only cross-session files (LESSONS.md, KNOWLEDGE-BASE.md). Separated from working files to make the append-only contract explicit.
+- `.flow/context/phases/N/` — all per-phase working files grouped by phase (CONTEXT, plans, fixes, UAT, handoff, research). Replaces flat `phase-N-*` naming in `context/`.
+- `.flow/context/milestones/` — milestone-level outputs (summaries, roadmap archives, lesson archives). Replaces `context/handoffs/` for milestone files.
+- `.flow/context/quick/` — ad-hoc outputs from `flow-quick` and `flow-debug`. Replaces `context/debug/` for adhoc fix plans.
+
+`AGENTS.md` remains at root — OpenCode auto-loads it from there. Never moves.
+
+**Files changed:** `scaffold/AGENTS.md`, `scaffold/.flow/` (restructured), `bin/install.js`, all 24 `commands/*.md`, all 5 `agents/*.md`
+
+---
+
+### S2 — GUIDE.md removed, README.md rewritten ✅ Done
+
+**Urgency:** Structural
+**Token cost:** Zero
+
+**What was done:**
+`GUIDE.md` was a duplicate of content already in `README.md`, installed into every project as a scaffold file — noise in the developer's own repo. Deleted it. Merged all unique content into `README.md`:
+
+- Added **How FLOW Works** section: lifecycle diagram, phase-by-phase walkthrough, subagent table, guard rails, recovery tiers
+- Added **Folder Structure** section: annotated tree of the full `.flow/` hierarchy
+- Removed redundant duplication between the two old files
+- Updated all file path references throughout to match new structure
+
+**Files changed:** `README.md` (rewritten), `scaffold/GUIDE.md` (deleted), `bin/install.js` (GUIDE.md removed from scaffold install)
+
+---
+
+---
+
+## Recommendations from Agentic Paradigm Review (2026-03-29)
+
+> Items below were identified by comparing FLOW against Anthropic's current agentic coding paradigm (Claude Agent SDK, context engineering, subagent isolation). Ranked by urgency × (1/effort) — highest ROI first.
+
+---
+
+### R1 — npm publish (`npx flow-init`) 🔲 Pending
+
+**Urgency:** Critical
+**Token cost:** Zero
+**Effort:** Trivial
+
+**What's missing:**
+All remaining backlog items are blocked on real-world usage evidence. The install script is production-ready, the test suite is clean (7 suites, zero failures), and the README covers the install flow. The current distribution path (`npx github:linggihlukis/flow`) is not discoverable — a solo developer will not find it unless they already know about it.
+
+**Why it matters:**
+Without real usage, every remaining item is optimised against hypothetical pain points. The npm registry is the prerequisite that unblocks L2, A2, A3, L1, Option B, and all R-series items below. This is a publish step, not an engineering task.
+
+**Fix:**
+1. Choose a package name (`flow-init` or similar — check for conflicts first)
+2. Add `"name"`, `"version"`, `"bin"` fields to `package.json` if not already correct
+3. `npm publish --access public`
+4. Update README.md install instructions to show `npx flow-init`
+
+**Files to change:** `package.json`, `README.md`
+
+---
+
+### R2 — Feedback loop closure in `flow-verify-work` 🔲 Pending
+
+**Urgency:** High
+**Token cost:** Zero (instructions only)
+**Effort:** Low (~1 hour)
+
+**What's broken:**
+`flow-verify-work` writes fix plans on failure and outputs `"Run /flow-execute-phase $ARGUMENTS to apply fixes."` — then stops. This is a manual re-entry that breaks Anthropic's core agent loop: gather context → take action → verify work → **repeat**. The repeat step is the point of verification, and it requires the developer to manually re-invoke.
+
+**Why it matters:**
+Every phase that has a UAT failure requires a second developer action to resume. In `yolo` mode this friction is especially misaligned — the mode is designed for fast iteration but the loop closure still requires manual re-entry. This is the highest quality-per-token improvement available because it removes a recurring interruption, not a one-time setup cost.
+
+**Fix:**
+In `flow-verify-work` completion block for `status: needs-fixes`, add:
+
+```
+## Auto-resume
+
+In `interactive` mode:
+  Print the fix plan list, then:
+  "Fix plans are ready. Run /flow-execute-phase $ARGUMENTS to apply, or n to stop."
+  Wait for confirmation before routing.
+
+In `yolo` mode:
+  Print: "→ Auto-resuming: /flow-execute-phase $ARGUMENTS (fix plans)"
+  Route immediately to /flow-execute-phase $ARGUMENTS.
+  The executor will pick up fix plans from .flow/context/phases/$ARGUMENTS/fix-*.md automatically.
+```
+
+No new architecture required. `flow-execute-phase` Stage 1 already reads `fix-*.md` files alongside plan files — the routing just needs to happen automatically.
+
+**Files to change:** `commands/flow-verify-work.md` — Completion (Issues Found) block
+
+---
+
+### R3 — Role-scoped AGENTS.md includes 🔲 Pending
+
+**Urgency:** High
+**Token cost:** Net saving per subagent invocation
+**Effort:** Medium (~2-3 hours)
+
+**What's broken:**
+`AGENTS.md` is 355 lines and every subagent loads it in full. `@flow-executor` needs the commit protocol, destructive tiers, and deviation rules (~80 lines). It does not need the SERVICE-MAP protocol, context discipline, session discipline, or Antigravity runtime section. Same problem for `@flow-planner` and `@flow-researcher`.
+
+**Why it matters:**
+This is compounding context cost. On a 12-phase project, each subagent invocation loads ~275 lines of irrelevant AGENTS.md content before reading a single source file. Anthropic's paradigm is explicit: subagents should receive only what they need. The current design contradicts that at the foundation.
+
+**Fix:**
+Split AGENTS.md into:
+- `AGENTS-core.md` (~120 lines): Section 4 Session Start, Section 7 Destructive Tiers, Section 10 Recovery Tiers, Section 11 Commit Protocol, Section 12 State Write Protocol — universal rules all agents need
+- `AGENTS-executor.md`: Sections relevant only to execution (atomic task rules, deviation handling)
+- `AGENTS-planner.md`: Sections relevant only to planning (file size limits, reading discipline)
+
+The root `AGENTS.md` stays as the human-readable canonical master document. Subagent briefs are updated to reference `AGENTS-core.md` + their role-specific file instead of the full `AGENTS.md`.
+
+OpenCode auto-loads `AGENTS.md` from root for the orchestrator — that behaviour is preserved. Only subagent briefs change their read instruction.
+
+**Files to change:** Create `scaffold/AGENTS-core.md`, `scaffold/AGENTS-executor.md`, `scaffold/AGENTS-planner.md`; update all subagent brief `## What you must read first` sections; update `bin/install.js` to scaffold the new files
+
+---
+
+### R4 — PATTERNS.md drift detection (`--refresh` flag) 🔲 Pending
+
+**Urgency:** Medium
+**Token cost:** Zero (one-time scan, not per-session)
+**Effort:** Low (~45 minutes)
+
+**What's broken:**
+`flow-map-codebase` writes PATTERNS.md once and agents read it as authoritative forever. On any real project, by phase 4 some patterns have drifted — a refactored module, a dropped dependency, a changed convention. Agents continue planning and executing against stale ground truth. The "Do Not Change" section may reference things that have already been changed. Confidence zones may have been resolved.
+
+**Why it matters:**
+PATTERNS.md is the single most-read file in the system after AGENTS.md. Stale entries don't cause visible failures immediately — they cause subtle plan divergence that surfaces as fix plans and debug sessions. The cost is invisible and cumulative.
+
+**Fix:**
+Add `--refresh` mode to `flow-map-codebase` that:
+1. Reads existing PATTERNS.md
+2. For each documented pattern, runs a targeted scan of the relevant files to check if the pattern still holds
+3. Flags stale entries in a `## Possibly Stale (as of YYYY-MM-DD)` section — does not rewrite them
+4. Prompts developer to confirm or update flagged entries
+
+The "written once by flow-map-codebase, never modified by agents" invariant is preserved — `--refresh` is a developer-invoked command, not agent-triggered.
+
+**Files to change:** `commands/flow-map-codebase.md` — add `--refresh` mode after the main mapping stages
+
+---
+
+### R5 — Structured subagent return format 🔲 Pending
+
+**Urgency:** Medium
+**Token cost:** Net saving (orchestrator reads return block, not full file)
+**Effort:** Low (~1-2 hours)
+
+**What's broken:**
+Subagents write full files, then the orchestrator re-reads those files wholesale to continue. `@flow-researcher` writes 400-line `research.md`; `@flow-planner` reads all 400 lines. The fresh-context isolation benefit leaks back at every handoff boundary. `@flow-executor` writes `summary-NN.md` and the orchestrator reads all summaries before writing the handoff — re-accumulating everything the per-plan summaries were supposed to avoid.
+
+**Why it matters:**
+Anthropic's subagent design principle is that subagents send only relevant information back to the orchestrator, not their full context. FLOW's file-passing handoff is functionally correct but architecturally misaligned — it reintroduces the accumulation that fresh-context subagents are meant to prevent.
+
+**Fix:**
+Each subagent brief requires a `## Return` section as the final block of their output file. This section contains 5-10 structured key-value pairs covering only what the orchestrator needs to continue:
+
+```markdown
+## Return
+key_decisions: [JSON array of strings — locked decisions the orchestrator must act on]
+open_questions: [JSON array of strings — items requiring developer input]
+next_action: [string — what the orchestrator should do next]
+status: [pass | partial | blocked]
+```
+
+Orchestrators are updated to extract the `## Return` block from subagent output files rather than reading the full file. Full files remain on disk for human inspection.
+
+No new infrastructure required — format addition to each subagent output spec and corresponding read instruction in each orchestrator brief.
+
+**Files to change:** `agents/flow-researcher.md`, `agents/flow-planner.md`, `agents/flow-executor.md`, `agents/flow-debugger.md`; `commands/flow-plan-phase.md`, `commands/flow-execute-phase.md` — update subagent output read instructions
+
+---
+
+### R6 — MCP block in `config.json` 🔲 Pending
+
+**Urgency:** Low-Medium
+**Token cost:** Optional (only when MCP tools are configured)
+**Effort:** Medium
+**Blocked by:** R1 (need real users to validate which integrations matter before designing the schema)
+
+**What's missing:**
+Every subagent operates only on the local filesystem. There is no mechanism for `@flow-researcher` to query a GitHub issue, for `@flow-executor` to post a Slack notification on commit, or for `@flow-verifier` to check a deployed endpoint. Anthropic's paradigm treats MCP as standard infrastructure for agent-to-external-service communication.
+
+**Why it matters:**
+Solo developers are also PMs and ops. FLOW could carry cross-tool load (GitHub issue context in research, Slack commit notifications, deployment endpoint verification) without any code changes to the agent logic — just declared MCP connections in config.
+
+**Fix:**
+Add optional `mcp_servers` array to `scaffold/.flow/context/config.json`:
+
+```json
+"mcp_servers": [
+  { "name": "github", "url": "https://github.mcp.example.com/mcp" }
+]
+```
+
+Subagent briefs check for `mcp_servers` in config and include declared tools in their tool list when non-empty. No impact on users who don't configure it.
+
+Priority first integration: `@flow-researcher + GitHub MCP` — allows researcher to read actual issues and PRs instead of relying on developer-summarised CONTEXT.md.
+
+**Files to change:** `scaffold/.flow/context/config.json`, `agents/flow-researcher.md`, `agents/flow-verifier.md`, `commands/flow-plan-phase.md`
+
+---
+
+### R7 — Hooks / event-driven invocation 🔲 Pending
+
+**Urgency:** Low
+**Token cost:** Zero (infrastructure layer, not instruction layer)
+**Effort:** High
+**Blocked by:** Option B (requires flow-tools binary) + R1 (needs usage evidence of what events matter)
+
+**What's missing:**
+FLOW is entirely invocation-driven — every command requires the developer to type something. Anthropic's agentic paradigm is moving toward event-driven loops: agents that react to git pushes, CI failures, file changes, and cron schedules without manual prompting.
+
+**Why it matters:**
+For a solo developer, the highest-friction moments are context switching — stopping what you're doing to type `/flow-verify-work 3`. A `flow-tools watch` daemon that monitors `.flow/STATE.md` for status changes and can trigger the next command automatically would eliminate the most common interruption pattern.
+
+**Fix:**
+Add to `flow-tools` binary (Option B prerequisite):
+```
+flow-tools watch              → monitors STATE.md, emits events on status change
+flow-tools on [event] [cmd]   → registers a hook: run cmd when event fires
+```
+
+This shares the binary dependency with Option B. Build together, not separately.
+
+**Files to change:** `bin/flow-tools.js` (new, requires Option B first), hook registration in `scaffold/.flow/context/config.json`
+
+---
+
 ## Implementation Order
 
-**All critical and high items are complete.** Remaining items are low priority or blocked on real-world usage validation.
-
-**Completed (all sessions):**
+**Completed:**
 - C0, C1, C2, C3, C4 — critical fixes
 - H1, H2, H3, H4, H5 — high priority fixes
 - M1, M2, M3, M4, M5 — medium priority improvements
+- H6 — Intent Verification Layer
+- M6 — @flow-critic subagent
 - A1 — Antigravity runtime support
+- L3 — FLOW test suite
+- L4 — Per-plan SUMMARY.md
 - Option A, C — session discipline documented
+- S1 — Folder structure redesign
+- S2 — GUIDE.md removed, README.md rewritten
 
-**Pending (low / when ready):**
-1. A2 — Antigravity `// turbo` annotations (blocked: confirm A1 works in practice first)
-2. A3 — Antigravity browser verification in flow-verify-work (blocked: A1)
-3. L1 — Model profile routing (blocked: OpenCode stability check)
-4. L2 — `--auto` flag chaining
-5. L3 — FLOW test suite (do before public release)
-6. L4 — Per-plan SUMMARY.md
-7. Option B — flow-tools binary (only if context ceiling confirmed as real pain in practice)
+**Pending — in priority order (highest ROI first):**
+
+1. **R1** — npm publish (`npx flow-init`) — no engineering, just publish. Unblocks everything below.
+2. **R2** — Feedback loop closure in `flow-verify-work` — closes the verify → repeat gap. Low effort, high recurring return.
+3. **R3** — Role-scoped AGENTS.md includes — compounding token saving on every subagent invocation.
+4. **R4** — PATTERNS.md drift detection (`--refresh` flag) — low effort, prevents invisible plan quality decay.
+5. **R5** — Structured subagent return format — closes the handoff accumulation leak.
+6. **L2** — `--auto` flag (blocked: R1 confirmed in practice, H6 proven working)
+7. **A2** — Antigravity `// turbo` annotations (blocked: A1 confirmed on real install)
+8. **A3** — Antigravity browser verification (blocked: A1)
+9. **L1** — Model profile routing (blocked: OpenCode per-agent model stability)
+10. **R6** — MCP block in `config.json` (blocked: R1 — need usage signal on which integrations matter)
+11. **Option B** — flow-tools binary (blocked: context ceiling confirmed as real pain)
+12. **R7** — Hooks / event-driven invocation (blocked: Option B + R1)
 
 ---
 

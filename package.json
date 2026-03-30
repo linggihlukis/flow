@@ -6,7 +6,8 @@
     "flow-init": "./bin/install.js"
   },
   "scripts": {
-    "start": "node bin/install.js"
+    "start": "node bin/install.js",
+    "test": "node test/flow-test.js"
   },
   "keywords": [
     "opencode",
@@ -19,5 +20,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.1"
   }
 }

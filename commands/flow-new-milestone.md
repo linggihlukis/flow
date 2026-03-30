@@ -16,8 +16,8 @@ Milestone name (optional): **$ARGUMENTS**
 
 1. Confirm current milestone status is `milestone-complete`
    → If not: "Run /flow-complete-milestone first"
-2. Read `PROJECT.md` — understand the overall project vision
-3. Read previous milestone summary from `.flow/context/handoffs/milestone-[N]-summary.md`
+2. Read `.flow/docs/PROJECT.md` — understand the overall project vision
+3. Read previous milestone summary from `.flow/context/milestones/N-summary.md`
 4. Note any deferred items from the previous milestone
 
 ---
@@ -55,11 +55,11 @@ Spawn `@flow-researcher` with brief:
 
 ```
 Context: New milestone for existing project
-Previous milestone summary: .flow/context/handoffs/milestone-[N]-summary.md
-PATTERNS.md: PATTERNS.md
+Previous milestone summary: .flow/context/milestones/N-summary.md
+PATTERNS.md: .flow/docs/PATTERNS.md
 Focus: new features being added in this milestone
 depth: [from config]
-Output: .flow/context/research/milestone-[N+1]-research.md
+Output: .flow/context/phases/milestone-[N+1]-research.md
 ```
 
 ---
@@ -68,7 +68,7 @@ Output: .flow/context/research/milestone-[N+1]-research.md
 
 Write new requirements using MoSCoW format. Only include requirements for this milestone — do not re-list already-delivered requirements.
 
-Update `REQUIREMENTS.md` — append a new milestone section:
+Update `.flow/docs/REQUIREMENTS.md` — append a new milestone section:
 
 ```markdown
 ## Milestone [N+1] — [Name]
@@ -92,7 +92,7 @@ Show to developer. Confirm before proceeding.
 
 ## Stage 4: Roadmap
 
-Append new phases to `ROADMAP.md`:
+Append new phases to `.flow/docs/ROADMAP.md`:
 
 ```markdown
 ## Milestone [N+1] — [Name]

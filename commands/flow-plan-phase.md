@@ -14,15 +14,15 @@ Phase number: **$ARGUMENTS**
 
 ## Pre-flight Checks
 
-1. Confirm `.flow/context/phase-$ARGUMENTS-CONTEXT.md` exists
+1. Confirm `.flow/context/phases/$ARGUMENTS/CONTEXT.md` exists
    → If not: "Run /flow-discuss-phase $ARGUMENTS first"
-2. Read `PATTERNS.md` if it exists — all new code must follow existing conventions
-3. Read `.flow/context/LESSONS.md` — load last 5 entries.
+2. Read `.flow/docs/PATTERNS.md` if it exists — all new code must follow existing conventions
+3. Read `.flow/memory/LESSONS.md` — load last 5 entries.
    Filter to entries matching the current phase type (Visual/UI, API/Backend,
    Data/Content, Infrastructure). Apply only matching entries.
    If fewer than 2 matching entries in the last 5, expand to last 10.
    If none found — skip silently.
-4. Read `REQUIREMENTS.md` — understand which requirements this phase covers
+4. Read `.flow/docs/REQUIREMENTS.md` — understand which requirements this phase covers
 5. Read `.flow/context/config.json` — apply these settings:
    - `depth`: `quick` = 1 research agent (key risks only), `standard` = 3 agents (default), `comprehensive` = 3 agents with deeper investigation and more plan detail
    - `mode`: if `yolo`, skip developer confirmation of plans before execution
@@ -38,11 +38,11 @@ Spawn `@flow-researcher` with the following brief:
 
 ```
 Phase: $ARGUMENTS
-CONTEXT.md: .flow/context/phase-$ARGUMENTS-CONTEXT.md
-PATTERNS.md: [path if exists]
-REQUIREMENTS.md: REQUIREMENTS.md
+CONTEXT.md: .flow/context/phases/$ARGUMENTS/CONTEXT.md
+PATTERNS.md: .flow/docs/PATTERNS.md (if exists)
+REQUIREMENTS.md: .flow/docs/REQUIREMENTS.md
 depth: [quick | standard | comprehensive — from config]
-Output: .flow/context/research/phase-$ARGUMENTS-research.md
+Output: .flow/context/phases/$ARGUMENTS/research.md
 ```
 
 Wait for the researcher to complete before proceeding to Stage 2.
@@ -55,11 +55,11 @@ Spawn `@flow-planner` with the following brief:
 
 ```
 Phase: $ARGUMENTS
-CONTEXT.md: .flow/context/phase-$ARGUMENTS-CONTEXT.md
-Research: .flow/context/research/phase-$ARGUMENTS-research.md
-PATTERNS.md: [path if exists]
-REQUIREMENTS.md: REQUIREMENTS.md
-Output dir: .flow/context/
+CONTEXT.md: .flow/context/phases/$ARGUMENTS/CONTEXT.md
+Research: .flow/context/phases/$ARGUMENTS/research.md
+PATTERNS.md: .flow/docs/PATTERNS.md (if exists)
+REQUIREMENTS.md: .flow/docs/REQUIREMENTS.md
+Output dir: .flow/context/phases/$ARGUMENTS/
 ```
 
 Wait for the planner to complete and confirm plan files exist before proceeding to Stage 3.
@@ -72,35 +72,48 @@ The planner writes all plan files. Do not generate plans inline.
 
 Check `.flow/context/config.json` → `workflow.plan_check`. If false, skip to Completion.
 
-Switch to critic mode. You are no longer the author of these plans — you are reviewing them with fresh eyes against a fixed rule set. Do not rationalise your own decisions. Challenge them.
-
-Check every plan against all 8 rules:
-
-1. **Single deliverable** — exactly one independently verifiable output
-2. **Single context** — no switching between unrelated systems
-3. **Verifiable done condition** — binary pass/fail only
-4. **Minimum file scope** — Files field lists only what's necessary
-5. **Safe failure** — codebase not broken if plan fails midway
-6. **No assumed context** — executor can run this with a fresh window
-7. **Context window fit** — scope fits in one agent session
-8. **Nyquist rule** — Verify field contains a real runnable command, not "check it works"
-
-For each failing plan:
-1. Rewrite to fix the violation
-2. If fix requires splitting — create additional plan files
-3. Re-check. Maximum 3 loops.
-4. If still failing after 3 loops:
+Spawn `@flow-critic` with the following brief:
 
 ```
-⚠️  Critic could not resolve: .flow/context/phase-$ARGUMENTS-plan-NN
+Phase: $ARGUMENTS
+Plans: [list every plan file path written by the planner — e.g. .flow/context/phases/$ARGUMENTS/plan-01.md, plan-02.md, ...]
+```
+
+The critic reads plan files only. Do not pass PATTERNS.md, CONTEXT.md, LESSONS.md, or any other file — the critic's value is a fresh-context read.
+
+Wait for the critic report before proceeding.
+
+---
+
+**On receiving the critic report:**
+
+If all plans pass:
+```
+✅ Critic pass complete — [count] plans satisfy all 8 rules
+```
+Proceed to Completion.
+
+If any plans fail — rewrite each failing plan using the critic's annotations:
+- Use the `Fix direction` field from the report as the rewrite instruction
+- If the fix requires splitting a plan, create the additional plan file(s) with the next available sequence number
+- Do not re-read the plans wholesale — use the annotations as precise instructions
+- Do not re-spawn the critic on plans that already passed
+
+Re-spawn `@flow-critic` with only the rewritten and any newly created plan files.
+
+Maximum 3 critic loops total across all plans. If a plan still fails after 3 loops:
+
+```
+⚠️  Critic could not resolve: .flow/context/phases/$ARGUMENTS/plan-NN
 Rule violated: [rule number and name]
-Issue: [specific description]
+Issue: [specific description from critic report]
 Please review manually before proceeding.
 ```
 
-When all plans pass:
+When all remaining plans pass:
 ```
 ✅ Critic pass complete — [count] plans satisfy all 8 rules
+  [if any rewrites occurred:] [N] plan(s) rewritten, [N] plan(s) split
 ```
 
 ---

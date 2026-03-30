@@ -1,205 +1,67 @@
-# FLOW — Spec-Driven AI Development Workflow
+# Flow
 
 > Fast by default. Careful when it counts.  
 > Complexity in the system, not in your workflow.
 
-FLOW is a spec-driven AI development workflow built for OpenCode, adaptable to Claude Code and any instruction-following model. It solves context rot — the quality degradation that happens as AI agents lose shared understanding across sessions.
+Flow is a spec-driven agentic development workflow for solo developers. It brings structure, memory, and discipline to AI-assisted coding — without making you manage the discipline yourself. You describe what you want. Flow figures out the rest, plans it carefully, executes it atomically, and remembers what happened so the next session picks up exactly where this one left off.
 
-Built for real-world use: greenfield projects, legacy codebases, and multi-service architectures.
+It runs on OpenCode, Claude Code, and any instruction-following model that supports slash commands.
+
+---
+
+## What Flow Is
+
+Most AI coding tools are fast at the start and chaotic by week two. They lose context between sessions, generate plans that assume a clean codebase, skip verification, and require the developer to carry the overhead of knowing what the agent understood and what it didn't. The more complex the project, the more this costs.
+
+Flow is built on the opposite premise: **the discipline lives in the system, not in you.**
+
+Every session starts the same way — state is read, relevant lessons are surfaced, the handoff from the last phase is loaded. Every plan is checked against a fixed set of atomic rules before a single line of code is written. Every task gets one commit. Every failure gets a root cause, a fix plan, and a lesson appended to persistent memory. By the time you're at phase 8 of a mature project, Flow is running with more context about your codebase than any developer could hold in their head.
+
+This works equally well on greenfield projects and legacy codebases. On clean codebases, Flow keeps them clean. On messy codebases, it maps the mess accurately and works within it — rather than pretending it isn't there.
 
 ---
 
 ## Install
 
-FLOW supports three install paths.
-
----
-
-### Path 1 — From your private GitHub repo (recommended)
-
-Once you've pushed this repo to GitHub:
-
 ```bash
-# Inside your project — installs commands globally AND scaffold into this project
+# OpenCode (global)
 npx github:YOUR_USERNAME/flow --opencode --global
 
-# Claude Code
+# Claude Code (global)
 npx github:YOUR_USERNAME/flow --claude --global
 
-# Both runtimes
-npx github:YOUR_USERNAME/flow --all --global
+# Local install
+unzip flow.zip && cd flow && npm link
+flow-init --opencode --local
 ```
-
-> Both `/flow-*` commands and project scaffold files (`AGENTS.md`, `.flow/`) are always installed together. Scaffold is written to the directory where you run the command. Existing files are never overwritten.
-
-Replace `YOUR_USERNAME` with your GitHub username and `flow` with your repo name if different.
-
-> **Note:** For a private repo, you need to be authenticated with GitHub on your machine (`gh auth login` or SSH key configured). npx resolves GitHub repos via `github:user/repo` shorthand using your existing git credentials.
-
----
-
-### Path 2 — From npm (if you publish it)
-
-```bash
-npx flow-init --opencode --global
-```
-
-To publish:
-```bash
-cd flow
-npm login
-npm publish --access restricted   # private (requires paid npm account)
-# or
-npm publish                        # public
-```
-
----
-
-### Path 3 — Local install (no GitHub, no npm)
-
-```bash
-unzip flow.zip
-cd flow
-npm link
-
-flow-init --opencode --global
-```
-
-`npm link` installs the package globally on your machine without publishing anywhere.
-
-> **Note:** `flow-init` will only be available as a bare command if npm's global bin directory is in your `$PATH`. Verify with `npm bin -g` and add it to your shell profile if needed. Alternatively, run `node bin/install.js --opencode --global` directly.
-
----
-
-### Non-interactive flags
 
 | Flag | Description |
 |---|---|
 | `--opencode` | Install for OpenCode |
 | `--claude` | Install for Claude Code |
 | `--antigravity` | Install for Antigravity (global only) |
-| `--all` | Install for all runtimes |
-| `--global` or `-g` | Install to global config directory |
-| `--local` or `-l` | Install to current project only |
-| `--uninstall` | Remove FLOW commands (preserves scaffold files) |
+| `--global` / `-g` | Install to global config directory |
+| `--local` / `-l` | Install to current project only |
+| `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold) |
 
----
-
-### Where commands are installed
-
-| Runtime | Global path (Mac/Linux) | Global path (Windows) |
-|---|---|---|
-| OpenCode | `~/.config/opencode/commands/` | `%USERPROFILE%\.config\opencode\commands\` |
-| Claude Code | `~/.claude/commands/` | `~/.claude/commands/` |
-| Antigravity | `~/.gemini/antigravity/skills/` | `%USERPROFILE%\.gemini\antigravity\skills\` |
-
-Antigravity is global-only. Local install always goes to `.opencode/commands/` or `.claude/commands/` in the current directory.
-
----
-
-## Push to GitHub
-
-```bash
-unzip flow.zip
-cd flow
-
-git init
-git add .
-git commit -m "feat: initial FLOW system"
-
-git remote add origin https://github.com/YOUR_USERNAME/flow.git
-git push -u origin main
-```
-
----
-
-## Getting Started
-
-### New project
-
-```bash
-# 1. Install FLOW
-npx github:YOUR_USERNAME/flow --opencode --local
-
-# 2. Open OpenCode and run
-/flow-new-project
-```
-
-### Existing codebase
-
-```bash
-# Run map-codebase first — always, for any existing project
-/flow-map-codebase
-/flow-new-project
-```
-
-`flow-map-codebase` analyses your stack, patterns, and conventions before you start. For multi-service or polyrepo architectures, it detects service boundaries and creates a starter `SERVICE-MAP.md` for you to fill in.
-
-Restart OpenCode after install to load the new commands.
-
----
-
-## Commands
-
-### Core lifecycle
-
-| Command | What it does |
+| Runtime | Global path (Mac/Linux) |
 |---|---|
-| `/flow-new-project` | Init — questions, research, requirements, roadmap |
-| `/flow-map-codebase` | Analyse existing codebase → PATTERNS.md + polyrepo detection |
-| `/flow-discuss-phase N` | Capture intent — surfaces codebase conflicts before locking decisions |
-| `/flow-plan-phase N` | Research + atomic plans + critic verification pass |
-| `/flow-execute-phase N` | Wave execution + commits + auto handoff |
-| `/flow-verify-work N` | UAT walkthrough + debug + fix plans |
-| `/flow-complete-milestone` | Archive milestone — tag, summary, file cleanup |
-| `/flow-new-milestone` | Start next milestone — scoping, requirements, roadmap |
-
-### Session management
-
-| Command | What it does |
-|---|---|
-| `/flow-pause` | Save state, commit WIP, safe stop |
-| `/flow-resume` | Load state + lessons + handoff, orient agent |
-| `/flow-progress` | Where am I, what's next |
-
-### Phase utilities
-
-| Command | What it does |
-|---|---|
-| `/flow-add-phase N` | Add a new phase to the roadmap |
-| `/flow-insert-phase N` | Insert a phase before an existing one |
-| `/flow-remove-phase N` | Remove a phase safely |
-| `/flow-handoff N` | Generate phase handoff document manually |
-| `/flow-audit-milestone` | Verify all requirements are delivered before closing |
-| `/flow-plan-milestone-gaps` | Find and plan unaddressed requirements |
-
-### Utilities
-
-| Command | What it does |
-|---|---|
-| `/flow-quick [task]` | Ad-hoc task with FLOW guarantees |
-| `/flow-lesson [insight]` | Manually capture a lesson to LESSONS.md |
-| `/flow-debug` | Diagnose and record a debug session |
-| `/flow-health` | Check system integrity — add `--repair` to auto-fix |
-| `/flow-list-phase-assumptions N` | List unverified assumptions in a phase |
-| `/flow-help` | Full command reference |
+| OpenCode | `~/.config/opencode/commands/` |
+| Claude Code | `~/.claude/commands/` |
+| Antigravity | `~/.gemini/antigravity/skills/` |
 
 ---
 
-## How It Works
-
-### The problem: Context Rot
-
-AI agents degrade when context fills up and reset to zero between sessions. FLOW fixes this with structured, persistent context engineered into every session — memory that carries forward, lessons that accumulate, and state that survives restarts.
+## How Flow Works
 
 ### The lifecycle
 
 ```
-/flow-map-codebase     →  understand the codebase first (existing projects)
+/flow-map-codebase     →  map the codebase before anything else (existing projects)
        ↓
 /flow-new-project      →  questions, research, requirements, roadmap
        ↓
-/flow-discuss-phase N  →  capture intent, surface codebase conflicts
+/flow-discuss-phase N  →  capture intent, surface codebase conflicts, lock decisions
        ↓
 /flow-plan-phase N     →  research → atomic plans → critic verification pass
        ↓
@@ -210,107 +72,248 @@ AI agents degrade when context fills up and reset to zero between sessions. FLOW
 repeat per phase → /flow-complete-milestone → /flow-new-milestone
 ```
 
-**One phase per session.** Run `/flow-pause` after `/flow-verify-work`. Start the next phase fresh with `/flow-resume`. This keeps every phase's context window clean regardless of project age.
+**One phase per session.** Run `/flow-pause` after `/flow-verify-work`. Start the next phase fresh with `/flow-resume`. This keeps every phase's context window clean regardless of project age — the session discipline is what lets Flow work on long projects without quality degradation.
 
-### Five specialised agents
+---
 
-Every intensive operation is handled by a subagent with a fresh context window — only the files it needs, nothing else.
+### Core concepts
+
+**Milestones** are shippable versions. Milestone 1 is v1. Milestone 2 is the next version.
+
+**Phases** are units of work inside a milestone. Each phase has one goal, takes one to two days, and produces something you can test and verify.
+
+**Plans** are atomic execution units inside a phase. Each plan is one independently verifiable task. The executor runs plans in parallel waves when dependencies allow.
+
+**LESSONS.md** is your cross-session memory — mistakes, patterns, and fixes that accumulate across every phase and get surfaced at the start of each relevant session. It never gets rewritten. Only appended.
+
+**PATTERNS.md** is your codebase reality map. Not a list of conventions that *should* apply — a map of what your code *actually does*. Coverage percentages, deviation notes per zone, agent rules for each area. Written once by `flow-map-codebase`, read by every planning and execution agent.
+
+**STATE.md** is the source of truth for where you are. YAML frontmatter that every agent reads at session start. Every command updates it with a precise template — no freeform rewrites.
+
+---
+
+### The phase loop
+
+**1. Discuss — `/flow-discuss-phase N`**
+
+Before research or planning begins, Flow asks targeted questions about your intent for this specific phase. Your answers are locked into `CONTEXT.md`. From that point forward, every agent honours those decisions — approach, constraints, preferences, things you don't want second-guessed.
+
+Before asking domain questions, Flow reads `PATTERNS.md` and surfaces any codebase conflicts relevant to this phase: inconsistent zones, low-confidence areas, service boundary questions. Ambiguity is resolved by you, not guessed at by an agent. Use `--batch` to answer everything at once.
+
+**2. Plan — `/flow-plan-phase N`**
+
+Three stages in sequence:
+
+1. **Research** — `@flow-researcher` investigates the implementation approach for your specific stack, surfaces edge cases, identifies dependencies and known pitfalls.
+2. **Plan generation** — `@flow-planner` writes atomic plan files. Each plan has one deliverable, one verify command, and an explicit `Depends on:` field for wave ordering. If test infrastructure exists, a failing-test plan is generated before any feature plans.
+3. **Critic pass** — `@flow-critic` reads every plan cold in a fresh context with no session history. It checks each plan against 8 rules. Plans that fail get rewritten. The Nyquist rule is non-negotiable: `<verify>` must be a real runnable shell command that exits non-zero on failure.
+
+**3. Execute — `/flow-execute-phase N`**
+
+Reads all plans, builds execution waves from the dependency graph, runs parallel waves using `@flow-executor`. Before each wave starts, verifies that expected output files from the previous wave actually exist on disk — not just that the executor reported success. Each plan gets one atomic commit. No batching. After all waves complete, a handoff document is written from the execution summaries: what was built, decisions made, gotchas found.
+
+**4. Verify — `/flow-verify-work N`**
+
+This is UAT. Flow extracts testable deliverables from the plans and walks you through each one. You use the feature. You report what you see. On failures, `@flow-debugger` is spawned with the failure description, traces the code path, forms a root cause hypothesis, and writes a fix plan. The lesson from every failure is appended to `LESSONS.md`. Enable the optional pre-check (`workflow.verifier: true`) to run an automated evidence scan before manual testing begins.
+
+---
+
+### Six specialised agents
+
+Every intensive operation is handled by a subagent with a fresh context window — only the files it needs, nothing else. This isolation is intentional and maintained strictly: the critic never sees session history, the executor never sees the full research output.
 
 | Agent | When spawned | What it does |
 |---|---|---|
-| `@flow-researcher` | During `flow-plan-phase` | Investigates implementation approach, edge cases, dependencies |
-| `@flow-planner` | During `flow-plan-phase` | Generates atomic plan files with TDD detection and dependency graph |
+| `@flow-researcher` | `flow-plan-phase` Stage 1 | Implementation approach, edge cases, dependencies |
+| `@flow-planner` | `flow-plan-phase` Stage 2 | Atomic plan files, TDD detection, dependency graph |
+| `@flow-critic` | `flow-plan-phase` Stage 3 | 8-rule check, fresh context, no session history |
 | `@flow-executor` | Per plan in `flow-execute-phase` | Implements one plan, verifies, commits — nothing else |
-| `@flow-debugger` | On UAT failure in `flow-verify-work` | Diagnoses root cause, writes fix plan, updates KNOWLEDGE-BASE.md |
-| `@flow-verifier` | Pre-UAT in `flow-verify-work` (opt-in) | Scans codebase for evidence of every must-deliver item before UAT begins |
+| `@flow-debugger` | UAT failure in `flow-verify-work` | Root cause diagnosis, fix plan, KNOWLEDGE-BASE.md update |
+| `@flow-verifier` | Pre-UAT in `flow-verify-work` (opt-in) | Evidence scan for every must-deliver item |
 
-### Guard rails on protected zones
+---
 
-Two guards prevent silent violations of documented codebase constraints:
+### Safety and guard rails
 
-- **Do Not Change** — before generating any plan or writing a single line, agents check `## Do Not Change` in `PATTERNS.md`. Any match triggers an immediate block (`⛔`) until `CONTEXT.md` grants explicit permission via a `## Codebase Conflict Resolutions` entry.
-- **Low-confidence zones** — the planner checks `## Confidence Notes` in `PATTERNS.md`. Any zone flagged as low-confidence halts planning for that zone and adds an Open Question to `CONTEXT.md`. Planning only resumes after you resolve the ambiguity.
+**Intent verification** — before executing any routed action, Flow echoes what it understood in one sentence and declares a confidence level: HIGH, MEDIUM, or LOW. LOW confidence is a hard stop. In `yolo` mode, the echo still prints — only the pause is skipped.
 
-### Plan quality enforcement
+**Do Not Change** — before generating any plan or writing a single line, agents check `## Do Not Change` in `PATTERNS.md`. Any match triggers an immediate block (`⛔`) until `CONTEXT.md` grants explicit permission with a documented reason.
 
-Every plan is checked against 8 rules before execution starts:
+**Low-confidence zones** — the planner checks `## Confidence Notes` in `PATTERNS.md`. Any zone flagged as low-confidence halts planning for that zone and adds an Open Question to `CONTEXT.md`. Planning only resumes after you resolve the ambiguity with an explicit `## Codebase Conflict Resolutions` entry.
 
-1. Single deliverable — one independently verifiable output
-2. Single context — no switching between unrelated systems
-3. Verifiable done condition — binary pass/fail only
-4. Minimum file scope — touches only what's necessary
-5. Safe failure — codebase not broken if plan fails midway
-6. No assumed context — executor can run with a fresh window
-7. Context window fit — scope fits in one session
-8. **Nyquist rule** — Verify field must contain a real runnable shell command
+**Destructive action tiers** — every action is classified before it runs:
+- 🟢 **Safe** — read, write new files, edit source, run tests, git add/commit. Proceed.
+- 🟡 **Caution** — delete files, modify config, install packages. Announce, then proceed.
+- 🔴 **Destructive** — database migrations, `.env` files, git history rewrites, deployment scripts. Full stop: shows the exact command, consequence, and reversibility. Requires explicit `CONFIRM` before proceeding.
 
-Plans without a runnable verify command are rejected. If no test infrastructure exists, the planner generates a test scaffold plan (plan-00) before any feature plans.
+**Atomic commit discipline** — one task, one commit, immediately after verification passes. Never batched. Never committed broken. Baseline-aware: pre-existing test failures don't block new commits — only new failures do.
+
+**File size limits** — every accumulating file has a soft and hard limit. Agents warn at the soft limit and archive at the hard limit. LESSONS.md doesn't grow forever. ROADMAP.md doesn't carry all milestones indefinitely. Context rot is a managed failure mode, not an inevitability.
+
+---
 
 ### Recovery when things go wrong
 
 | Failure | Action |
 |---|---|
 | Task fails verification | Auto-retry up to `node_repair_budget` (default 2), then escalate |
-| Agent confused/looping | Re-read AGENTS.md + plan, retry once |
-| Destructive action fails | Stop, report state, wait for instruction |
-| Plan doesn't match reality | Stop, document in STATE.md, surface to developer |
+| Agent confused or looping | Re-read AGENTS.md and plan, retry once |
+| Destructive action fails | Stop immediately, report state, wait |
+| Plan doesn't match codebase reality | Stop, document divergence in STATE.md, surface options to developer |
 
 ---
 
 ## Legacy and Multi-Service Codebases
 
-FLOW is designed to work with messy, inconsistent, and multi-service architectures — not just clean greenfield projects.
+Flow is built for real codebases — the ones that have been worked on, patched, refactored halfway, and inherited from someone else.
 
-### Legacy codebases
+`flow-map-codebase` produces a **reality map**, not a convention list. Every pattern entry records coverage (how consistently it's applied across the codebase), deviation (which specific zones do it differently), and an agent rule (which pattern to follow when touching that zone). A codebase where payments handles errors differently from auth, and both differ from the general convention, is represented accurately — not averaged into a false description.
 
-`flow-map-codebase` produces a **reality map**, not a convention list. Every pattern entry records:
+For multi-service architectures, `flow-map-codebase` detects service boundaries and creates a starter `.flow/context/SERVICE-MAP.md`. This file is developer-maintained — Flow reads it, but cannot generate it accurately. Agents never guess at API contracts. If a contract is missing from SERVICE-MAP.md, they stop and ask rather than inventing a shape.
 
-- **Coverage** — how consistently the pattern is actually applied across the codebase
-- **Deviation** — which modules or zones do it differently, and how
-- **Agent rule** — which pattern to follow when touching each zone
-
-This means a codebase where the payments module handles errors differently from the auth module, and both differ from the general convention, is represented accurately — not averaged into a false description that produces subtly wrong plans.
-
-`flow-discuss-phase` reads PATTERNS.md **before asking any questions**. If the phase touches a zone with known inconsistencies or low-confidence mapping, it surfaces those as explicit questions upfront:
-
-> *"The payments module is flagged as having a different error handling pattern from the rest of the codebase. Which should this phase follow — the module's local pattern or the project standard?"*
-
-Answers get locked into CONTEXT.md before planning begins. Ambiguity is resolved by you, not silently resolved by an agent guessing.
-
-### Polyrepo / multi-service
-
-For multi-service architectures, `flow-map-codebase` detects service boundaries (sibling repos, workspace configs, cross-service environment variables) and creates a starter `.flow/context/SERVICE-MAP.md`.
-
-This file is **developer-maintained** — FLOW uses it, but cannot generate it accurately. It documents:
-
-- What endpoints each service exposes and their response shapes
-- Which services consume which
-- Shared libraries and any version drift
-- Breaking changes currently in progress
-
-The researcher, planner, and executor all read relevant sections of SERVICE-MAP.md for any phase that crosses a service boundary. Agents never guess at API contracts — if a contract is missing, they stop and ask rather than inventing a shape.
+**Test baseline** — `flow-map-codebase` captures which tests are already failing before Flow is installed. This is written once and never modified by agents. Executors treat pre-existing failures as expected — only *new* failures stop execution. If no test infrastructure exists at all, the planner generates a test scaffold plan before any feature plans.
 
 ---
 
-## Key Files
+## Folder Structure
 
-| File | Purpose |
+Flow installs a `.flow/` directory into your project. This is your project's persistent memory. Commit it to git.
+
+```
+project-root/
+│
+├── AGENTS.md                        ← system rules, every agent reads this first
+│
+└── .flow/
+    ├── STATE.md                     ← session state (YAML frontmatter + prose)
+    │
+    ├── docs/                        ← project definition files
+    │   ├── PROJECT.md               ← vision, goals, constraints, stack
+    │   ├── REQUIREMENTS.md          ← MoSCoW requirements with IDs
+    │   ├── ROADMAP.md               ← milestones and phases
+    │   └── PATTERNS.md              ← codebase reality map
+    │
+    ├── memory/                      ← append-only cross-session memory
+    │   ├── LESSONS.md               ← cross-milestone lessons, surfaced by phase type
+    │   └── KNOWLEDGE-BASE.md        ← debug knowledge, searched before re-investigating
+    │
+    └── context/                     ← working files
+        ├── config.json              ← workflow settings
+        ├── SERVICE-MAP.md           ← inter-service contracts (polyrepo / multi-service)
+        ├── test-baseline.md         ← pre-existing test failures at install time
+        │
+        ├── phases/                  ← one folder per phase
+        │   └── N/
+        │       ├── CONTEXT.md       ← locked implementation decisions
+        │       ├── plan-01.md       ← atomic plan files
+        │       ├── fix-01.md        ← fix plans from failed UAT
+        │       ├── UAT.md           ← testable deliverables
+        │       ├── handoff.md       ← what was built, gotchas, next step
+        │       ├── summary-01.md    ← per-plan execution record
+        │       └── research.md      ← implementation research
+        │
+        ├── milestones/              ← milestone-level outputs
+        │   ├── N-summary.md
+        │   └── N-roadmap-archive.md
+        │
+        └── quick/                   ← ad-hoc outputs from flow-quick and flow-debug
+```
+
+> Do not add `.flow/` to `.gitignore`. It is your project's persistent memory. Losing it means losing all state, lessons, and context.
+
+---
+
+## Getting Started
+
+### New project
+
+```bash
+npx github:YOUR_USERNAME/flow --opencode --local
+# then in OpenCode:
+/flow-new-project
+```
+
+### Existing codebase
+
+```bash
+# Always run map-codebase first on an existing project
+/flow-map-codebase
+/flow-new-project
+```
+
+### Each phase
+
+```
+/flow-discuss-phase 1
+/flow-plan-phase 1
+/flow-execute-phase 1
+/flow-verify-work 1
+```
+
+### Closing a milestone
+
+```
+/flow-audit-milestone
+/flow-complete-milestone
+/flow-new-milestone
+```
+
+### Session management
+
+```
+/flow-pause       ← always run when stopping
+/flow-resume      ← always run when starting a new session
+/flow-progress    ← check where you are at any time
+/flow-do [text]   ← describe what you want, Flow routes to the right command
+```
+
+---
+
+## Commands
+
+### Core lifecycle
+
+| Command | What it does |
 |---|---|
-| `AGENTS.md` | Every agent reads this first — routing, rules, protocols |
-| `.flow/STATE.md` | YAML frontmatter + prose — machine and human readable session state |
-| `PROJECT.md` | Vision, goals, constraints, stack |
-| `ROADMAP.md` | Phases and milestones |
-| `REQUIREMENTS.md` | MoSCoW requirements with IDs |
-| `PATTERNS.md` | Codebase reality map — patterns, coverage, deviations, zone overrides |
-| `.flow/context/SERVICE-MAP.md` | Inter-service contracts (polyrepo/multi-service projects) |
-| `.flow/context/LESSONS.md` | Append-only cross-milestone lesson archive |
-| `.flow/context/config.json` | FLOW configuration |
-| `.flow/context/debug/KNOWLEDGE-BASE.md` | Append-only debug memory |
-| `.flow/context/handoffs/` | Phase and milestone handoff documents |
+| `/flow-new-project` | Questions, research, requirements, roadmap |
+| `/flow-map-codebase` | Analyse existing codebase → PATTERNS.md + service detection |
+| `/flow-discuss-phase N` | Capture intent, surface codebase conflicts, lock decisions |
+| `/flow-plan-phase N` | Research + atomic plans + critic verification pass |
+| `/flow-execute-phase N` | Wave execution + commits + auto handoff |
+| `/flow-verify-work N` | UAT walkthrough + debug + fix plans |
+| `/flow-complete-milestone` | Archive milestone — summary, file cleanup |
+| `/flow-new-milestone` | Start next milestone — scoping, requirements, roadmap |
 
-All `.flow/` files should be committed to git. They are the project's persistent memory.
+### Session management
 
-> **Do not add `.flow/` to `.gitignore`.** It may look like a tooling directory — it isn't. Losing it means losing all state, lessons, and context. If you need to exclude sensitive data inside `.flow/`, gitignore specific files, not the directory.
+| Command | What it does |
+|---|---|
+| `/flow-pause` | Save state, commit WIP, safe stop |
+| `/flow-resume` | Load state + lessons + handoff, orient agent |
+| `/flow-progress` | Where am I, what's next |
+| `/flow-do [text]` | Route freeform input to the right command |
+
+### Phase utilities
+
+| Command | What it does |
+|---|---|
+| `/flow-add-phase` | Add a new phase to the current milestone |
+| `/flow-insert-phase N` | Insert urgent work after phase N |
+| `/flow-remove-phase N` | Remove an unstarted phase |
+| `/flow-handoff N` | Generate or update a phase handoff manually |
+| `/flow-list-phase-assumptions N` | See what the agent intends before planning |
+| `/flow-audit-milestone` | Verify all requirements delivered before closing |
+| `/flow-plan-milestone-gaps` | Generate phases to close audit gaps |
+
+### Utilities
+
+| Command | What it does |
+|---|---|
+| `/flow-quick [task]` | Ad-hoc task with Flow guarantees `[--discuss] [--research] [--full]` |
+| `/flow-debug [symptom]` | Debug any issue outside of UAT |
+| `/flow-lesson [insight]` | Manually capture a lesson to LESSONS.md |
+| `/flow-health [--repair]` | Check system integrity, auto-fix with `--repair` |
+| `/flow-help` | Full command reference |
 
 ---
 
@@ -335,99 +338,23 @@ Edit `.flow/context/config.json`:
 
 | Setting | Options | Default | Effect |
 |---|---|---|---|
-| `mode` | `interactive`, `yolo` | `interactive` | `yolo` skips all developer confirmations |
-| `depth` | `quick`, `standard`, `comprehensive` | `standard` | Controls research depth and agent count |
-| `workflow.research` | `true`, `false` | `true` | If false, skips all research stages |
-| `workflow.plan_check` | `true`, `false` | `true` | If false, skips the critic verification pass |
-| `workflow.node_repair` | `true`, `false` | `true` | If false, failed tasks escalate immediately |
-| `workflow.node_repair_budget` | number | `2` | Max auto-retries per failed task |
-| `workflow.parallel_execution` | `true`, `false` | `true` | If false, plans execute sequentially |
-| `workflow.verifier` | `true`, `false` | `false` | If true, `@flow-verifier` scans for must-deliver evidence before UAT |
-
----
-
-## Skills
-
-Before generating specialised output, agents check for a matching skill file and follow its instructions if found.
-
-**OpenCode check order:**
-1. `.opencode/commands/` — local project commands (checked first)
-2. `~/.config/opencode/commands/` on Mac/Linux, or `%USERPROFILE%\.config\opencode\commands\` on Windows — global commands
-
-**Antigravity:** Each FLOW command is installed as a thin `SKILL.md` wrapper in `~/.gemini/antigravity/skills/flow-*/`. The wrapper references the actual workflow logic from `~/.gemini/antigravity/flow/workflows/`. Agents trigger the skill by name; the workflow runs end-to-end.
-
-Agents only check — they never create or register skills automatically.
-
----
-
-## File Size Limits
-
-FLOW enforces size limits to prevent context accumulation on long-running projects. Agents warn when files approach limits and archive automatically at milestone close.
-
-| File | Soft limit | Hard limit | Action at hard limit |
-|---|---|---|---|
-| `.flow/STATE.md` | 200 lines | 300 lines | Trim oldest session entries, keep last 2 |
-| `.flow/context/LESSONS.md` | 100 entries | 150 entries | Archive on next `/flow-complete-milestone` |
-| `.flow/context/SERVICE-MAP.md` | — | 200 lines | Split into per-service files |
-| `ROADMAP.md` | 100 lines/milestone | — | Archive completed milestones |
-| `.flow/context/debug/KNOWLEDGE-BASE.md` | 150 entries | 200 entries | Archive on next milestone close |
-| Phase plan files | 400 lines | 600 lines | Critic pass splits if exceeded |
-
----
-
-## Adapting to Claude Code
-
-Install with `--claude` instead of `--opencode`. Commands are copied to `~/.claude/commands/` (global) or `.claude/commands/` (local). All command files are plain markdown — no other changes needed.
-
-## Adapting to Antigravity
-
-Install with `--antigravity`. This is global-only — no location prompt is shown. The installer:
-
-1. Copies all command files to `~/.gemini/antigravity/flow/workflows/`
-2. Copies all agent files to `~/.gemini/antigravity/flow/agents/`
-3. Generates a thin `SKILL.md` wrapper in `~/.gemini/antigravity/skills/flow-<name>/` for each command
-
-Restart Antigravity to load the new skills. Each `/flow-*` command is available as a skill.
-
----
-
-## Uninstall
-
-```bash
-# Global
-npx github:YOUR_USERNAME/flow --opencode --global --uninstall
-
-# Local
-npx github:YOUR_USERNAME/flow --opencode --local --uninstall
-```
-
-Scaffold files (`AGENTS.md`, `.flow/`) are always preserved. Remove them manually if needed.
-
----
-
-## What Makes FLOW Different from GSD
-
-| Feature | GSD | FLOW |
-|---|---|---|
-| Cross-milestone lesson memory | Partial (mutable STATE.md) | ✅ Append-only LESSONS.md |
-| Machine-readable state | ❌ Free-form markdown | ✅ YAML frontmatter |
-| Decision traceability | ❌ | ✅ `canonical_refs` in CONTEXT.md |
-| Atomic task enforcement | Partial | ✅ 8-rule checker with Nyquist rule |
-| Dedicated planner agent | ✅ | ✅ With TDD detection + vertical-slice heuristics |
-| Tiered recovery | Debug command only | ✅ 4-tier recovery protocol |
-| Debug memory | ❌ | ✅ Append-only KNOWLEDGE-BASE.md |
-| Skills awareness | ❌ | ✅ Project + global skills registry |
-| Codebase pattern memory | ❌ | ✅ PATTERNS.md with coverage + deviation map |
-| Legacy codebase support | ❌ | ✅ Confidence-annotated zones, conflict surfacing |
-| Polyrepo / multi-service | ❌ | ✅ SERVICE-MAP.md with agent contract enforcement |
-| Phase handoffs | ❌ | ✅ Auto-generated after every phase |
-| File size limits + archiving | ❌ | ✅ Enforced limits, auto-archive at milestone close |
-| Context accumulation guardrails | ❌ | ✅ Session discipline + selective file reads |
-| Model agnostic | Partial (Claude XML) | ✅ Plain markdown, any model |
-| Windows support | ✅ | ✅ |
+| `mode` | `interactive`, `yolo` | `interactive` | `yolo` skips developer confirmations, keeps intent echo |
+| `depth` | `quick`, `standard`, `comprehensive` | `standard` | Research depth per phase |
+| `workflow.research` | bool | `true` | Spawns `@flow-researcher` in plan-phase |
+| `workflow.plan_check` | bool | `true` | Runs critic pass after planning |
+| `workflow.node_repair` | bool | `true` | Auto-retries failed tasks |
+| `workflow.node_repair_budget` | number | `2` | Max retries before escalating |
+| `workflow.parallel_execution` | bool | `true` | Wave execution vs sequential |
+| `workflow.verifier` | bool | `false` | Pre-UAT automated evidence check |
 
 ---
 
 ## License
 
 MIT
+
+---
+
+## Acknowledgement
+
+Flow was developed with reference to [GSD](https://github.com/davidorgan/gsd) by David Organ, which provided early insight into the shape of a spec-driven agentic workflow. Flow has since evolved into a different system with different goals, architecture, and design decisions — but GSD was the starting point and deserves the credit.

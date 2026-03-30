@@ -12,9 +12,9 @@ Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 
 ## Pre-flight
 
-1. Confirm `ROADMAP.md` exists → if not: "Run /flow-new-project first"
-2. Read `ROADMAP.md` — understand the current phase structure and last phase number
-3. Read `REQUIREMENTS.md` — check if any unassigned requirements exist
+1. Confirm `.flow/docs/ROADMAP.md` exists → if not: "Run /flow-new-project first"
+2. Read `.flow/docs/ROADMAP.md` — understand the current phase structure and last phase number
+3. Read `.flow/docs/REQUIREMENTS.md` — check if any unassigned requirements exist
 
 ---
 
@@ -35,7 +35,7 @@ Find the highest existing phase number in the current milestone. New phase = hig
 
 ## Step 3: Write the Phase Entry
 
-Append to `ROADMAP.md` under the current milestone:
+Append to `.flow/docs/ROADMAP.md` under the current milestone:
 
 ```markdown
 ### Phase [N]: [Name]

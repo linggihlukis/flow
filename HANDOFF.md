@@ -1,118 +1,174 @@
-# FLOW Project — Session Handoff
+# FLOW — Project Development Handoff
 
-**Date:** 2026-03-27
-**Source:** `flow.zip` (attached — use as source of truth)
-**GitHub:** `https://github.com/linggihlukis/flow` — may be behind the zip
-
----
-
-## What Was Done This Session
-
-Four fixes. No new features — all correctness and housekeeping.
-
-### H4 — Planner now stops on low-confidence zones ✅
-
-**File:** `agents/flow-planner.md`
-
-Added to `## What you must read first` after item 3 (read PATTERNS.md): after reading PATTERNS.md, the planner checks `## Confidence Notes` for any low-confidence zone this phase will touch. For each match, it does not generate plans — instead writes an Open Questions entry to CONTEXT.md and halts planning for that zone. Only proceeds if CONTEXT.md has an explicit `## Codebase Conflict Resolutions` entry addressing the zone.
-
-### H5 — `## Do Not Change` enforcement fully implemented ✅
-
-**Files:** `agents/flow-planner.md`, `agents/flow-executor.md`
-
-**Planner:** Added as heuristic 0 (before TDD branch). Before generating any plan touching an existing file, checks PATTERNS.md `## Do Not Change`. If the item appears, adds to CONTEXT.md Open Questions and blocks planning. Only proceeds with explicit Codebase Conflict Resolutions permission.
-
-**Executor:** Added after scope announcement. Checks PATTERNS.md `## Do Not Change` against the announced file list before writing a single line. Any match triggers an immediate `⛔` stop with the reason. Execution blocked until CONTEXT.md grants explicit permission.
-
-### BACKLOG.md cleaned up ✅
-
-- A1: marked ✅ Done, description updated to reflect actual implementation, duplicate entry removed
-- H4: marked ✅ Done
-- H5: marked ✅ Done (was "partially done")
-- Implementation Order section rewritten — all critical/high/medium items complete, only low-priority items remain
-
-### `bin/install.js` agent list fixed ✅
-
-Summary output now correctly lists all 5 agents:
-`@flow-researcher, @flow-planner, @flow-executor, @flow-debugger, @flow-verifier`
+> **How to use this file:**
+> This file lives at the root of the FLOW repo alongside `README.md` and `BACKLOG.md`.
+> At the end of every development session, update this file before closing.
+> At the start of every new session, read this file first — before anything else.
+> It is the single source of truth for where FLOW development is right now.
 
 ---
 
-## Current State
+## Last Updated
+2026-03-29 (session 2)
 
-### Backlog
-
-| Priority | Items | Status |
-|---|---|---|
-| 🔴 Critical | C0–C4 | ✅ All done |
-| 🟠 High | H1–H5 | ✅ All done |
-| 🟡 Medium | M1–M5, A1 | ✅ All done |
-| 🟢 Low | A2, A3, L1–L4, Option B | 🔲 Pending |
-
-No correctness gaps remain. All pending items are low priority or blocked on real-world usage validation.
-
-### File inventory
-
-```
-agents/              5 (researcher, planner, executor, debugger, verifier)
-commands/            24
-bin/install.js       OpenCode + Claude Code + Antigravity; global + local
-scaffold/
-  AGENTS.md          18 sections
-  GUIDE.md           314 lines — installed to project root on setup
-  .flow/
-    STATE.md
-    context/
-      config.json
-      LESSONS.md
-      debug/KNOWLEDGE-BASE.md
-```
+## Source of Truth
+`flow-updated-2.zip` / GitHub: `https://github.com/linggihlukis/flow`
+> If zip and GitHub diverge, the zip is authoritative until pushed.
 
 ---
 
-## What to Do Next
+## Current State — What's Complete
 
-All remaining items are low priority. Work in this order when ready:
+### System overview
+- **24 commands** — full lifecycle covered
+- **6 subagents** — researcher, planner, critic, executor, debugger, verifier
+- **Folder structure** — purposeful 4-directory hierarchy under `.flow/`
+- **All backlog items complete except blocked ones** — C0–C4, H1–H6, M1–M6, A1, L3, L4, S1, S2
+- **Test suite** — `npm test` passes clean (7 suites, zero failures)
 
-**A2 — Antigravity `// turbo` annotations** *(blocked: confirm A1 works on a real install first)*
-Mark safe read-only steps in `commands/*.md` with `// turbo`. Safe: STATE.md reads, health checks, file listing. Never: file writes, git commits, decision steps.
+### What was done in this session (2026-03-29, session 2)
 
-**A3 — Antigravity browser verification in `flow-verify-work`** *(blocked: A1)*
-Optional Stage 4 using Antigravity's browser tool for visual screenshot verification of UI phases.
+**Agentic paradigm review + backlog update**
 
-**L3 — FLOW test suite** *(do before public release)*
-Fixture-based validation: correct paths, no ghost references, required frontmatter, valid YAML.
+Reviewed FLOW against Anthropic's current agentic coding paradigm (Claude Agent SDK, context engineering, subagent isolation best practices). Seven new items added to BACKLOG.md as R1–R7. Implementation order rewritten to prioritise by urgency × (1/effort). No code changes — documentation only.
 
-**L2 — `--auto` flag**
-Chains discuss → plan → execute without stops for phases where intent is already clear.
+New items added (in priority order):
+- **R1** — npm publish (`npx flow-init`) — Critical, trivial. The distribution blocker. Unblocks all usage-gated items.
+- **R2** — Feedback loop closure in `flow-verify-work` — High, low effort. Closes the verify → repeat gap in `yolo` mode. Auto-routes to `flow-execute-phase` on fix plans.
+- **R3** — Role-scoped AGENTS.md includes — High, medium effort. Splits 355-line AGENTS.md into core + role-specific files. Compounding token saving per subagent invocation.
+- **R4** — PATTERNS.md drift detection (`--refresh` flag) — Medium, low effort. Detects stale patterns without rewriting the file. Preserves write-once invariant.
+- **R5** — Structured subagent return format — Medium, low effort. Adds `## Return` block to subagent outputs. Orchestrators extract key-value pairs instead of re-reading full files.
+- **R6** — MCP block in `config.json` — Low-medium, medium effort. Blocked by R1 (need usage signal). Adds optional `mcp_servers` array; threads into subagent briefs.
+- **R7** — Hooks / event-driven invocation — Low, high effort. Blocked by Option B + R1. Shares binary dependency with flow-tools.
 
-**L4 — Per-plan SUMMARY.md**
-Written by executor at commit time. Finer-grained history than phase handoffs.
+**Files changed:** `BACKLOG.md` (7 new items, implementation order rewritten), `HANDOFF.md`
 
-**L1 — Model profile routing** *(blocked: OpenCode stability check needed)*
-Per-agent model assignment in command files.
+### What was done in this session (2026-03-29, session 1)
 
-**Option B — `flow-tools` binary** *(only if context ceiling confirmed as real pain in practice)*
-Atomic STATE.md reads/writes via Node.js script to reduce orchestrator context load.
+**1. H6 — Intent Verification Layer**
+Added intent echo + confidence block to `flow-do.md` and `flow-discuss-phase.md`.
+- `flow-do.md`: reads `config.json` at preamble; `## Intent Verification` fires after routing resolves, before execution; yolo mode prints echo but skips pause; `--auto` hook pre-documented for L2
+- `flow-discuss-phase.md`: `## Intent Verification` fires before Step 0 — reads ROADMAP.md to build the echo from actual phase data; LOW confidence on missing phase is a hard stop
+
+**2. M6 — @flow-critic subagent**
+Created `agents/flow-critic.md` and rewired `flow-plan-phase.md` Stage 3.
+- `flow-critic.md`: `temperature: 0.1`, all tools false, reads plan files only. 8 rules inline with explicit violation tests per rule. Returns structured pass/fail report, writes nothing.
+- `flow-plan-phase.md` Stage 3: spawns `@flow-critic` with plan paths only; orchestrator rewrites failing plans from critic annotations; re-spawns on rewritten plans only; max 3 loops
+- `scaffold/AGENTS.md` Section 5: updated to six subagents
+- `commands/flow-help.md`: all 6 agents listed (also fixed pre-existing omission of `@flow-planner` and `@flow-verifier`)
+
+**3. L3 — FLOW test suite**
+`test/flow-test.js` — 7 suites, inline canonical data, js-yaml only.
+Two real defects found and fixed: `flow-new-project.md` indented YAML block; `flow-quick.md` unquoted description with `Flags:`.
+`package.json`: `"test": "node test/flow-test.js"` added. `devDependencies`: `js-yaml ^4.1.1`.
+
+**4. L4 — Per-plan SUMMARY.md**
+Each executor writes a `summary-NN.md` after committing, before reporting back.
+
+- `agents/flow-executor.md`: new `## Write plan summary` step between Commit and Report. Captures `git rev-parse HEAD` and `git diff HEAD~1 --name-only`. Writes `summary-NN.md` to `.flow/context/phases/[N]/`. Summary only written on success — it is proof of completion. Report now includes `Summary:` path.
+- `commands/flow-execute-phase.md`: executor brief includes `Summary output:` path. Stage 3 reads all `summary-*.md` files before writing `handoff.md` — summaries are the primary source; git log is fallback.
+- `commands/flow-resume.md`: Step 4 extended — if status is `in-progress` (mid-phase crash), checks for `summary-*.md` files and surfaces which plans completed before interruption and which remain.
+- `commands/flow-handoff.md`: reads `summary-NN.md` files as primary source for workarounds and decisions; git log as fallback.
+- `scaffold/AGENTS.md` Section 2: `summary-01.md` added to `phases/N/` file tree.
+- `README.md`: `summary-01.md` added to folder structure diagram; new row in comparison table.
+
+### Session before that (2026-03-28)
+- S1: Folder structure redesign — 4-directory hierarchy under `.flow/`
+- S2: README rewrite + GUIDE.md removal
 
 ---
 
-## Key Design Decisions to Honour
+## What to Do Next — In Order
 
-- **Flat `.md` command files only** — OpenCode does not support folder-based namespacing
-- **`.flow/context/` not `.planning/`** — explicitly rejected as a misnomer
-- **No version labels** — the project is not yet at v1
-- **Solo developer target** — evaluate every feature against a solo developer on a legacy codebase
-- **Antigravity is global-only** — no local install path; correct and intentional
-- **`test-baseline.md` written once** — only by `flow-map-codebase`, never modified by agents
-- **Model assignment belongs in command files** — `opencode.json` supports one model per command only
-- **BACKLOG.md is authoritative** — update when items complete, not after
+### 1. R1 — npm publish
+**Not blocked by anything.** Choose a package name, verify `package.json` fields, `npm publish --access public`, update README.md. This is the session gate — everything else is blocked without usage evidence.
+
+### 2. R2 — Feedback loop closure in `flow-verify-work`
+**Not blocked.** Single file change in the Issues Found completion block. Add auto-resume routing in `yolo` mode, confirmation prompt in `interactive` mode.
+
+### 3. R3 — Role-scoped AGENTS.md includes
+**Not blocked.** Split AGENTS.md into `AGENTS-core.md` + `AGENTS-executor.md` + `AGENTS-planner.md`. Update subagent briefs. Update `bin/install.js` to scaffold new files. Run `npm test` after.
+
+### 4. R4 — PATTERNS.md drift detection
+**Not blocked.** Add `--refresh` mode to `flow-map-codebase`. Staleness flags only — no rewrites.
+
+### 5. R5 — Structured subagent return format
+**Not blocked.** Add `## Return` block spec to each subagent's output format. Update orchestrator read instructions to extract return block instead of full file.
+
+### 6. L2 — `--auto` flag
+**Blocked by:** R1 confirmed in practice, H6 proven working on a real project.
+
+### 7. R6 — MCP in config.json
+**Blocked by:** R1 — need usage signal on which integrations matter before designing schema.
+
+### 8. Option B / R7 — flow-tools binary + hooks
+**Blocked by:** Context ceiling confirmed as real pain (Option B) and R1 (R7).
 
 ---
 
-## What Not to Touch Without Reading First
+## Key Design Decisions — Never Revisit Without Reading This
 
-- `scaffold/AGENTS.md` — 18 sections, authoritative rules for all agent behaviour
-- `agents/flow-planner.md` — heuristics 0–4 are ordered and interdependent; easy to break carelessly
-- `commands/flow-execute-phase.md` — baseline-aware check has three cases; all three must stay consistent
-- `bin/install.js` — Antigravity path (`~/.gemini/antigravity/`) confirmed correct; don't change without verifying against real Antigravity filesystem
+| Decision | Reason |
+|----------|--------|
+| Flat `.md` command files only | OpenCode does not support folder-based namespacing for commands |
+| `AGENTS.md` stays at root | OpenCode auto-loads from root. Never move it. |
+| `phases/N/` is for context files only | Not commands — commands stay flat |
+| No version labels yet | Project is not at v1. Reject any "v2" labeling. |
+| Solo developer target | Evaluate every feature against a solo dev on a legacy codebase |
+| Antigravity is global-only | No local install path — correct and intentional |
+| `test-baseline.md` written once | Only by `flow-map-codebase`, never modified by agents |
+| `BACKLOG.md` is authoritative | Update when items complete, not after |
+| `.flow/memory/` is append-only | LESSONS.md and KNOWLEDGE-BASE.md never rewritten |
+| `flow-tools` binary is deferred | Only build with real usage evidence of hitting context ceiling |
+| `--auto` flag requires H6 first | Without intent verification, auto-chaining is fast mistakes |
+| `flow-critic` reads plans only | Its value is fresh-context — never pass PATTERNS.md, CONTEXT.md, or any session file |
+| `summary-NN.md` written, not read, during execution | Zero orchestrator context cost — summaries are on disk, not in context |
+| Summary = proof of success | If verify failed, no commit, no summary. A summary file existing means that plan is done. |
+| `subtask` field not enforced by test | Non-uniform by design — utility commands omit it intentionally |
+| Test uses inline canonical data | No fixtures — one source of truth. Update the test when paths change. |
+
+---
+
+## Files That Require Extra Care
+
+| File | Why |
+|------|-----|
+| `scaffold/AGENTS.md` | 18 sections, authoritative rules for all agent behaviour. Adding agents: update Section 5 AND run `npm test`. Adding file types: update Section 2. |
+| `agents/flow-planner.md` | Heuristics 0–4 are ordered and interdependent |
+| `agents/flow-critic.md` | Must never reference external files — isolation is the point. Do not add reads. |
+| `agents/flow-executor.md` | Summary write step is between Commit and Report — order matters. Do not move it. |
+| `commands/flow-execute-phase.md` | Baseline-aware check has three cases. Stage 3 now depends on summary files existing — fallback to conversation history if not. |
+| `commands/flow-complete-milestone.md` | Archiving stage touches `memory/` and `context/milestones/` — paths must stay consistent with AGENTS.md Section 14 |
+| `bin/install.js` | Scaffold dirs must match AGENTS.md file tree exactly. After any change: run `npm test`. |
+| `test/flow-test.js` | Canonical path list and agent list are inline. Update both here and in AGENTS.md Section 2/5 when structure changes. |
+
+---
+
+## Open Questions / Unresolved
+
+- **R1 package name** — `flow-init` is the natural choice but check npm for conflicts before publishing.
+- **A1 in practice** — Antigravity runtime support implemented in `install.js` but not yet tested on a real install. A2 and A3 blocked until confirmed.
+- **L1 model routing** — OpenCode per-agent model stability needs verification before pursuing.
+- **Context ceiling in practice** — Option B should only be built after hitting the ~12 phase / 2 milestone ceiling on a real project.
+- **R6 MCP schema** — Don't design the config shape until R1 gives usage signal on which integrations matter most.
+
+---
+
+## Distribution — Unblocked
+
+L3 (test suite) is done. Distribution can now be finalised. Three paths:
+- Private GitHub via `npx github:linggihlukis/flow`
+- npm via `npx flow-init`
+- Local via `npm link`
+
+---
+
+## How to Update This File
+
+At the end of every session, update:
+1. **Last Updated** — date
+2. **What was done in this session** — replace previous content, move it down if worth keeping
+3. **What to Do Next** — reorder or remove completed items
+4. **Open Questions** — add any new unresolved decisions
+
+Keep it honest. A future session reading this should be able to pick up in under 2 minutes.

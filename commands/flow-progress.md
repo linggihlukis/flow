@@ -3,7 +3,7 @@ description: Show current project position — milestone, phase, status, next st
 agent: build
 ---
 
-Read .flow/STATE.md and ROADMAP.md.
+Read `.flow/STATE.md` and `.flow/docs/ROADMAP.md`.
 
 # /flow-progress
 
@@ -12,7 +12,7 @@ Report current position:
 ```
 📍 FLOW Progress
 
-Project:    [from PROJECT.md — if not yet created, use project name from STATE.md prose or "—"]
+Project:    [from `.flow/docs/PROJECT.md` — if not yet created, use project name from STATE.md prose or "—"]
 Milestone:  [N] — [name]
 Phase:      [N of total] — [name]
 Status:     [not-started / ready / planned / in-progress / executed / needs-fixes / verified / paused]

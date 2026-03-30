@@ -153,18 +153,22 @@ function installAntigravity(baseDir) {
 // ─── Install scaffold ─────────────────────────────────────────────────────────
 function installScaffold(projectRoot) {
   const files = [
-    [path.join(SCAFFOLD_DIR, "AGENTS.md"),                                          path.join(projectRoot, "AGENTS.md")],
-    [path.join(SCAFFOLD_DIR, "GUIDE.md"),                                           path.join(projectRoot, "GUIDE.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "STATE.md"),                                  path.join(projectRoot, ".flow", "STATE.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "context", "LESSONS.md"),                    path.join(projectRoot, ".flow", "context", "LESSONS.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "context", "config.json"),                   path.join(projectRoot, ".flow", "context", "config.json")],
-    [path.join(SCAFFOLD_DIR, ".flow", "context", "debug", "KNOWLEDGE-BASE.md"),   path.join(projectRoot, ".flow", "context", "debug", "KNOWLEDGE-BASE.md")],
+    [path.join(SCAFFOLD_DIR, "AGENTS.md"),                                              path.join(projectRoot, "AGENTS.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "STATE.md"),                                      path.join(projectRoot, ".flow", "STATE.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "context", "config.json"),                       path.join(projectRoot, ".flow", "context", "config.json")],
+    [path.join(SCAFFOLD_DIR, ".flow", "memory", "LESSONS.md"),                         path.join(projectRoot, ".flow", "memory", "LESSONS.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "memory", "KNOWLEDGE-BASE.md"),                  path.join(projectRoot, ".flow", "memory", "KNOWLEDGE-BASE.md")],
   ];
 
-  // Ensure empty dirs exist
-  for (const d of ["handoffs","debug","research","quick"].map(d => path.join(projectRoot, ".flow", "context", d))) {
-    ensureDir(d);
-  }
+  // Ensure directory structure exists
+  const dirs = [
+    ".flow/docs",
+    ".flow/memory",
+    ".flow/context/phases",
+    ".flow/context/milestones",
+    ".flow/context/quick",
+  ].map(d => path.join(projectRoot, d));
+  for (const d of dirs) ensureDir(d);
 
   const skipped = [];
   for (const [src, dest] of files) {

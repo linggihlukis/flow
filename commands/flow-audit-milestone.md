@@ -1,5 +1,5 @@
 ---
-description: Requirement-level completion audit — verify every Must Have requirement in REQUIREMENTS.md is delivered before marking a milestone complete
+description: Requirement-level completion audit — verify every Must Have requirement in `.flow/docs/REQUIREMENTS.md` is delivered before marking a milestone complete
 agent: build
 subtask: false
 ---
@@ -20,11 +20,11 @@ A project can pass all phase verifications and still miss requirements if they w
 
 ## Stage 1: Load Requirements
 
-Read `REQUIREMENTS.md`. Extract every Must Have requirement with its ID (REQ-001, REQ-002, etc.).
+Read `.flow/docs/REQUIREMENTS.md`. Extract every Must Have requirement with its ID (REQ-001, REQ-002, etc.).
 
-If REQUIREMENTS.md doesn't exist:
+If `.flow/docs/REQUIREMENTS.md` doesn't exist:
 ```
-⚠️  REQUIREMENTS.md not found.
+⚠️  `.flow/docs/REQUIREMENTS.md` not found.
 Run /flow-new-project to initialise the project first.
 ```
 

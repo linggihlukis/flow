@@ -1,5 +1,5 @@
 ---
-description: Research implementation approaches for a FLOW phase. Spawned by flow-plan-phase. Reads CONTEXT.md and stack details, investigates how to implement locked decisions, identifies dependencies and gotchas, writes findings to .flow/context/research/phase-N-research.md.
+description: Research implementation approaches for a FLOW phase. Spawned by flow-plan-phase. Reads CONTEXT.md and stack details, investigates how to implement locked decisions, identifies dependencies and gotchas, writes findings to .flow/context/phases/N/research.md.
 mode: subagent
 temperature: 0.2
 tools:
@@ -15,8 +15,8 @@ You have been given a research brief. Work through it completely before writing 
 ## What you must read first
 
 1. The phase CONTEXT.md file specified in your brief — understand every locked decision
-2. PATTERNS.md if it exists — understand the existing stack conventions and any deviation notes for zones this phase touches
-3. REQUIREMENTS.md — understand which requirements this phase covers
+2. `.flow/docs/PATTERNS.md` if it exists — understand the existing stack conventions and any deviation notes for zones this phase touches
+3. `.flow/docs/REQUIREMENTS.md` — understand which requirements this phase covers
 4. `.flow/context/SERVICE-MAP.md` — **only if this phase involves cross-service calls, API contracts, or integration with another service.** Read only the sections relevant to this phase. Skip entirely for phases with no service boundary crossing.
 
 ## What you must investigate
@@ -32,7 +32,7 @@ You have been given a research brief. Work through it completely before writing 
 - Stay narrowly focused on this phase. Do not research unrelated features.
 - If a locked decision in CONTEXT.md has a known pitfall, surface it clearly — do not silently work around it.
 - Do not make implementation decisions. Surface options with tradeoffs. The planner decides.
-- Write findings to `.flow/context/research/phase-N-research.md` where N is the phase number from your brief.
+- Write findings to `.flow/context/phases/N/research.md` where N is the phase number from your brief.
 
 ## Output format
 
@@ -52,4 +52,4 @@ You have been given a research brief. Work through it completely before writing 
 [anything not answerable from research that the planner must decide]
 ```
 
-Write the file. Do not summarise it in conversation. Your job is done when the file is written.
+Write the file to `.flow/context/phases/[N]/research.md`. Do not summarise it in conversation. Your job is done when the file is written.

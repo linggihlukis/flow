@@ -18,6 +18,26 @@ Every decision you lock here is honoured throughout execution.
 
 ---
 
+## Intent Verification
+
+Before asking any questions, read `.flow/docs/ROADMAP.md` and find Phase $ARGUMENTS. Output:
+
+```
+→ I understood this as: discussing Phase $ARGUMENTS — [phase name and one-sentence description from ROADMAP.md]
+  Confidence: HIGH / MEDIUM / LOW
+  [If MEDIUM or LOW: state what is unclear — e.g. phase number not found, description ambiguous]
+
+Proceed? (press enter to confirm, n to stop)
+```
+
+**Mode behaviour:**
+- `interactive` (default): print the block and pause for confirmation
+- `yolo` or `--batch`: print the block but do not pause — proceed immediately
+
+Do not skip this block. If the phase number is not found in ROADMAP.md, set confidence to `LOW` and stop until confirmed.
+
+---
+
 ## Flag Handling
 
 **Default (no flag):** Ask questions conversationally, 2-3 at a time. Listen and follow up. Stop when intent is clear.
@@ -31,12 +51,12 @@ Every decision you lock here is honoured throughout execution.
 Before asking any questions, check whether codebase knowledge is available and whether it flags anything relevant to this phase.
 
 **Read if they exist:**
-- `PATTERNS.md` — scan for low confidence notes and deviation entries relevant to this phase
+- `.flow/docs/PATTERNS.md` — scan for low confidence notes and deviation entries relevant to this phase
 - `.flow/context/SERVICE-MAP.md` — check if this phase's ROADMAP entry implies touching any service boundary
 
 **Cross-reference against the phase description in ROADMAP.md.**
 
-If PATTERNS.md has low confidence zones or deviation notes that overlap with what this phase will touch, surface them as explicit questions *before* the domain questions:
+If `.flow/docs/PATTERNS.md` has low confidence zones or deviation notes that overlap with what this phase will touch, surface them as explicit questions *before* the domain questions:
 
 ```
 Before we discuss implementation details — I found some things in the 
@@ -46,7 +66,7 @@ codebase that are relevant to this phase:
   Which should new code in this phase follow — the module's local pattern 
   or the project standard?
 
-• [Zone] is flagged as low confidence in PATTERNS.md — [reason].
+• [Zone] is flagged as low confidence in `.flow/docs/PATTERNS.md` — [reason].
   Can you describe how this area works before I plan anything in it?
 ```
 
@@ -69,7 +89,7 @@ If no conflicts found — note "No codebase conflicts detected" and proceed dire
 
 ## Step 1: Analyse the Phase
 
-Read `ROADMAP.md` and find Phase $ARGUMENTS.
+Read `.flow/docs/ROADMAP.md` and find Phase $ARGUMENTS.
 
 Identify the category of work:
 - **Visual/UI** — layouts, components, interactions, empty states
@@ -115,7 +135,7 @@ Ask questions conversationally — 2-3 at a time. Listen and follow up. Stop whe
 
 ## Step 3: Write CONTEXT.md
 
-Synthesise the discussion into `.flow/context/phase-$ARGUMENTS-CONTEXT.md`:
+Synthesise the discussion into `.flow/context/phases/$ARGUMENTS/CONTEXT.md`:
 
 ```markdown
 # Phase $ARGUMENTS Context — [Phase Name]
@@ -166,7 +186,7 @@ Do not mark as locked until the developer confirms.
 ✅ Phase $ARGUMENTS context captured
 
 Decisions locked: [count]
-Saved to: .flow/context/phase-$ARGUMENTS-CONTEXT.md
+Saved to: .flow/context/phases/$ARGUMENTS/CONTEXT.md
 
 Next step: /flow-plan-phase $ARGUMENTS
 ```

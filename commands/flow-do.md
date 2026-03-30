@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md, `.flow/STATE.md`, and `.flow/context/config.json` before doing anything else.
 
 # /flow-do $ARGUMENTS
 
@@ -58,13 +58,33 @@ Did you mean:
   2. [command B] — [what it does]
 ```
 
-If the input clearly maps to one command, announce and run it immediately:
+Once routing resolves — either directly or after clarification — apply Intent Verification before executing.
+
+---
+
+## Intent Verification
+
+After routing resolves, output this block before executing the command:
 
 ```
-→ Routing to: /flow-[command] [args]
+→ I understood this as: [one sentence — what you will do, and for which phase/target if applicable]
+  Confidence: HIGH / MEDIUM / LOW
+  [If MEDIUM or LOW: state what is ambiguous and what assumption you are making]
+
+Proceed? (press enter to confirm, n to stop)
 ```
 
-Do not ask for confirmation on clear matches. Just run it.
+**Confidence guidance:**
+- `HIGH` — input maps cleanly to one command with unambiguous arguments
+- `MEDIUM` — phase number, target, or scope had to be inferred from STATE.md or context
+- `LOW` — intent is unclear after routing; you are making a significant assumption
+
+**Mode behaviour:**
+- `interactive` (default): print the block and pause for confirmation
+- `yolo` (config `mode: yolo`): print the block but do not pause — proceed immediately
+- Future `--auto` flag: chain automatically only if confidence is `HIGH`; always pause if `MEDIUM` or `LOW` regardless of flag
+
+Do not skip this block. In yolo mode the pause is skipped, not the echo.
 
 ---
 
@@ -76,4 +96,14 @@ I'm not sure which FLOW command fits that. Here's what's available:
 [show /flow-help output]
 
 What would you like to do?
+```
+
+---
+
+## After confirmation
+
+Once the developer confirms (or in yolo mode, immediately after the echo), announce and execute:
+
+```
+→ Routing to: /flow-[command] [args]
 ```

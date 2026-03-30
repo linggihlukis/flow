@@ -20,10 +20,10 @@ Something urgent has come up mid-execution that can't be deferred — a critical
 
 ## Pre-flight
 
-1. Confirm `ROADMAP.md` exists
-2. Read `ROADMAP.md` — find Phase $ARGUMENTS and the phase after it
+1. Confirm `.flow/docs/ROADMAP.md` exists
+2. Read `.flow/docs/ROADMAP.md` — find Phase $ARGUMENTS and the phase after it
 3. Confirm Phase $ARGUMENTS is complete (status `verified`) or in-progress
-   → If the phase hasn't started: "Just edit ROADMAP.md directly — use /flow-add-phase instead"
+   → If the phase hasn't started: "Just edit `.flow/docs/ROADMAP.md` directly — use /flow-add-phase instead"
 
 ---
 
@@ -46,7 +46,7 @@ If a 3.1 already exists, use 3.2, and so on.
 
 ## Step 3: Update ROADMAP.md
 
-Insert the new phase entry in ROADMAP.md immediately after Phase $ARGUMENTS:
+Insert the new phase entry in `.flow/docs/ROADMAP.md` immediately after Phase $ARGUMENTS:
 
 ```markdown
 ### Phase $ARGUMENTS.1: [Name] ⚡ Inserted

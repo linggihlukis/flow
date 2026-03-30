@@ -28,12 +28,12 @@ Phase number: **$ARGUMENTS**
      ⚠️  [N] pre-existing test failure(s) noted from baseline — not blocking execution.
         See .flow/context/test-baseline.md for the full list.
      ```
-3. Read `.flow/context/LESSONS.md` — load last 5 entries.
+3. Read `.flow/memory/LESSONS.md` — load last 5 entries.
    Filter to entries matching the current phase type (Visual/UI, API/Backend,
    Data/Content, Infrastructure). Apply only matching entries.
    If fewer than 2 matching entries in the last 5, expand to last 10.
    If none found — skip silently.
-4. Read `PATTERNS.md` — all new code must follow conventions
+4. Read `.flow/docs/PATTERNS.md` — all new code must follow conventions
 5. Read `.flow/context/config.json` — apply these settings:
    - `workflow.parallel_execution`: if false, execute all plans sequentially (no parallel waves)
    - `workflow.node_repair`: if false, do not auto-retry failed tasks — escalate immediately
@@ -84,19 +84,20 @@ updated_at: [ISO 8601 datetime]
 For each plan, spawn `@flow-executor` with the following brief:
 
 ```
-Plan: .flow/context/phase-$ARGUMENTS-plan-NN.md
-PATTERNS.md: [path if exists]
+Plan: .flow/context/phases/$ARGUMENTS/plan-NN.md
+PATTERNS.md: .flow/docs/PATTERNS.md (if exists)
 node_repair_budget: [from .flow/context/config.json]
+Summary output: .flow/context/phases/$ARGUMENTS/summary-NN.md
 ```
 
 The executor will:
-1. Read only its plan, required source files, and PATTERNS.md
+1. Read only its plan, required source files, and `.flow/docs/PATTERNS.md`
 2. Announce the exact files it will touch before writing anything
 3. Implement the plan steps exactly
 4. Run the plan's `<verify>` command — this must pass
 5. Run `git diff --name-only` to confirm scope wasn't exceeded
 6. Run full test suite and linter — apply the same baseline-aware check as pre-flight: only failures not in `.flow/context/test-baseline.md` block the commit
-7. Commit and report back
+7. Commit, write plan summary to `.flow/context/phases/$ARGUMENTS/summary-NN.md`, and report back
 
 If the executor reports a plan error (plan assumes something that isn't true):
 - Stop all execution
@@ -108,7 +109,7 @@ If the executor reports a plan error (plan assumes something that isn't true):
 *Recoverable — budget exhausted:*
 - Stop execution of this wave
 - Report exactly which plan failed, what was tried, what failed
-- Append to `.flow/context/LESSONS.md`
+- Append to `.flow/memory/LESSONS.md`
 - Ask developer: continue with remaining plans or stop?
 
 *Confused:*
@@ -152,7 +153,15 @@ If exit code is non-zero (file missing):
 
 ## Stage 3: Write Phase Handoff
 
-After all waves complete, write `.flow/context/handoffs/phase-$ARGUMENTS-handoff.md`:
+After all waves complete, collect plan summaries before writing the handoff.
+
+**Read plan summaries:**
+```bash
+ls .flow/context/phases/$ARGUMENTS/summary-*.md 2>/dev/null
+```
+Read every summary file that exists. These are the authoritative record of what each plan actually did — use them as the primary source for the handoff sections below. If no summaries exist (e.g. execution predates L4), fall back to synthesising from executor reports in conversation history.
+
+Write `.flow/context/phases/$ARGUMENTS/handoff.md`:
 
 ```markdown
 # Phase $ARGUMENTS Handoff — [Phase Name]
@@ -161,18 +170,19 @@ After all waves complete, write `.flow/context/handoffs/phase-$ARGUMENTS-handoff
 **Status:** Complete / Partially complete (note any failed plans)
 
 ## What Was Built
-[2-3 sentences in plain language]
+[2-3 sentences in plain language — synthesised from plan summaries]
 
 ### Plans Completed
 | Plan | Title | Commit |
 |---|---|---|
-| phase-$ARGUMENTS-plan-01 | [title] | [hash] |
+| plan-NN | [title] | [hash from summary-NN.md] |
 
 ## Key Decisions Made This Phase
-[Any decisions made during execution not in CONTEXT.md]
+[From summary "Workarounds" fields — any deviations from plan steps and why.
+Include only decisions not already in CONTEXT.md.]
 
 ## What You Need to Know
-- [non-obvious gotcha discovered during execution]
+- [non-obvious gotcha from summary files]
 - [any workaround and why it was necessary]
 
 ## Current State
@@ -185,7 +195,7 @@ After all waves complete, write `.flow/context/handoffs/phase-$ARGUMENTS-handoff
 **Start with:** /flow-discuss-phase [N+1]
 
 ## Files Changed This Phase
-[from git log]
+[union of all "Files changed" fields from summary files, or from git log if summaries unavailable]
 ```
 
 ---
@@ -204,16 +214,16 @@ updated_at: [ISO 8601 datetime]
 
 **File growth check** — count and warn:
 
-Count entries in `.flow/context/LESSONS.md` (lines starting with `## `).
+Count entries in `.flow/memory/LESSONS.md` (lines starting with `## `).
 If count exceeds 100: warn — "LESSONS.md approaching archive threshold (100+). Will archive at milestone close."
 If count exceeds 150: warn — "LESSONS.md at hard limit. Archive now or context rot risk."
 
-Count entries in `.flow/context/debug/KNOWLEDGE-BASE.md` (lines starting with `## `).
+Count entries in `.flow/memory/KNOWLEDGE-BASE.md` (lines starting with `## `).
 If count exceeds 150: warn — "KNOWLEDGE-BASE.md approaching archive threshold (150+). Will archive at milestone close."
 If count exceeds 200: warn — "KNOWLEDGE-BASE.md at hard limit. Archive now or context rot risk."
 
-Count lines in `ROADMAP.md`.
-If over 150 lines total: warn — "ROADMAP.md is large. Consider running /flow-complete-milestone to archive completed milestones."
+Count lines in `.flow/docs/ROADMAP.md`.
+If over 150 lines total: warn — ".flow/docs/ROADMAP.md is large. Consider running /flow-complete-milestone to archive completed milestones."
 
 ```
 ✅ Phase $ARGUMENTS executed
@@ -221,7 +231,7 @@ If over 150 lines total: warn — "ROADMAP.md is large. Consider running /flow-c
 Plans completed: [count]/[total]
 Commits made:   [count]
 
-Handoff: .flow/context/handoffs/phase-$ARGUMENTS-handoff.md
+Handoff: .flow/context/phases/$ARGUMENTS/handoff.md
 
 Next step: /flow-verify-work $ARGUMENTS
 ```

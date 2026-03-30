@@ -13,9 +13,9 @@ Read AGENTS.md and `.flow/STATE.md` before doing anything else.
 ## Pre-flight
 
 1. Check for a recent audit result — look for evidence that `/flow-audit-milestone` was run
-2. Read `REQUIREMENTS.md` — identify all Must Have requirements
-3. Read `ROADMAP.md` — understand current phase structure
-4. Read all phase handoffs in `.flow/context/handoffs/` — understand what was actually built
+2. Read `.flow/docs/REQUIREMENTS.md` — identify all Must Have requirements
+3. Read `.flow/docs/ROADMAP.md` — understand current phase structure
+4. Read all phase handoffs in `.flow/context/phases/` — understand what was actually built
 
 If no audit has been run:
 ```
@@ -54,7 +54,7 @@ Group related gaps into the minimum number of phases needed:
 
 ## Step 3: Generate Gap Phases
 
-For each gap phase, append to `ROADMAP.md`:
+For each gap phase, append to `.flow/docs/ROADMAP.md`:
 
 ```markdown
 ### Phase [N]: [Name] 🔧 Gap Fix

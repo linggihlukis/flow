@@ -24,12 +24,12 @@ You review it. If anything is wrong, you correct it now — before the researche
 
 ## Pre-flight
 
-1. Confirm `.flow/context/phase-$ARGUMENTS-CONTEXT.md` exists
+1. Confirm `.flow/context/phases/$ARGUMENTS/CONTEXT.md` exists
    → If not: "Run /flow-discuss-phase $ARGUMENTS first"
-2. Read `ROADMAP.md` Phase $ARGUMENTS
-3. Read `.flow/context/phase-$ARGUMENTS-CONTEXT.md` — all locked decisions
-4. Read `PATTERNS.md` if it exists
-5. Read `PROJECT.md` for stack context
+2. Read `.flow/docs/ROADMAP.md` Phase $ARGUMENTS
+3. Read `.flow/context/phases/$ARGUMENTS/CONTEXT.md` — all locked decisions
+4. Read `.flow/docs/PATTERNS.md` if it exists
+5. Read `.flow/docs/PROJECT.md` for stack context
 
 ---
 
@@ -75,7 +75,7 @@ If anything above is wrong or missing, tell me now — before I start planning.
 ```
 
 If the developer provides corrections:
-- Update `.flow/context/phase-$ARGUMENTS-CONTEXT.md` with any new locked decisions
+- Update `.flow/context/phases/$ARGUMENTS/CONTEXT.md` with any new locked decisions
 - Acknowledge each correction explicitly
 - Re-state the updated assumptions
 

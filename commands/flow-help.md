@@ -58,9 +58,12 @@ UTILITIES
 
 AGENTS  (subagents — fresh context per invocation)
 ───────────────────────────────────────────────────
-  @flow-researcher           Spawned by plan-phase — investigates implementation
+  @flow-researcher           Spawned by plan-phase Stage 1 — investigates implementation
+  @flow-planner              Spawned by plan-phase Stage 2 — generates atomic plan files
+  @flow-critic               Spawned by plan-phase Stage 3 — checks plans against 8 rules
   @flow-executor             Spawned per plan by execute-phase — implements + commits
   @flow-debugger             Spawned by verify-work on failure — diagnoses + fix plan
+  @flow-verifier             Spawned by verify-work Stage 0 (opt-in) — pre-UAT gap check
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -85,17 +88,17 @@ TYPICAL FLOW — EXISTING PROJECT
 
 KEY FILES
 ─────────
-  AGENTS.md                  Every agent reads this first (root — auto-loaded)
-  .flow/STATE.md             Current state — YAML + prose
-  PROJECT.md                 Vision, goals, constraints, stack
-  ROADMAP.md                 Phases and milestones
-  REQUIREMENTS.md            MoSCoW requirements with IDs
-  PATTERNS.md                Codebase conventions
-  .flow/context/LESSONS.md           Cross-milestone lessons (append-only)
-  .flow/context/config.json          FLOW configuration
-  .flow/context/debug/               Debug knowledge base
-  .flow/context/handoffs/            Phase and milestone handoff documents
-  .flow/context/research/            Research outputs per phase
+  AGENTS.md                        Every agent reads this first (root — auto-loaded)
+  .flow/STATE.md                   Current state — YAML + prose
+  .flow/docs/PROJECT.md            Vision, goals, constraints, stack
+  .flow/docs/ROADMAP.md            Phases and milestones
+  .flow/docs/REQUIREMENTS.md       MoSCoW requirements with IDs
+  .flow/docs/PATTERNS.md           Codebase reality map
+  .flow/memory/LESSONS.md          Cross-milestone lessons (append-only)
+  .flow/memory/KNOWLEDGE-BASE.md   Debug knowledge base (append-only)
+  .flow/context/config.json        Workflow settings
+  .flow/context/phases/N/          Per-phase working files
+  .flow/context/milestones/        Milestone summaries and archives
 
 CONFIG (.flow/context/config.json)
 ──────────────────────────────────

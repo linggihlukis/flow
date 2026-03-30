@@ -13,14 +13,15 @@ Phase number: **$ARGUMENTS** (defaults to current phase from STATE.md if not pro
 
 Read:
 - `.flow/STATE.md` — current position and decisions
-- All `phase-N-plan-NN.md` files for this phase
+- All `plan-NN.md` files for this phase from `.flow/context/phases/N/`
+- All `summary-NN.md` files for this phase from `.flow/context/phases/N/` — use these as the primary source for workarounds, decisions, and files changed. Fall back to `git log` if no summaries exist.
 - `git log` for commits in this phase
-- `.flow/context/phase-N-CONTEXT.md`
+- `.flow/context/phases/N/CONTEXT.md`
 
 If a handoff already exists for this phase:
 "A handoff already exists for Phase N. Overwrite with updated version? (yes/no)"
 
-Write `.flow/context/handoffs/phase-N-handoff.md`:
+Write `.flow/context/phases/N/handoff.md`:
 
 ```markdown
 # Phase N Handoff — [Phase Name]
@@ -59,5 +60,5 @@ Update `.flow/STATE.md` prose: add one line noting the handoff was generated/upd
 
 Print:
 ```
-📋 Handoff written: .flow/context/handoffs/phase-[N]-handoff.md
+📋 Handoff written: .flow/context/milestones/phase-[N]-handoff.md
 ```
