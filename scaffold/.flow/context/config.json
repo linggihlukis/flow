@@ -1,5 +1,5 @@
 {
-  "flow_version": "0.1.0",
+  "flow_version": "*.*.*",
   "runtime": "auto",
   "mode": "interactive",
   "depth": "standard",

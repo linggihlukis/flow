@@ -26,6 +26,20 @@
 - **All backlog items complete except blocked ones** — C0–C4, H1–H6, M1–M6, A1, L3, L4, S1, S2
 - **Test suite** — `npm test` passes clean (7 suites, zero failures)
 
+### What was done in this session (2026-03-30)
+
+**Version sync — `install.js` now injects version automatically**
+
+`flow_version` in scaffolded `config.json` was a hardcoded string that required manual updates on every release. Fixed by wiring `package.json` version directly into `install.js` at scaffold time — config.json is now written with the live version rather than copied statically. No more manual sync required.
+
+- `bin/install.js`: config.json scaffold path now parses the file, sets `flow_version = pkg.version`, writes it — instead of copying the static file
+- `package.json`: bumped to `0.1.1`, name updated to `@linggihlukis/flow-init`, description and keywords updated
+- `README.md`: install commands updated to `npx @linggihlukis/flow-init`
+- `BACKLOG.md`: R1 marked ✅ Done, implementation order updated
+- `npm test`: 7 suites, zero failures ✓
+
+**Files changed:** `bin/install.js`, `package.json`, `README.md`, `BACKLOG.md`, `HANDOFF.md`
+
 ### What was done in this session (2026-03-29, session 2)
 
 **Agentic paradigm review + backlog update**
@@ -80,29 +94,26 @@ Each executor writes a `summary-NN.md` after committing, before reporting back.
 
 ## What to Do Next — In Order
 
-### 1. R1 — npm publish
-**Not blocked by anything.** Choose a package name, verify `package.json` fields, `npm publish --access public`, update README.md. This is the session gate — everything else is blocked without usage evidence.
-
-### 2. R2 — Feedback loop closure in `flow-verify-work`
+### 1. R2 — Feedback loop closure in `flow-verify-work`
 **Not blocked.** Single file change in the Issues Found completion block. Add auto-resume routing in `yolo` mode, confirmation prompt in `interactive` mode.
 
-### 3. R3 — Role-scoped AGENTS.md includes
+### 2. R3 — Role-scoped AGENTS.md includes
 **Not blocked.** Split AGENTS.md into `AGENTS-core.md` + `AGENTS-executor.md` + `AGENTS-planner.md`. Update subagent briefs. Update `bin/install.js` to scaffold new files. Run `npm test` after.
 
-### 4. R4 — PATTERNS.md drift detection
+### 3. R4 — PATTERNS.md drift detection
 **Not blocked.** Add `--refresh` mode to `flow-map-codebase`. Staleness flags only — no rewrites.
 
-### 5. R5 — Structured subagent return format
+### 4. R5 — Structured subagent return format
 **Not blocked.** Add `## Return` block spec to each subagent's output format. Update orchestrator read instructions to extract return block instead of full file.
 
-### 6. L2 — `--auto` flag
-**Blocked by:** R1 confirmed in practice, H6 proven working on a real project.
+### 5. L2 — `--auto` flag
+**Blocked by:** H6 proven working on a real project.
 
-### 7. R6 — MCP in config.json
-**Blocked by:** R1 — need usage signal on which integrations matter before designing schema.
+### 6. R6 — MCP in config.json
+**Blocked by:** Usage signal on which integrations matter most.
 
-### 8. Option B / R7 — flow-tools binary + hooks
-**Blocked by:** Context ceiling confirmed as real pain (Option B) and R1 (R7).
+### 7. Option B / R7 — flow-tools binary + hooks
+**Blocked by:** Context ceiling confirmed as real pain (Option B) and Option B (R7).
 
 ---
 
@@ -146,11 +157,10 @@ Each executor writes a `summary-NN.md` after committing, before reporting back.
 
 ## Open Questions / Unresolved
 
-- **R1 package name** — `flow-init` is the natural choice but check npm for conflicts before publishing.
 - **A1 in practice** — Antigravity runtime support implemented in `install.js` but not yet tested on a real install. A2 and A3 blocked until confirmed.
 - **L1 model routing** — OpenCode per-agent model stability needs verification before pursuing.
 - **Context ceiling in practice** — Option B should only be built after hitting the ~12 phase / 2 milestone ceiling on a real project.
-- **R6 MCP schema** — Don't design the config shape until R1 gives usage signal on which integrations matter most.
+- **R6 MCP schema** — Don't design the config shape until usage signal on which integrations matter most.
 
 ---
 

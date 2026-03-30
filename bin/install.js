@@ -174,6 +174,11 @@ function installScaffold(projectRoot) {
   for (const [src, dest] of files) {
     if (fs.existsSync(dest)) {
       skipped.push(path.relative(projectRoot, dest));
+    } else if (src.endsWith("config.json")) {
+      // Inject current package version into flow_version field
+      const config = JSON.parse(fs.readFileSync(src, "utf8"));
+      config.flow_version = pkg.version;
+      fs.writeFileSync(dest, JSON.stringify(config, null, 2) + "\n");
     } else {
       copyFile(src, dest);
     }

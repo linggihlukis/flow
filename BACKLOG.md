@@ -709,7 +709,7 @@ New structure:
 
 ---
 
-### R1 — npm publish (`npx flow-init`) 🔲 Pending
+### R1 — npm publish (`npx @linggihlukis/flow-init`) ✅ Done
 
 **Urgency:** Critical
 **Token cost:** Zero
@@ -918,21 +918,21 @@ This shares the binary dependency with Option B. Build together, not separately.
 - Option A, C — session discipline documented
 - S1 — Folder structure redesign
 - S2 — GUIDE.md removed, README.md rewritten
+- R1 — npm publish (`@linggihlukis/flow-init`)
 
 **Pending — in priority order (highest ROI first):**
 
-1. **R1** — npm publish (`npx flow-init`) — no engineering, just publish. Unblocks everything below.
-2. **R2** — Feedback loop closure in `flow-verify-work` — closes the verify → repeat gap. Low effort, high recurring return.
-3. **R3** — Role-scoped AGENTS.md includes — compounding token saving on every subagent invocation.
-4. **R4** — PATTERNS.md drift detection (`--refresh` flag) — low effort, prevents invisible plan quality decay.
-5. **R5** — Structured subagent return format — closes the handoff accumulation leak.
-6. **L2** — `--auto` flag (blocked: R1 confirmed in practice, H6 proven working)
-7. **A2** — Antigravity `// turbo` annotations (blocked: A1 confirmed on real install)
-8. **A3** — Antigravity browser verification (blocked: A1)
-9. **L1** — Model profile routing (blocked: OpenCode per-agent model stability)
-10. **R6** — MCP block in `config.json` (blocked: R1 — need usage signal on which integrations matter)
-11. **Option B** — flow-tools binary (blocked: context ceiling confirmed as real pain)
-12. **R7** — Hooks / event-driven invocation (blocked: Option B + R1)
+1. **R2** — Feedback loop closure in `flow-verify-work` — closes the verify → repeat gap. Low effort, high recurring return.
+2. **R3** — Role-scoped AGENTS.md includes — compounding token saving on every subagent invocation.
+3. **R4** — PATTERNS.md drift detection (`--refresh` flag) — low effort, prevents invisible plan quality decay.
+4. **R5** — Structured subagent return format — closes the handoff accumulation leak.
+5. **L2** — `--auto` flag (blocked: H6 proven working in practice first)
+6. **A2** — Antigravity `// turbo` annotations (blocked: A1 confirmed on real install)
+7. **A3** — Antigravity browser verification (blocked: A1)
+8. **L1** — Model profile routing (blocked: OpenCode per-agent model stability)
+9. **R6** — MCP block in `config.json` (blocked: need usage signal on which integrations matter)
+10. **Option B** — flow-tools binary (blocked: context ceiling confirmed as real pain)
+11. **R7** — Hooks / event-driven invocation (blocked: Option B)
 
 ---
 

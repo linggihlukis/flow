@@ -1,7 +1,7 @@
 {
-  "name": "flow-init",
-  "version": "0.1.0",
-  "description": "FLOW — Balanced AI Development Workflow. OpenCode-first, model-agnostic.",
+  "name": "@linggihlukis/flow-init",
+  "version": "0.1.1",
+  "description": "Flow — spec-driven agentic development workflow for solo developers.",
   "bin": {
     "flow-init": "./bin/install.js"
   },
@@ -10,11 +10,16 @@
     "test": "node test/flow-test.js"
   },
   "keywords": [
+    "flow",
+    "agentic",
+    "ai-workflow",
     "opencode",
     "claude-code",
-    "ai-workflow",
     "context-engineering",
-    "spec-driven-development"
+    "spec-driven-development",
+    "solo-developer",
+    "legacy-codebase",
+    "ai-coding"
   ],
   "author": "",
   "license": "MIT",

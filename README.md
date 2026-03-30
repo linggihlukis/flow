@@ -25,14 +25,16 @@ This works equally well on greenfield projects and legacy codebases. On clean co
 
 ```bash
 # OpenCode (global)
-npx github:YOUR_USERNAME/flow --opencode --global
+npx @linggihlukis/flow-init --opencode --global
 
 # Claude Code (global)
-npx github:YOUR_USERNAME/flow --claude --global
+npx @linggihlukis/flow-init --claude --global
+
+# Antigravity (global)
+npx @linggihlukis/flow-init --antigravity
 
 # Local install
-unzip flow.zip && cd flow && npm link
-flow-init --opencode --local
+npx @linggihlukis/flow-init --opencode --local
 ```
 
 | Flag | Description |
@@ -228,7 +230,7 @@ project-root/
 ### New project
 
 ```bash
-npx github:YOUR_USERNAME/flow --opencode --local
+npx @linggihlukis/flow-init --opencode --local
 # then in OpenCode:
 /flow-new-project
 ```
