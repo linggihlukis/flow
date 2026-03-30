@@ -26,7 +26,21 @@
 - **All backlog items complete except blocked ones** — C0–C4, H1–H6, M1–M6, A1, L3, L4, S1, S2
 - **Test suite** — `npm test` passes clean (7 suites, zero failures)
 
-### What was done in this session (2026-03-30)
+### What was done in this session (2026-03-30, session 2)
+
+**R2 — Feedback loop closure in `flow-verify-work`**
+
+Added `## Auto-Resume` block to the "Completion — Issues Found" section. In `interactive` mode: prints fix plan list, prompts confirmation, routes to `flow-execute-phase`. In `yolo` mode: routes immediately with echo. No other files changed — `flow-execute-phase` Stage 1 already reads `fix-*.md` files natively.
+
+**R3 — Role-scoped AGENTS.md read instructions (revised scope)**
+
+Original spec called for new files (`AGENTS-core.md`, role-specific splits, install.js update). Analysis showed subagents don't read AGENTS.md at all — the cost was entirely on orchestrator commands. Revised fix: all 20 commands updated to reference specific sections by number instead of blanket `"Read AGENTS.md"`. Examples: `flow-health.md` → `§2 only`; `flow-execute-phase.md` → `§2,3,5,7,9,10,11,12,14,15,16,18`. Same token saving, zero new files.
+
+**Version bumped to 0.1.2** — both changes are behavioural, not doc-only.
+
+**Files changed:** `commands/flow-verify-work.md`, all 20 `commands/flow-*.md` (§ scoping), `package.json` (0.1.2), `BACKLOG.md`, `HANDOFF.md`
+
+### What was done in this session (2026-03-30, session 1)
 
 **Version sync — `install.js` now injects version automatically**
 
@@ -94,25 +108,19 @@ Each executor writes a `summary-NN.md` after committing, before reporting back.
 
 ## What to Do Next — In Order
 
-### 1. R2 — Feedback loop closure in `flow-verify-work`
-**Not blocked.** Single file change in the Issues Found completion block. Add auto-resume routing in `yolo` mode, confirmation prompt in `interactive` mode.
-
-### 2. R3 — Role-scoped AGENTS.md includes
-**Not blocked.** Split AGENTS.md into `AGENTS-core.md` + `AGENTS-executor.md` + `AGENTS-planner.md`. Update subagent briefs. Update `bin/install.js` to scaffold new files. Run `npm test` after.
-
-### 3. R4 — PATTERNS.md drift detection
+### 1. R4 — PATTERNS.md drift detection
 **Not blocked.** Add `--refresh` mode to `flow-map-codebase`. Staleness flags only — no rewrites.
 
-### 4. R5 — Structured subagent return format
+### 2. R5 — Structured subagent return format
 **Not blocked.** Add `## Return` block spec to each subagent's output format. Update orchestrator read instructions to extract return block instead of full file.
 
-### 5. L2 — `--auto` flag
+### 3. L2 — `--auto` flag
 **Blocked by:** H6 proven working on a real project.
 
-### 6. R6 — MCP in config.json
+### 4. R6 — MCP in config.json
 **Blocked by:** Usage signal on which integrations matter most.
 
-### 7. Option B / R7 — flow-tools binary + hooks
+### 5. Option B / R7 — flow-tools binary + hooks
 **Blocked by:** Context ceiling confirmed as real pain (Option B) and Option B (R7).
 
 ---

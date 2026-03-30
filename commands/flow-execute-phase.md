@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §3 (Runtime Detection), §5 (Subagents), §7 (Destructive Tiers), §9 (Lesson Injection), §10 (Recovery Tiers), §11 (Commit Protocol), §12 (State Write), §14 (File Size Limits), §15 (Reading Discipline), §16 (Context Discipline), §18 (SERVICE-MAP) and `.flow/STATE.md` before doing anything else.
 
 # /flow-execute-phase $ARGUMENTS
 
@@ -113,7 +113,7 @@ If the executor reports a plan error (plan assumes something that isn't true):
 - Ask developer: continue with remaining plans or stop?
 
 *Confused:*
-- Re-spawn the executor with the same brief and a note to re-read AGENTS.md first, retry once
+- Re-spawn the executor with the same brief and a note to re-read AGENTS.md §7 (Destructive Tiers), §10 (Recovery Tiers), §11 (Commit Protocol) first, retry once
 
 *Critical (Tier 3 destructive action failed):*
 - Stop all execution immediately. Do not retry. Report exact state. Wait for developer instruction.

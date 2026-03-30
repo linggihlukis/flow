@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §3 (Runtime Detection), §5 (Subagents), §8 (Atomic Task Rules), §12 (State Write), §15 (Reading Discipline), §16 (Context Discipline), §18 (SERVICE-MAP) and `.flow/STATE.md` before doing anything else.
 
 # /flow-plan-phase $ARGUMENTS
 

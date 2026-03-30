@@ -3,7 +3,7 @@ description: "Execute an ad-hoc task with FLOW guarantees — atomic commit, sta
 agent: build
 ---
 
-Read AGENTS.md before doing anything else.
+Read AGENTS.md §2 (File Locations), §5 (Subagents), §7 (Destructive Tiers), §8 (Atomic Task Rules) before doing anything else.
 
 # /flow-quick $ARGUMENTS
 

@@ -731,7 +731,7 @@ Without real usage, every remaining item is optimised against hypothetical pain 
 
 ---
 
-### R2 — Feedback loop closure in `flow-verify-work` 🔲 Pending
+### R2 — Feedback loop closure in `flow-verify-work` ✅ Done
 
 **Urgency:** High
 **Token cost:** Zero (instructions only)
@@ -766,7 +766,9 @@ No new architecture required. `flow-execute-phase` Stage 1 already reads `fix-*.
 
 ---
 
-### R3 — Role-scoped AGENTS.md includes 🔲 Pending
+### R3 — Role-scoped AGENTS.md includes ✅ Done
+
+> **Revised scope from original spec:** No new files created. Analysis showed subagents do not read AGENTS.md — they load only their own brief. The 355-line load cost was entirely on orchestrator commands. Fix applied directly: every command's read instruction now references specific sections by number (e.g. `§2, §7, §12`) instead of `"Read AGENTS.md"` blanket. Same token saving, zero new files, no install.js or test changes required.
 
 **Urgency:** High
 **Token cost:** Net saving per subagent invocation
@@ -919,20 +921,20 @@ This shares the binary dependency with Option B. Build together, not separately.
 - S1 — Folder structure redesign
 - S2 — GUIDE.md removed, README.md rewritten
 - R1 — npm publish (`@linggihlukis/flow-init`)
+- R2 — Feedback loop closure in `flow-verify-work`
+- R3 — Role-scoped AGENTS.md includes (revised: scoped section references in all commands)
 
 **Pending — in priority order (highest ROI first):**
 
-1. **R2** — Feedback loop closure in `flow-verify-work` — closes the verify → repeat gap. Low effort, high recurring return.
-2. **R3** — Role-scoped AGENTS.md includes — compounding token saving on every subagent invocation.
-3. **R4** — PATTERNS.md drift detection (`--refresh` flag) — low effort, prevents invisible plan quality decay.
-4. **R5** — Structured subagent return format — closes the handoff accumulation leak.
-5. **L2** — `--auto` flag (blocked: H6 proven working in practice first)
-6. **A2** — Antigravity `// turbo` annotations (blocked: A1 confirmed on real install)
-7. **A3** — Antigravity browser verification (blocked: A1)
-8. **L1** — Model profile routing (blocked: OpenCode per-agent model stability)
-9. **R6** — MCP block in `config.json` (blocked: need usage signal on which integrations matter)
-10. **Option B** — flow-tools binary (blocked: context ceiling confirmed as real pain)
-11. **R7** — Hooks / event-driven invocation (blocked: Option B)
+1. **R4** — PATTERNS.md drift detection (`--refresh` flag)
+2. **R5** — Structured subagent return format
+3. **L2** — `--auto` flag (blocked: H6 proven working in practice first)
+4. **A2** — Antigravity `// turbo` annotations (blocked: A1 confirmed on real install)
+5. **A3** — Antigravity browser verification (blocked: A1)
+6. **L1** — Model profile routing (blocked: OpenCode per-agent model stability)
+7. **R6** — MCP block in `config.json` (blocked: need usage signal on which integrations matter)
+8. **Option B** — flow-tools binary (blocked: context ceiling confirmed as real pain)
+9. **R7** — Hooks / event-driven invocation (blocked: Option B)
 
 ---
 

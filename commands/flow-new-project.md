@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md fully before doing anything else.
+Read AGENTS.md §2 (File Locations), §7 (Destructive Tiers), §12 (State Write) before doing anything else.
 
 # /flow-new-project
 

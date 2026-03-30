@@ -3,14 +3,14 @@ description: Resume work — read state, surface lessons, load handoff, orient a
 agent: build
 ---
 
-Read AGENTS.md before doing anything else.
+Read AGENTS.md §2 (File Locations), §4 (Session Start), §9 (Lesson Injection), §15 (Reading Discipline), §17 (Session Discipline) before doing anything else.
 
 # /flow-resume
 
 Execute every step in order before doing anything else.
 
 ## Step 1: Read AGENTS.md
-Re-read fully. Do not assume you remember it from a prior session.
+Read §2 (File Locations), §4 (Session Start), §9 (Lesson Injection), §15 (Reading Discipline), §17 (Session Discipline). Do not assume you remember it from a prior session.
 
 ## Step 2: Read .flow/STATE.md
 Parse both YAML frontmatter and prose. Extract:

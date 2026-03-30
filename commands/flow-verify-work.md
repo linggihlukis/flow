@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §5 (Subagents), §9 (Lesson Injection), §10 (Recovery Tiers), §12 (State Write), §17 (Session Discipline) and `.flow/STATE.md` before doing anything else.
 
 # /flow-verify-work $ARGUMENTS
 
@@ -171,7 +171,23 @@ Do not reformat or restructure the YAML. Change only the two fields above.
 Passed: [count] / Failed: [count]
 
 Fix plans created:
-  phase-$ARGUMENTS-fix-01.md — [title]
-
-Run /flow-execute-phase $ARGUMENTS to apply fixes.
+  .flow/context/phases/$ARGUMENTS/fix-01.md — [title]
 ```
+
+## Auto-Resume
+
+In `interactive` mode:
+```
+Fix plans are ready. Apply fixes now?
+(press enter to run /flow-execute-phase $ARGUMENTS, or n to stop)
+```
+Wait for confirmation. On confirm — announce and route:
+```
+→ Routing to: /flow-execute-phase $ARGUMENTS
+```
+
+In `yolo` mode:
+```
+→ Auto-resuming: /flow-execute-phase $ARGUMENTS (fix plans ready)
+```
+Route immediately — no pause.

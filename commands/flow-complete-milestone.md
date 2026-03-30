@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §12 (State Write), §14 (File Size Limits) and `.flow/STATE.md` before doing anything else.
 
 # /flow-complete-milestone
 

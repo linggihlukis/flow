@@ -1,6 +1,6 @@
 {
   "name": "@linggihlukis/flow-init",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Flow — spec-driven agentic development workflow for solo developers.",
   "bin": {
     "flow-init": "./bin/install.js"

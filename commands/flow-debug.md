@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §5 (Subagents), §7 (Destructive Tiers), §10 (Recovery Tiers) and `.flow/STATE.md` before doing anything else.
 
 # /flow-debug $ARGUMENTS
 

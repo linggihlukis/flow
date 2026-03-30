@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md, `.flow/STATE.md`, and `.flow/context/config.json` before doing anything else.
+Read AGENTS.md §2 (File Locations), §5 (Subagents), `.flow/STATE.md`, and `.flow/context/config.json` before doing anything else.
 
 # /flow-do $ARGUMENTS
 

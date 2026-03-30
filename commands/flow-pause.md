@@ -3,7 +3,7 @@ description: Safely pause work — write state, commit progress, prepare for res
 agent: build
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §12 (State Write), §17 (Session Discipline) and `.flow/STATE.md` before doing anything else.
 
 # /flow-pause
 

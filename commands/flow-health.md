@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md before doing anything else.
+Read AGENTS.md §2 (File Locations) before doing anything else.
 
 # /flow-health $ARGUMENTS
 

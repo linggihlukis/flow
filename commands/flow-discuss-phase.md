@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-Read AGENTS.md and `.flow/STATE.md` before doing anything else.
+Read AGENTS.md §2 (File Locations), §12 (State Write), §18 (SERVICE-MAP) and `.flow/STATE.md` before doing anything else.
 
 # /flow-discuss-phase $ARGUMENTS
 
