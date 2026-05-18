@@ -3,6 +3,20 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.1] - 2026-05-18
+
+### Added
+- Tree-sitter language auto-discovery — all `tree-sitter-*.wasm` files detected at runtime; no hardcoded language list (36 languages supported)
+- Generic AST extractor as fallback for any language without a specialised parser
+- `languages` config block in `.flow/config.json` for custom extension→language mappings
+- How-to documentation for adding tree-sitter languages in README
+
+### Changed
+- Installer copies all `.wasm` files dynamically instead of a hardcoded PHP/JS list
+
+### Fixed
+- Missing `js-yaml` import in test file (latent `ReferenceError` on inline YAML blocks)
+
 ## [0.1.0] - 2026-05-18
 
 Initial public release.

@@ -227,15 +227,12 @@ function installWasm() {
   }
 
   ensureDir(wasmDir);
-  const wasmFiles = ["tree-sitter-php.wasm", "tree-sitter-javascript.wasm"];
+  const wasmFiles = fs.readdirSync(sourceDir).filter(f => f.endsWith(".wasm"));
   let copied = 0;
 
   for (const file of wasmFiles) {
-    const src = path.join(sourceDir, file);
-    if (fs.existsSync(src)) {
-      copyFile(src, path.join(wasmDir, file));
-      copied++;
-    }
+    copyFile(path.join(sourceDir, file), path.join(wasmDir, file));
+    copied++;
   }
 
   if (copied > 0) ok(`${copied} WASM file(s) ${dim(`→ ${wasmDir}`)}`);

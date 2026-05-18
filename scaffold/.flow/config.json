@@ -50,6 +50,10 @@
     "env_files": true,
     "git_history": true
   },
+  "languages": {
+    "python": [".py"],
+    "ruby": [".rb"]
+  },
   "context": {
     "model_context_limit": 200000,
     "budget_low_pct": 70,

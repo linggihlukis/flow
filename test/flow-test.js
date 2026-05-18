@@ -8,6 +8,7 @@
 
 const fs   = require("fs");
 const path = require("path");
+const yaml = require("js-yaml");
 const { parseFrontmatter, serializeFrontmatter, nowISO, escapeRegex, extractField } = require("../bin/flow-tools");
 
 const ROOT      = path.join(__dirname, "..");

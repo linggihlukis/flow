@@ -612,9 +612,6 @@ function cmdIndex(args) {
     return;
   }
 
-  const phpWasmPath = path.join(wasmDir, 'tree-sitter-php.wasm');
-  const jsWasmPath = path.join(wasmDir, 'tree-sitter-javascript.wasm');
-
   // Determine output path
   let outputPath;
   if (scopeDirs.length > 0 && phaseNum) {
@@ -640,8 +637,53 @@ function cmdIndex(args) {
     return SKIP_PREFIXES.some(p => name.toLowerCase().startsWith(p));
   }
 
-  // File discovery
-  const SUPPORTED_EXTENSIONS = new Set(['.php', '.js']);
+  // Language → extension mapping
+  // Merged with user overrides from .flow/config.json → languages
+  function buildLanguageMap(cwd) {
+    const builtin = {
+      php: ['.php'],
+      javascript: ['.js', '.jsx', '.mjs', '.cjs'],
+      python: ['.py'],
+      ruby: ['.rb'],
+      java: ['.java'],
+      go: ['.go'],
+      rust: ['.rs'],
+      typescript: ['.ts', '.tsx'],
+      c_sharp: ['.cs'],
+      c: ['.c', '.h'],
+      cpp: ['.cpp', '.hpp', '.cc', '.cxx'],
+    };
+    const config = readConfig(cwd);
+    const overrides = config.languages || {};
+    for (const [lang, exts] of Object.entries(overrides)) {
+      builtin[lang] = exts;
+    }
+    return builtin;
+  }
+
+  function discoverLanguages(dir) {
+    const langs = [];
+    if (!fs.existsSync(dir)) return langs;
+    for (const file of fs.readdirSync(dir)) {
+      const match = file.match(/^tree-sitter-(.+)\.wasm$/);
+      if (match) langs.push(match[1]);
+    }
+    return langs;
+  }
+
+  // Build extension → language map from discovered WASM files + user config
+  const LANGUAGE_EXTENSION_MAP = buildLanguageMap(cwd);
+  const availableLangs = discoverLanguages(wasmDir);
+  const EXT_TO_LANG = {};
+  const SUPPORTED_EXTENSIONS = new Set();
+  for (const lang of availableLangs) {
+    const exts = LANGUAGE_EXTENSION_MAP[lang] || ['.' + lang];
+    for (const ext of exts) {
+      SUPPORTED_EXTENSIONS.add(ext);
+      EXT_TO_LANG[ext] = lang;
+    }
+  }
+
   function findSourceFiles(dirs) {
     const files = [];
     function walk(itemPath) {
@@ -675,31 +717,22 @@ function cmdIndex(args) {
   async function runIndex() {
     await Parser.init();
     const parsers = {};
-    const wasmStatus = { php: false, javascript: false };
+    const wasmStatus = {};
 
-    // PHP
-    if (fs.existsSync(phpWasmPath)) {
-      try {
-        const phpParser = new Parser();
-        const PHP = await Parser.Language.load(phpWasmPath);
-        phpParser.setLanguage(PHP);
-        parsers.php = phpParser;
-        wasmStatus.php = true;
-      } catch { /* skip */ }
+    for (const lang of availableLangs) {
+      const wasmPath = path.join(wasmDir, `tree-sitter-${lang}.wasm`);
+      if (fs.existsSync(wasmPath)) {
+        try {
+          const p = new Parser();
+          const L = await Parser.Language.load(wasmPath);
+          p.setLanguage(L);
+          parsers[lang] = p;
+          wasmStatus[lang] = true;
+        } catch { wasmStatus[lang] = false; }
+      }
     }
 
-    // JavaScript
-    if (fs.existsSync(jsWasmPath)) {
-      try {
-        const jsParser = new Parser();
-        const JS = await Parser.Language.load(jsWasmPath);
-        jsParser.setLanguage(JS);
-        parsers.javascript = jsParser;
-        wasmStatus.javascript = true;
-      } catch { /* skip */ }
-    }
-
-    const wasmLoaded = wasmStatus.php || wasmStatus.javascript;
+    const wasmLoaded = Object.values(wasmStatus).some(Boolean);
 
     let processedCount = 0;
     let errorCount = 0;
@@ -716,12 +749,12 @@ function cmdIndex(args) {
 
     for (const filePath of sourceFiles) {
       const ext = path.extname(filePath);
-      const lang = ext === '.js' ? 'javascript' : 'php';
+      const lang = EXT_TO_LANG[ext];
       const langParser = parsers[lang];
 
       if (!langParser) {
         const normalizedPath = filePath.split(path.sep).join('/');
-        repoMap.files[normalizedPath] = { language: lang, functions: [], classes: [], includes: [], string_literals_flagged: [], line_count: 0, size_kb: 0 };
+        repoMap.files[normalizedPath] = { language: lang || ext, functions: [], classes: [], includes: [], string_literals_flagged: [], line_count: 0, size_kb: 0 };
         processedCount++;
         continue;
       }
@@ -731,7 +764,7 @@ function cmdIndex(args) {
         if (isMinified(filePath, source)) { processedCount++; minifiedSkipped++; continue; }
         const tree = langParser.parse(source);
         if (tree.rootNode.hasError()) parseErrors++;
-        const result = extractFromFile(filePath, flaggedPatterns, source, tree, langParser);
+        const result = extractFromFile(flaggedPatterns, source, tree, lang);
         if (result.functions.length > 0 || result.classes.length > 0 || result.includes.length > 0) astYieldCount++;
         totalIncludes += result.includes.length;
         const normalizedPath = filePath.split(path.sep).join('/');
@@ -745,16 +778,19 @@ function cmdIndex(args) {
     const totalFiles = processedCount + errorCount;
     const astYieldRate = totalFiles > 0 ? Math.round((astYieldCount / totalFiles) * 100) / 100 : 0;
 
+    const wasmLanguages = Object.entries(wasmStatus).filter(([, ok]) => ok).map(([lang]) => lang);
     const treesitterHealth = {
       wasm_loaded: wasmLoaded,
-      wasm_php: wasmStatus.php,
-      wasm_javascript: wasmStatus.javascript,
+      wasm_languages: wasmLanguages,
       files_parsed: processedCount,
       minified_skipped: minifiedSkipped,
       parse_errors: parseErrors,
       ast_yield_rate: astYieldRate,
       includes_extracted: totalIncludes,
     };
+    // Legacy shims for backward compatibility with existing command files
+    treesitterHealth.wasm_php = wasmStatus.php || false;
+    treesitterHealth.wasm_javascript = wasmStatus.javascript || false;
 
     const repoMapOrdered = {
       generated_at: repoMap.generated_at,
@@ -799,9 +835,7 @@ function loadFlaggedPatterns(patternsPath) {
   return [...new Set(patterns)];
 }
 
-function extractFromFile(filePath, flaggedPatterns, source, tree, langParser) {
-  const ext = path.extname(filePath);
-  const lang = ext === '.js' ? 'javascript' : 'php';
+function extractFromFile(flaggedPatterns, source, tree, lang) {
   const result = {
     language: lang,
     functions: [],
@@ -814,8 +848,11 @@ function extractFromFile(filePath, flaggedPatterns, source, tree, langParser) {
 
   if (!tree) return result;
 
-  if (lang === 'php') extractPHP(tree.rootNode, result, flaggedPatterns);
-  else extractJS(tree.rootNode, result, flaggedPatterns);
+  switch (lang) {
+    case 'php': extractPHP(tree.rootNode, result, flaggedPatterns); break;
+    case 'javascript': extractJS(tree.rootNode, result, flaggedPatterns); break;
+    default: extractGeneric(tree.rootNode, result, flaggedPatterns); break;
+  }
 
   result.string_literals_flagged = [...new Set(result.string_literals_flagged)];
   return result;
@@ -873,11 +910,57 @@ function extractJS(rootNode, result, flaggedPatterns) {
   walk(rootNode, 0);
 }
 
+function extractGeneric(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+
+    // Classes — most languages use class_* node types
+    if ((type.startsWith('class_') || type === 'module') && (type.endsWith('_declaration') || type.endsWith('_definition') || type === 'class')) {
+      const n = node.childForFieldName('name');
+      if (n) result.classes.push(n.text);
+    }
+
+    // Functions/methods
+    if (type === 'method_definition' || type === 'method_declaration' || type === 'function') {
+      const n = node.childForFieldName('name');
+      if (n) result.functions.push(n.text);
+    } else if (type.endsWith('_definition') || type.endsWith('_declaration')) {
+      const n = node.childForFieldName('name');
+      if (n && !type.startsWith('class_')) result.functions.push(n.text);
+    }
+
+    // Variable/assignment functions (arrow fns, lambdas, blocks)
+    if (type === 'variable_declarator' || type === 'assignment') {
+      const nameNode = node.childForFieldName('name') || node.childForFieldName('left');
+      const valueNode = node.childForFieldName('value') || node.childForFieldName('right');
+      if (nameNode && valueNode && (valueNode.type === 'arrow_function' || valueNode.type === 'function' || valueNode.type === 'lambda')) {
+        result.functions.push(nameNode.text);
+      }
+    }
+
+    // Imports / includes
+    if (type.startsWith('import_') || type === 'import_statement' || type === 'include_statement' || type === 'require_statement' || type === 'include_directive') {
+      const src = node.childForFieldName('source') || node.childForFieldName('module') || node.childForFieldName('path');
+      if (src) result.includes.push(src.text.replace(/^['"`]|['"`]$/g, ''));
+    }
+
+    // Flagged strings
+    if (flaggedPatterns.length > 0 && (type === 'string' || type === 'string_literal' || type === 'template_string' || type === 'encapsed_string')) {
+      const text = node.text.replace(/^['"`]|['"`]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
 // ─── Help ─────────────────────────────────────────────────────────────────────
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.1.0',
+    version: '0.1.1',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',

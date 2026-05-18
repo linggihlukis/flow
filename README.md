@@ -592,6 +592,47 @@ Both features degrade gracefully — if `model_tiers` is empty or absent, all ro
 | `context.budget_low_pct` / `budget_critical_pct` | Warning thresholds at 70% and 90% of context limit |
 | `git.branching_strategy` | `"none"` (default), or template-based phase/milestone branches |
 | `destructive_tier` | Per-category overrides for destructive action classification |
+| `languages` | Custom extension→language mappings for tree-sitter indexing (see below) |
+
+### Adding tree-sitter languages
+
+Flow auto-discovers all `tree-sitter-*.wasm` files installed in `node_modules/tree-sitter-wasms/out/` and maps them to file extensions. **No code changes needed** — just re-run the installer and it picks up every available WASM file:
+
+```bash
+npx @linggihlukis/flow --update
+```
+
+**Supported extensions** are mapped automatically for common languages:
+
+| Language | Extensions |
+|---|---|
+| `php` | `.php` |
+| `javascript` | `.js`, `.jsx`, `.mjs`, `.cjs` |
+| `python` | `.py` |
+| `ruby` | `.rb` |
+| `java` | `.java` |
+| `go` | `.go` |
+| `rust` | `.rs` |
+| `typescript` | `.ts`, `.tsx` |
+| `c_sharp` | `.cs` |
+| `c` | `.c`, `.h` |
+| `cpp` | `.cpp`, `.hpp`, `.cc`, `.cxx` |
+| `vue` | `.vue` |
+
+Languages without a built-in mapping default to `.{language}` (e.g. `scala` → `.scala`).
+
+**Custom extension mappings** — if your project uses non-standard extensions (e.g. `.vue` mapped to `javascript`, or a framework-specific extension), add a `languages` block to `.flow/config.json`:
+
+```json
+{
+  "languages": {
+    "vue": [".vue"],
+    "svelte": [".svelte"]
+  }
+}
+```
+
+This merges with the built-in map — any language name here overrides the default extensions for that language. The corresponding `tree-sitter-{language}.wasm` file must exist in the WASM directory.
 
 ---
 
