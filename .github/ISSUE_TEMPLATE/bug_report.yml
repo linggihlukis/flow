@@ -1,0 +1,57 @@
+name: Bug Report
+description: Report a bug in Flow
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Flow version
+      description: Run `node -e "console.log(require('./package.json').version)"` in the Flow repo
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Which runtime were you using when the bug occurred?
+      options:
+        - OpenCode
+        - Claude Code
+        - Codex
+        - Antigravity
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly. Include the Flow command you ran.
+      placeholder: "When I ran `/flow-plan-phase 3`, the schema gate..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened?
+      description: Describe the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. Run `/flow-new-project`
+        2. ...
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other context — config.json contents, error output, screenshots.
+    validations:
+      required: false

@@ -1,0 +1,40 @@
+name: Feature Request
+description: Suggest an improvement or new capability for Flow
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: What problem does this solve? What friction are you experiencing?
+      placeholder: "When working on a legacy PHP codebase, I find that..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work?
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: What part of Flow does this affect?
+      options:
+        - Command (flow-*)
+        - Agent (flow-researcher, flow-planner, etc.)
+        - Installer (bin/install.js)
+        - Scaffold (AGENTS.md, config.json, STATE.md)
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you've considered.
+    validations:
+      required: false

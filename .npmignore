@@ -1,0 +1,5 @@
+# Development artifacts — not shipped to npm
+.flow/
+docs/
+.github/
+test/
