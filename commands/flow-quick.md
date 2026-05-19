@@ -158,7 +158,7 @@ Spawn `@flow-executor` with the quick task brief. If `models.flow-executor` is n
 model: [value of models.flow-executor from config.json]
 ```
 
-The executor announces files, implements, runs the verify command, checks scope with `git diff --name-only`, then commits.
+The executor announces files, implements, runs the verify command, checks scope with `git diff --name-only`, then commits (if `workflow.always_commit` is `true` in config — otherwise stages only and reports `committed: false`).
 
 ---
 
@@ -173,17 +173,29 @@ After executor reports success, confirm:
 
 ## Step 10: Update .flow/state.md
 
-Add one line to prose: `Quick task: [description] — [commit hash]`
+If the executor reported `committed: true`, add one line to prose: `Quick task: [description] — [commit hash]`
+If not committed, note: `Quick task: [description] — staged only (always_commit: false)`
 
 ---
 
 ## Step 11: Report
 
+If committed:
 ```
 ✅ Quick task complete
 
 Task:    [description]
 Commit:  [commit hash]
+Verify:  passed
+Files:   [list from executor]
+```
+
+If staged-only:
+```
+✅ Quick task complete (staged only)
+
+Task:    [description]
+Commit:  none (always_commit: false)
 Verify:  passed
 Files:   [list from executor]
 ```

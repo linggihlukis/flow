@@ -637,7 +637,8 @@ function cmdPhaseListInternal(args) {
   // Same as cmdPhaseList but returns object instead of outputting
   const cwd = getCwd(args);
   const phaseIdx = args.indexOf('--phase');
-  const phaseNum = phaseIdx >= 0 ? args[phaseIdx + 1] : null;
+  const raw = phaseIdx >= 0 ? args[phaseIdx + 1] : null;
+  const phaseNum = raw && !raw.startsWith('--') ? raw : null;
 
   if (!phaseNum) return null;
 
@@ -862,6 +863,115 @@ function extractRows(lines, type) {
 
   // text: return non-empty lines as-is
   return lines.filter(l => l.trim()).map(l => l.trim());
+}
+
+// ─── Command: statusline show ────────────────────────────────────────────────
+function cmdStatuslineShow(args) {
+  const cwd = getCwd(args);
+  const phaseIdx = args.indexOf('--phase');
+  const raw = phaseIdx >= 0 ? args[phaseIdx + 1] : null;
+  const phaseNum = raw && !raw.startsWith('--') ? raw : null;
+
+  const { fm } = readStateFile(cwd);
+  const mName = fm.active_milestone || 'milestone-01';
+  const mPhase = phaseNum || fm.active_phase || '0';
+  const padded = String(mPhase).padStart(2, '0');
+
+  // Extract phase name from CONTEXT.md first H1 heading
+  const contextPath = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`, 'CONTEXT.md');
+  let phaseName = null;
+  if (fs.existsSync(contextPath)) {
+    const ctxContent = fs.readFileSync(contextPath, 'utf8');
+    phaseName = extractTaskTitle(ctxContent);
+  }
+
+  // Get task counts via cmdPhaseListInternal
+  const taskArgs = ['--phase', mPhase, '--cwd', cwd];
+  let taskData = null;
+  try { taskData = cmdPhaseListInternal(taskArgs); } catch { /* no tasks */ }
+
+  const taskCounts = { total: 0, by_status: {} };
+  if (taskData && taskData.tasks && taskData.tasks.length > 0) {
+    taskCounts.total = taskData.tasks.length;
+    for (const t of taskData.tasks) {
+      const s = t.status || 'pending';
+      taskCounts.by_status[s] = (taskCounts.by_status[s] || 0) + 1;
+    }
+  }
+
+  output({
+    milestone: mName,
+    phase: mPhase,
+    phase_name: phaseName,
+    status: fm.status || 'unknown',
+    task_counts: taskCounts,
+  });
+}
+
+// ─── Command: audit open ─────────────────────────────────────────────────────
+function cmdAuditOpen(args) {
+  const cwd = getCwd(args);
+  const drift = [];
+
+  // Check 1: state.md exists and is valid
+  const statePath = path.join(cwd, '.flow', 'state.md');
+  if (!fs.existsSync(statePath)) {
+    drift.push({ field: 'state.md', expected: 'exists', actual: 'not found' });
+    output({ valid: false, drift });
+    return;
+  }
+
+  const stateContent = fs.readFileSync(statePath, 'utf8');
+  const fm = parseFrontmatter(stateContent);
+  if (!fm) {
+    drift.push({ field: 'state.md', expected: 'valid frontmatter', actual: 'parse error' });
+    output({ valid: false, drift });
+    return;
+  }
+
+  // Check 2: required state fields
+  const requiredFields = ['active_milestone', 'active_phase', 'status'];
+  for (const field of requiredFields) {
+    if (fm[field] === undefined || fm[field] === null) {
+      drift.push({ field: `state.${field}`, expected: 'present', actual: 'missing' });
+    }
+  }
+
+  // Check 3: milestone directory exists
+  const mName = fm.active_milestone;
+  if (mName) {
+    const milestoneDir = path.join(cwd, '.flow', 'milestones', String(mName));
+    if (!fs.existsSync(milestoneDir)) {
+      drift.push({ field: 'milestone_dir', expected: `milestones/${mName} exists`, actual: 'not found' });
+    }
+  }
+
+  // Check 4: roadmap phases exist and have CONTEXT.md
+  if (mName) {
+    const roadmapPath = path.join(cwd, '.flow', 'milestones', String(mName), 'roadmap.md');
+    if (fs.existsSync(roadmapPath)) {
+      const roadmapContent = fs.readFileSync(roadmapPath, 'utf8');
+      // Extract phase numbers from roadmap H3 headings like "### Phase 1: ..."
+      const phaseMatches = roadmapContent.match(/^###\s+Phase\s+(\d+)/gm);
+      if (phaseMatches) {
+        for (const match of phaseMatches) {
+          const num = match.match(/Phase\s+(\d+)/)[1];
+          const padded = String(num).padStart(2, '0');
+          const phaseDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`);
+          if (!fs.existsSync(phaseDir)) {
+            drift.push({ field: `phase-${padded}`, expected: 'directory exists', actual: 'not found' });
+          } else {
+            const contextPath = path.join(phaseDir, 'CONTEXT.md');
+            if (!fs.existsSync(contextPath)) {
+              drift.push({ field: `phase-${padded}/CONTEXT.md`, expected: 'exists', actual: 'not found' });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  output({ valid: drift.length === 0, drift });
 }
 
 // ─── Command: index ───────────────────────────────────────────────────────────
@@ -1267,6 +1377,8 @@ function showHelp() {
       'kb search': '--cwd path --zone zoneName --n 5',
       'history digest': '--cwd path --n 5',
       'patterns extract': '--cwd path --section name --patterns path',
+      'statusline show': '--cwd path --phase N',
+      'audit open': '--cwd path',
     },
     error_codes: ERROR_CODES,
   });
@@ -1370,6 +1482,22 @@ function main() {
     const subArgs = args.slice(2);
     if (sub === 'extract') cmdPatternsExtract(subArgs);
     else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown patterns subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'statusline') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'show') cmdStatuslineShow(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown statusline subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'audit') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'open') cmdAuditOpen(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown audit subcommand: ${sub}`);
     return;
   }
 

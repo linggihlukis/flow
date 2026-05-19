@@ -3,6 +3,30 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.2] - 2026-05-19
+
+### Added
+- `statusline show` command — returns milestone/phase/status/task_counts as JSON with `--phase` override
+- `audit open` command — structural drift detection for `.flow/` state, roadmap, and phase directory conformance
+- `always_commit` workflow support — config-driven commit behavior in executor, execute-phase, and quick
+- `migratePhaseDirs` — automatic migration of old flat phase dirs (`phases/N/`) to new structure (`phases/phase-NN/tasks|summaries/`)
+- Structural conformance stage in `flow-health.md` — validates `.flow/` directory structure against canonical layout
+- Module exports in `install.js` — `deepMergeConfig`, `updateScaffold`, `createRuntimeBridge`, `installFlowHome`, `installWasm`
+- Suite 10 tests: statusline show (happy path, `--phase` flag, missing state.md), audit open (happy path, missing state.md)
+- Suite 11 tests: `deepMergeConfig` stale-key pruning, `updateScaffold` flat phase migration, structure-already-matches warning, `createRuntimeBridge` idempotency
+
+### Changed
+- `deepMergeConfig` now prunes stale user keys not present in scaffold (single recursive merge, removed `pruneStaleKeys`)
+- `runUpdate` refactored — try-catch error boundaries per step, runtime bridges recreated on update, graceful degradation on partial failures
+- `--phase` arg parsing validated across `cmdStatuslineShow` and `cmdPhaseListInternal` (rejects flag-like values)
+- `patterns-task-NN.md` eliminated — all executors use `patterns-scope.md` directly
+- Test 10v reads `active_phase` from `state.md` dynamically instead of hardcoding `--phase 1`
+- `.gitignore` and `.npmignore` — added `AGENTS.md` and `.flow/`
+
+### Fixed
+- Stale "not yet implemented" comments in tests 11b/11c removed
+- Convoluted `path.dirname(path.join(...))` expression in Codex local bridge simplified
+
 ## [0.1.1] - 2026-05-18
 
 ### Added

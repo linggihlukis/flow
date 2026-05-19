@@ -60,7 +60,9 @@ If `--auto` is absent: `auto_mode = false`. Proceed normally. No escalation.
    - `workflow.node_repair`: if false, do not auto-retry failed tasks — escalate immediately
    - `workflow.node_repair_budget`: use this value as the retry limit (default 2) instead of hardcoded 2
    - `mode`: if `yolo`, skip developer confirmations
-   - `workflow.always_commit`: if true, print once at start: `⚠️  always_commit is ON — tasks will commit even on verify failure. Disable in config.json when ready for clean execution.`
+    - `workflow.always_commit`:
+       - If `true`, print once at start: `⚠️  always_commit is ON — tasks will commit on success (or on verify failure with wip prefix). Disable in config.json when ready for clean execution.`
+       - If `false`, print once at start: `ℹ️  always_commit is OFF — tasks will NOT auto-commit on success. Changes remain staged. Use 'git commit' to finalize.`
    - `models`: read the `models` object. If `models.flow-executor` is not "inherit", include a `model:` line in every executor spawn brief.
 6. **Zone-scoped PATTERNS.md extraction** — if `.flow/codebase/patterns.md` exists AND
    `M/phases/phase-$ARGUMENTS/patterns-scope.md` does NOT already exist
@@ -267,47 +269,16 @@ determine the model to use based on the task's complexity tag:
 4. If routing produced a model override, include it in the executor brief's `model:`
    line. This overrides `models.flow-executor` for this task only.
 
-**Tier 3 task-scoped PATTERNS extraction:** Before constructing the executor brief,
-generate a per-task scoped PATTERNS file:
-
-1. Use the file list cached in the discovery pass. Extract the first path
-   component of each file path to determine the app name(s).
-
-2. If exactly ONE app name is found:
-   - Extract the matching `## [app] Patterns` section from `patterns-scope.md`
-     (if exists) or `.flow/codebase/patterns.md`:
-     ```bash
-     awk -v app="[app_name]" \
-       '/^## / && tolower($0) ~ tolower(app)" patterns"/{f=1} f; /^## [^#]/ && f && !(tolower($0) ~ tolower(app)" patterns")/{f=0}' \
-       [patterns-source]
-     ```
-   - Also extract all global sections (same awk as flow-discuss-phase Tier 1,
-     plus `## Stack` / `## Global: Stack` and `## Testing Patterns` / `## Global: Testing Patterns`).
-   - Write the combined output to:
-     `M/phases/phase-$ARGUMENTS/patterns-task-NN.md`
-   - Add a header:
-     ```markdown
-     # PATTERNS.md — Task-Scoped Extract (Tier 3)
-     > Task: task-NN. App: [app_name]. For full file: .flow/codebase/patterns.md
-     ```
-   - Print: `✓ patterns-task-NN.md: Tier 3 extract for [app_name] ([N] sections)`
-
-3. If MULTIPLE app names are found:
-   - Skip Tier 3. Use Tier 2 (`patterns-scope.md`) for this executor.
-   - Print: `ℹ️  task-NN touches multiple apps ([list]) — using Tier 2 patterns-scope.md`
-
-4. If NO app name could be extracted (e.g., files in root directory):
-   - Skip Tier 3. Use Tier 2 (`patterns-scope.md`) for this executor.
-   - Print: `ℹ️  task-NN has no app-scoped files — using Tier 2 patterns-scope.md`
-
-5. If `.flow/codebase/patterns.md` does not exist:
-   - Skip entirely. No patterns file for this executor.
+**Always use `patterns-scope.md` as the sole PATTERNS source.**
+Do NOT generate `patterns-task-NN.md`. Pass `patterns-scope.md` directly to every executor.
+The scope file already contains all zones relevant to the phase.
+If `.flow/codebase/patterns.md` does not exist, skip patterns entirely.
 
 For each task, spawn `@flow-executor` with the following brief:
 
 ```
 Task: M/phases/phase-$ARGUMENTS/tasks/task-NN.md
-PATTERNS.md: M/phases/phase-$ARGUMENTS/patterns-task-NN.md (if exists; fallback: patterns-scope.md; final fallback: .flow/codebase/patterns.md)
+PATTERNS.md: M/phases/phase-$ARGUMENTS/patterns-scope.md (fallback: .flow/codebase/patterns.md)
 node_repair_budget: [from .flow/config.json]
 Summary output: M/phases/phase-$ARGUMENTS/summaries/summary-NN.md
 model: [value from AR1 routing if active; else value of models.flow-executor from config.json — omit this line entirely if "inherit" and no AR1 routing]
@@ -385,18 +356,20 @@ After each executor completes (success or failure), check whether escalation app
       Falling through to standard recovery.
    ```
 
-**Commit after each successful task:**
+**Commit after each successful task (only if `workflow.always_commit` is `true`):**
 ```bash
 git add [only files modified by this task]
 git status  # verify staged files
 git commit -m "type(milestone-phase-task): description"
 ```
 
+If `workflow.always_commit` is `false`, skip the commit. Changes remain staged. The executor reports `committed: false` and the orchestrator notes this in the handoff.
+
 Never batch multiple tasks into one commit. Never commit broken code.
 
 Report after each task:
 ```
-✅ task-NN complete: [title] — commit [hash]
+✅ task-NN complete: [title] — commit [hash] (or staged-only if always_commit: false)
 ```
 
 Wait for all plans in a wave to complete before starting the next wave.
