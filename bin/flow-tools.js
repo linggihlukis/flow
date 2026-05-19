@@ -15,6 +15,7 @@ const ERROR_CODES = {
   CYCLE_DETECTED:   'CYCLE_DETECTED',
   NO_TASKS:         'NO_TASKS',
   PATH_NOT_FOUND:   'PATH_NOT_FOUND',
+  FRONTMATTER_NOT_FOUND: 'FRONTMATTER_NOT_FOUND',
 };
 
 const KB = 1024;
@@ -50,6 +51,16 @@ function getCwd(args) {
     return resolved;
   }
   return process.cwd();
+}
+
+function resolveSafePath(cwd, filePath) {
+  if (path.isAbsolute(filePath)) return filePath;
+  const resolved = path.resolve(cwd, filePath);
+  const relative = path.relative(cwd, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    exitErr(ERROR_CODES.PATH_NOT_FOUND, `File path '${filePath}' resolves outside the working directory`);
+  }
+  return resolved;
 }
 
 function collectFlagValues(args, flagName) {
@@ -1059,4 +1070,5 @@ module.exports = {
   nowISO,
   escapeRegex,
   extractField,
+  resolveSafePath,
 };
