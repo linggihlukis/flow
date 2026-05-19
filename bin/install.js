@@ -367,7 +367,7 @@ function syncClaudeCode(models, location) {
       let content = fs.readFileSync(agentFile, "utf8");
 
       // Check if frontmatter exists
-      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
       if (!fmMatch) {
         results.errors.push(`${agent}.md: no frontmatter found`);
         continue;
@@ -893,7 +893,10 @@ function migratePhaseDirs(projectRoot, report) {
       const files = fs.readdirSync(oldPath);
       for (const file of files) {
         const src = path.join(oldPath, file);
-        if (!fs.statSync(src).isFile()) continue; // skip nested dirs
+        if (!fs.statSync(src).isFile()) {
+          report.warnings.push(`Skipped nested dir during migration: ${milestone}/phases/${entry}/${file}`);
+          continue;
+        }
 
         let dest;
         if (/^task-.*\.md$/.test(file)) {
@@ -1085,15 +1088,6 @@ async function main() {
     runtime = flagRuntime.replace("--", "");
   } else {
     runtime = await prompt("Which runtime?", RUNTIME_CHOICES);
-    if (false) {
-      runtime = await prompt("Which runtime?", [
-      { label: "OpenCode",                                    value: "opencode" },
-      { label: "Claude Code",                                 value: "claude" },
-      { label: "Codex App / CLI",                             value: "codex" },
-      { label: "Antigravity  (Google, Gemini — global only)", value: "antigravity" },
-      { label: "All (OpenCode + Claude + Codex + Antigravity)", value: "all" },
-      ]);
-    }
   }
 
   // Location

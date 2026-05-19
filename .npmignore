@@ -1,6 +1,6 @@
 # Development artifacts — not shipped to npm
-.flow/
 docs/
 .github/
 test/
-AGENTS.md
+/.flow/
+/AGENTS.md

@@ -3,6 +3,26 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.3] - 2026-05-19
+
+### Security
+- `resolveSafePath` now validates absolute paths against working directory boundary (prevents arbitrary file reads via `/etc/passwd`-style paths)
+- `cmdContextEstimate` uses `resolveSafePath` instead of `path.join` for relative path resolution
+- `cmdFilesCheck` uses explicit `knownValuedFlags` set instead of skipping all `--flag` + next token (prevents boolean flags from consuming path arguments)
+
+### Fixed
+- `state patch` now uses atomic write (tmp + rename) — interrupted writes no longer corrupt `state.md`
+- `null` serialization alignment: `serializeFrontmatter` now writes `key: null` instead of dropping keys, matching `serializeFrontmatterEOL`
+- `cmdWaveResolve` cycle detail now reports all nodes: `cycle involving: A, B, C` instead of incorrect `A → B → A`
+- `syncClaudeCode` frontmatter regex now handles CRLF line endings (`\r?\n`)
+- `migratePhaseDirs` warns about skipped nested directories instead of silently dropping them
+- `state patch` validates `status` against `VALID_STATUSES` before writing
+- `active_milestone` fallback to `milestone-01` now emits a `console.error` warning
+- Removed dead `if (false)` block in `install.js`
+
+### Changed
+- `.gitignore` and `.npmignore` patterns now use `/` prefix (`/AGENTS.md`, `/.flow/`) to only match root-level files, preserving `scaffold/` contents for npm package
+
 ## [0.1.2] - 2026-05-19
 
 ### Added

@@ -676,7 +676,9 @@ suite("Suite 10 — Phase 1 new functions");
 // 10g: frontmatter get — reads frontmatter from file
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-10g.md");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10g");
+  fs.mkdirSync(path.join(testDir, ".flow"), { recursive: true });
+  const testFile = path.join(testDir, "10g.md");
   fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
   try {
     const raw = execSync("node bin/flow-tools.js frontmatter get " + testFile, { cwd: process.cwd() }).toString();
@@ -689,14 +691,16 @@ suite("Suite 10 — Phase 1 new functions");
   } catch (e) {
     fail("frontmatter get: command failed — " + e.message);
   } finally {
-    try { fs.unlinkSync(testFile); } catch {}
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
   }
 })();
 
 // 10h: frontmatter get — --field filter
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-10h.md");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10h");
+  fs.mkdirSync(path.join(testDir, ".flow"), { recursive: true });
+  const testFile = path.join(testDir, "10h.md");
   fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
   try {
     const raw = execSync("node bin/flow-tools.js frontmatter get " + testFile + " --field Status", { cwd: process.cwd() }).toString();
@@ -709,14 +713,16 @@ suite("Suite 10 — Phase 1 new functions");
   } catch (e) {
     fail("frontmatter get (--field): command failed — " + e.message);
   } finally {
-    try { fs.unlinkSync(testFile); } catch {}
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
   }
 })();
 
 // 10i: frontmatter get — no frontmatter exits with error
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-10i.md");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10i");
+  fs.mkdirSync(path.join(testDir, ".flow"), { recursive: true });
+  const testFile = path.join(testDir, "10i.md");
   fs.writeFileSync(testFile, "# No frontmatter\n\nJust prose.\n", "utf8");
   try {
     execSync("node bin/flow-tools.js frontmatter get " + testFile, { stdio: "pipe", cwd: process.cwd() });
@@ -729,7 +735,7 @@ suite("Suite 10 — Phase 1 new functions");
       fail("frontmatter get: should exit with FRONTMATTER_NOT_FOUND, got: " + output.slice(0, 100));
     }
   } finally {
-    try { fs.unlinkSync(testFile); } catch {}
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
   }
 })();
 
@@ -784,7 +790,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10m: patterns extract — --section filter returns matching section
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-10m-patterns.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-10m-patterns.md");
   fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
   try {
     const raw = execSync("node bin/flow-tools.js patterns extract --section Stack --patterns " + testFile, { cwd: process.cwd() }).toString();
@@ -804,7 +810,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10n: frontmatter set — basic single key set
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-basic.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-basic.md");
   // Create fixture with frontmatter
   fs.writeFileSync(testFile, "---\ntitle: Old\n---\n\nBody text.\n", "utf8");
   try {
@@ -833,7 +839,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10o: frontmatter set — multiple --set flags in one call
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-multi.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-multi.md");
   fs.writeFileSync(testFile, "---\ntitle: Old\nstatus: draft\n---\n\nBody.\n", "utf8");
   try {
     const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New --set status=published`, { cwd: process.cwd() }).toString();
@@ -860,7 +866,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10p: frontmatter set — dry-run does not mutate file
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-dryrun.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-dryrun.md");
   fs.writeFileSync(testFile, "---\ntitle: Original\n---\n\nBody.\n", "utf8");
   try {
     const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Changed --dry-run`, { cwd: process.cwd() }).toString();
@@ -888,7 +894,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10q: frontmatter set — CRLF line endings preserved
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-crlf.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-crlf.md");
   // Write with CRLF line endings
   fs.writeFileSync(testFile, "---\r\ntitle: Old\r\n---\r\n\r\nBody.\r\n", "utf8");
   try {
@@ -915,7 +921,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10r: frontmatter set — creates frontmatter when file has none
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-create.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-create.md");
   // File without frontmatter
   fs.writeFileSync(testFile, "# Just a heading\n\nSome prose.\n", "utf8");
   try {
@@ -959,7 +965,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10t: frontmatter set — value type coercion (bool, number, null)
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-coerce.md");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-coerce.md");
   fs.writeFileSync(testFile, "---\ntitle: Test\n---\n\nBody.\n", "utf8");
   try {
     execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set enabled=true --set count=42 --set removed=null`, { cwd: process.cwd() }).toString();
@@ -1015,6 +1021,8 @@ suite("Suite 10 — Phase 1 new functions");
     }
   } catch (e) {
     fail("statusline show (--phase): command failed — " + e.message);
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   }
 })();
 

@@ -55,7 +55,6 @@ function getCwd(args) {
 }
 
 function resolveSafePath(cwd, filePath) {
-  if (path.isAbsolute(filePath)) return filePath;
   const resolved = path.resolve(cwd, filePath);
   const relative = path.relative(cwd, resolved);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
@@ -91,10 +90,8 @@ function parseFrontmatter(content) {
 function serializeFrontmatter(obj) {
   const lines = ['---'];
   for (const [key, value] of Object.entries(obj)) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'boolean') lines.push(`${key}: ${value}`);
-    else if (typeof value === 'number') lines.push(`${key}: ${value}`);
-    else lines.push(`${key}: ${value}`);
+    if (value === undefined) continue;
+    lines.push(`${key}: ${value}`);
   }
   lines.push('---');
   return lines.join('\n');
@@ -314,14 +311,26 @@ function cmdStatePatch(args) {
     patched.push(key);
   }
 
+      // Validate status if set
+  if (fm.status && !VALID_STATUSES.has(fm.status)) {
+    exitErr('INVALID_STATUS', `Invalid status '${fm.status}'. Must be one of: ${[...VALID_STATUSES].join(', ')}`);
+  }
+
   // Auto-set updated_at
   fm.updated_at = nowISO();
   if (!patched.includes('updated_at')) patched.push('updated_at');
 
-  // Reconstruct file
+  // Reconstruct file (atomic write: tmp + rename)
   const newFrontmatter = serializeFrontmatter(fm);
   const body = content.slice(fmMatch[0].length);
-  fs.writeFileSync(statePath, newFrontmatter + (body ? '\n' + body.trimStart() : ''));
+  const tmpPath = statePath + '.tmp';
+  try {
+    fs.writeFileSync(tmpPath, newFrontmatter + (body ? '\n' + body.trimStart() : ''));
+    fs.renameSync(tmpPath, statePath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch {}
+    exitErr(ERROR_CODES.WRITE_FAILED, `Failed to write state.md: ${err.message}`);
+  }
 
   output({ patched: true, fields: patched });
 }
@@ -418,10 +427,12 @@ function extractField(body, fieldName) {
 // ─── Command: files check ─────────────────────────────────────────────────────
 function cmdFilesCheck(args) {
   const cwd = getCwd(args);
-  // Extract file paths: skip --flags and their values
+  // Extract file paths: skip --flags that take a value
+  const knownValuedFlags = new Set(['--cwd']);
   const paths = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i].startsWith('--')) { i++; continue; } // skip flag + its value
+    if (knownValuedFlags.has(args[i])) { i++; continue; }
+    if (args[i].startsWith('--')) continue;
     paths.push(args[i]);
   }
   if (paths.length === 0) {
@@ -458,7 +469,7 @@ function cmdContextEstimate(args) {
   let totalChars = 0;
 
   for (const p of paths) {
-    const resolved = path.isAbsolute(p) ? p : path.join(cwd, p);
+    const resolved = resolveSafePath(cwd, p);
     if (!fs.existsSync(resolved)) {
       perFile.push({ path: p, chars: 0, tokens: 0, error: 'not found' });
       continue;
@@ -515,7 +526,11 @@ function cmdStateSync(args) {
     const pNum = typeof fm.active_phase === 'number' ? fm.active_phase : parseInt(String(fm.active_phase).match(/\d+/)?.[0] || '0', 10);
     if (pNum > 0) {
       const mName = fm.active_milestone || 'milestone-01';
-      const phaseDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${String(pNum).padStart(2, '0')}`);
+      if (!fm.active_milestone) console.error('Warning: active_milestone not set in state.md, defaulting to milestone-01');
+      const phaseDir = path.join(cwd,
+        '.flow', 'milestones', String(mName), 'phases',
+        `phase-${String(pNum).padStart(2, '0')}`
+      );
       if (!fs.existsSync(phaseDir)) {
         inconsistencies.push({ field: 'phase_dir', expected: phaseDir, actual: 'not found' });
       }
@@ -624,7 +639,7 @@ function cmdWaveResolve(args) {
   if (visited !== taskIds.size) {
     const unvisited = [...taskIds].filter(id => inDegree[id] > 0);
     const cycleDetail = unvisited.length >= 2
-      ? `${unvisited[0]} → ${unvisited[1]} → ${unvisited[0]}`
+      ? `cycle involving: ${unvisited.join(', ')}`
       : `cycle involving ${unvisited.join(', ')}`;
     output({ waves: {}, cycles_detected: true, cycle_detail: cycleDetail });
     return;
@@ -644,6 +659,7 @@ function cmdPhaseListInternal(args) {
 
   const { fm } = readStateFile(cwd);
   const mName = fm.active_milestone || 'milestone-01';
+  if (!fm.active_milestone) console.error('Warning: active_milestone not set in state.md, defaulting to milestone-01');
   const padded = String(phaseNum).padStart(2, '0');
   const tasksDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`, 'tasks');
 
@@ -874,6 +890,7 @@ function cmdStatuslineShow(args) {
 
   const { fm } = readStateFile(cwd);
   const mName = fm.active_milestone || 'milestone-01';
+  if (!fm.active_milestone) console.error('Warning: active_milestone not set in state.md, defaulting to milestone-01');
   const mPhase = phaseNum || fm.active_phase || '0';
   const padded = String(mPhase).padStart(2, '0');
 
@@ -939,32 +956,32 @@ function cmdAuditOpen(args) {
 
   // Check 3: milestone directory exists
   const mName = fm.active_milestone;
-  if (mName) {
-    const milestoneDir = path.join(cwd, '.flow', 'milestones', String(mName));
-    if (!fs.existsSync(milestoneDir)) {
-      drift.push({ field: 'milestone_dir', expected: `milestones/${mName} exists`, actual: 'not found' });
-    }
+  if (!mName) {
+    console.error('Warning: active_milestone not set in state.md');
+    output({ valid: false, drift: [{ field: 'active_milestone', expected: 'present', actual: 'missing' }] });
+    return;
+  }
+  const milestoneDir = path.join(cwd, '.flow', 'milestones', String(mName));
+  if (!fs.existsSync(milestoneDir)) {
+    drift.push({ field: 'milestone_dir', expected: `milestones/${mName} exists`, actual: 'not found' });
   }
 
   // Check 4: roadmap phases exist and have CONTEXT.md
-  if (mName) {
-    const roadmapPath = path.join(cwd, '.flow', 'milestones', String(mName), 'roadmap.md');
-    if (fs.existsSync(roadmapPath)) {
-      const roadmapContent = fs.readFileSync(roadmapPath, 'utf8');
-      // Extract phase numbers from roadmap H3 headings like "### Phase 1: ..."
-      const phaseMatches = roadmapContent.match(/^###\s+Phase\s+(\d+)/gm);
-      if (phaseMatches) {
-        for (const match of phaseMatches) {
-          const num = match.match(/Phase\s+(\d+)/)[1];
-          const padded = String(num).padStart(2, '0');
-          const phaseDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`);
-          if (!fs.existsSync(phaseDir)) {
-            drift.push({ field: `phase-${padded}`, expected: 'directory exists', actual: 'not found' });
-          } else {
-            const contextPath = path.join(phaseDir, 'CONTEXT.md');
-            if (!fs.existsSync(contextPath)) {
-              drift.push({ field: `phase-${padded}/CONTEXT.md`, expected: 'exists', actual: 'not found' });
-            }
+  const roadmapPath = path.join(cwd, '.flow', 'milestones', String(mName), 'roadmap.md');
+  if (fs.existsSync(roadmapPath)) {
+    const roadmapContent = fs.readFileSync(roadmapPath, 'utf8');
+    const phaseMatches = roadmapContent.match(/^###\s+Phase\s+(\d+)/gm);
+    if (phaseMatches) {
+      for (const match of phaseMatches) {
+        const num = match.match(/Phase\s+(\d+)/)[1];
+        const padded = String(num).padStart(2, '0');
+        const phaseDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`);
+        if (!fs.existsSync(phaseDir)) {
+          drift.push({ field: `phase-${padded}`, expected: 'directory exists', actual: 'not found' });
+        } else {
+          const contextPath = path.join(phaseDir, 'CONTEXT.md');
+          if (!fs.existsSync(contextPath)) {
+            drift.push({ field: `phase-${padded}/CONTEXT.md`, expected: 'exists', actual: 'not found' });
           }
         }
       }
@@ -1359,7 +1376,7 @@ function extractGeneric(rootNode, result, flaggedPatterns) {
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.1.1',
+    version: '0.1.3',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
