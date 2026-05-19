@@ -9,7 +9,7 @@
 const fs   = require("fs");
 const path = require("path");
 const yaml = require("js-yaml");
-const { parseFrontmatter, serializeFrontmatter, nowISO, escapeRegex, extractField } = require("../bin/flow-tools");
+const { parseFrontmatter, serializeFrontmatter, nowISO, escapeRegex, extractField, resolveSafePath } = require("../bin/flow-tools");
 
 const ROOT      = path.join(__dirname, "..");
 const COMMANDS  = path.join(ROOT, "commands");
@@ -578,6 +578,386 @@ suite("Suite 9 — flow-tools.js function tests");
     pass("extractField: empty body returns null");
   } else {
     fail("extractField: empty body should return null");
+  }
+})();
+
+// ─── Suite 10: New Phase 1 Functions ─────────────────────────────────────────
+
+suite("Suite 10 — Phase 1 new functions");
+
+// 10a: resolveSafePath — safe relative path
+(function () {
+  const cwd = process.cwd();
+  const result = resolveSafePath(cwd, ".flow/state.md");
+  const expected = path.join(cwd, ".flow", "state.md");
+  if (result === expected) {
+    pass("resolveSafePath: safe relative path resolves correctly");
+  } else {
+    fail("resolveSafePath: safe relative path should resolve to " + expected);
+  }
+})();
+
+// 10b: resolveSafePath — absolute path returned as-is
+(function () {
+  const abs = path.join(process.cwd(), ".flow", "config.json");
+  const result = resolveSafePath(process.cwd(), abs);
+  if (result === abs) {
+    pass("resolveSafePath: absolute path returned unchanged");
+  } else {
+    fail("resolveSafePath: absolute path should be returned unchanged");
+  }
+})();
+
+// 10c: resolveSafePath — traversal blocked (exits with error)
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    execSync("node bin/flow-tools.js files check ../../etc/passwd", { stdio: "pipe", cwd: process.cwd() });
+    fail("resolveSafePath: traversal path should have been blocked");
+  } catch (e) {
+    const output = e.stderr ? e.stderr.toString() : e.stdout.toString();
+    if (output.includes("PATH_NOT_FOUND") || output.includes("outside")) {
+      pass("resolveSafePath: path traversal blocked");
+    } else {
+      fail("resolveSafePath: traversal blocked but wrong error: " + output.slice(0, 100));
+    }
+  }
+})();
+
+// 10d: config get — dot-notation key lookup
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js config get context.model_context_limit", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.key === "context.model_context_limit" && parsed.value !== undefined) {
+      pass("config get: dot-notation key lookup works");
+    } else {
+      fail("config get: unexpected output shape — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("config get: command failed — " + e.message);
+  }
+})();
+
+// 10e: config get — no key returns full config
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js config get", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.key === null && typeof parsed.value === "object") {
+      pass("config get: no key returns full config object");
+    } else {
+      fail("config get: no key should return { value: <object>, key: null }");
+    }
+  } catch (e) {
+    fail("config get (no key): command failed — " + e.message);
+  }
+})();
+
+// 10f: config get — missing key returns null value
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js config get nonexistent.deep.key", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.key === "nonexistent.deep.key" && parsed.value === null) {
+      pass("config get: missing key returns { value: null }");
+    } else {
+      fail("config get: missing key should return { value: null, key: ... }");
+    }
+  } catch (e) {
+    fail("config get (missing key): command failed — " + e.message);
+  }
+})();
+
+// 10g: frontmatter get — reads frontmatter from file
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js frontmatter get .flow/milestones/milestone-01/phases/phase-01/CONTEXT.md", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed._prose_body !== undefined && typeof parsed._prose_body === "string") {
+      pass("frontmatter get: returns frontmatter with _prose_body");
+    } else {
+      fail("frontmatter get: should include _prose_body field");
+    }
+  } catch (e) {
+    fail("frontmatter get: command failed — " + e.message);
+  }
+})();
+
+// 10h: frontmatter get — --field filter
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js frontmatter get .flow/milestones/milestone-01/phases/phase-01/CONTEXT.md --field Status", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.Status !== undefined && !parsed._prose_body) {
+      pass("frontmatter get: --field returns only requested field");
+    } else {
+      fail("frontmatter get: --field should return only requested fields, no _prose_body");
+    }
+  } catch (e) {
+    fail("frontmatter get (--field): command failed — " + e.message);
+  }
+})();
+
+// 10i: frontmatter get — no frontmatter exits with error
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    // Use a file without frontmatter — AGENTS.md has no YAML frontmatter
+    execSync("node bin/flow-tools.js frontmatter get AGENTS.md", { stdio: "pipe", cwd: process.cwd() });
+    fail("frontmatter get: should exit with error for file without frontmatter");
+  } catch (e) {
+    const output = e.stdout ? e.stdout.toString() : "";
+    if (output.includes("FRONTMATTER_NOT_FOUND")) {
+      pass("frontmatter get: no frontmatter exits with FRONTMATTER_NOT_FOUND");
+    } else {
+      fail("frontmatter get: should exit with FRONTMATTER_NOT_FOUND, got: " + output.slice(0, 100));
+    }
+  }
+})();
+
+// 10j: history digest — returns results array
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js history digest", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results)) {
+      pass("history digest: returns { results: [...] }");
+    } else {
+      fail("history digest: should return { results: [...] }");
+    }
+  } catch (e) {
+    fail("history digest: command failed — " + e.message);
+  }
+})();
+
+// 10k: history digest — --n flag limits results
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js history digest --n 2", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results) && parsed.results.length <= 2) {
+      pass("history digest: --n flag limits results");
+    } else {
+      fail("history digest: --n flag should limit results to N");
+    }
+  } catch (e) {
+    fail("history digest (--n): command failed — " + e.message);
+  }
+})();
+
+// 10l: patterns extract — returns sections array
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js patterns extract", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.sections)) {
+      pass("patterns extract: returns { sections: [...] }");
+    } else {
+      fail("patterns extract: should return { sections: [...] }");
+    }
+  } catch (e) {
+    fail("patterns extract: command failed — " + e.message);
+  }
+})();
+
+// 10m: patterns extract — --section filter returns matching section
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js patterns extract --section Stack", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) {
+      pass("patterns extract: --section filter returns matching section(s)");
+    } else {
+      fail("patterns extract: --section filter should return at least one section");
+    }
+  } catch (e) {
+    fail("patterns extract (--section): command failed — " + e.message);
+  }
+})();
+
+// 10n: frontmatter set — basic single key set
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-basic.md");
+  // Create fixture with frontmatter
+  fs.writeFileSync(testFile, "---\ntitle: Old\n---\n\nBody text.\n", "utf8");
+  try {
+    const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New`, { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.patched === true && Array.isArray(parsed.fields) && parsed.fields.includes("title")) {
+      pass("frontmatter set: basic single key set works");
+    } else {
+      fail("frontmatter set: unexpected output — " + raw.slice(0, 100));
+    }
+    // Verify file was actually mutated
+    const content = fs.readFileSync(testFile, "utf8");
+    const fm = parseFrontmatter(content);
+    if (fm && fm.title === "New") {
+      pass("frontmatter set: file content mutated correctly");
+    } else {
+      fail("frontmatter set: file content not mutated");
+    }
+  } catch (e) {
+    fail("frontmatter set (basic): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 10o: frontmatter set — multiple --set flags in one call
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-multi.md");
+  fs.writeFileSync(testFile, "---\ntitle: Old\nstatus: draft\n---\n\nBody.\n", "utf8");
+  try {
+    const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New --set status=published`, { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.patched === true && parsed.fields.length === 2) {
+      pass("frontmatter set: multiple --set flags work");
+    } else {
+      fail("frontmatter set: multiple --set unexpected output — " + raw.slice(0, 100));
+    }
+    const content = fs.readFileSync(testFile, "utf8");
+    const fm = parseFrontmatter(content);
+    if (fm && fm.title === "New" && fm.status === "published") {
+      pass("frontmatter set: multiple keys mutated correctly");
+    } else {
+      fail("frontmatter set: multiple keys not mutated correctly");
+    }
+  } catch (e) {
+    fail("frontmatter set (multi): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 10p: frontmatter set — dry-run does not mutate file
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-dryrun.md");
+  fs.writeFileSync(testFile, "---\ntitle: Original\n---\n\nBody.\n", "utf8");
+  try {
+    const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Changed --dry-run`, { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.patched === false && parsed.dry_run === true && parsed.changes && parsed.changes.title) {
+      pass("frontmatter set: dry-run output shape correct");
+    } else {
+      fail("frontmatter set: dry-run unexpected output — " + raw.slice(0, 150));
+    }
+    // Verify file was NOT mutated
+    const content = fs.readFileSync(testFile, "utf8");
+    const fm = parseFrontmatter(content);
+    if (fm && fm.title === "Original") {
+      pass("frontmatter set: dry-run did not mutate file");
+    } else {
+      fail("frontmatter set: dry-run should not mutate file");
+    }
+  } catch (e) {
+    fail("frontmatter set (dry-run): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 10q: frontmatter set — CRLF line endings preserved
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-crlf.md");
+  // Write with CRLF line endings
+  fs.writeFileSync(testFile, "---\r\ntitle: Old\r\n---\r\n\r\nBody.\r\n", "utf8");
+  try {
+    execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New`, { cwd: process.cwd() }).toString();
+    const content = fs.readFileSync(testFile, "utf8");
+    if (content.includes("\r\n")) {
+      pass("frontmatter set: CRLF line endings preserved");
+    } else {
+      fail("frontmatter set: CRLF line endings not preserved");
+    }
+    const fm = parseFrontmatter(content);
+    if (fm && fm.title === "New") {
+      pass("frontmatter set: CRLF file content mutated correctly");
+    } else {
+      fail("frontmatter set: CRLF file content not mutated");
+    }
+  } catch (e) {
+    fail("frontmatter set (crlf): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 10r: frontmatter set — creates frontmatter when file has none
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-create.md");
+  // File without frontmatter
+  fs.writeFileSync(testFile, "# Just a heading\n\nSome prose.\n", "utf8");
+  try {
+    const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Created`, { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.patched === true && parsed.fields.includes("title")) {
+      pass("frontmatter set: creates frontmatter when missing");
+    } else {
+      fail("frontmatter set: create frontmatter unexpected output — " + raw.slice(0, 100));
+    }
+    const content = fs.readFileSync(testFile, "utf8");
+    const fm = parseFrontmatter(content);
+    if (fm && fm.title === "Created" && content.includes("# Just a heading")) {
+      pass("frontmatter set: frontmatter created, prose body preserved");
+    } else {
+      fail("frontmatter set: frontmatter not created or prose lost");
+    }
+  } catch (e) {
+    fail("frontmatter set (create): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 10s: frontmatter set — non-existent file exits with PATH_NOT_FOUND
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    execSync("node bin/flow-tools.js frontmatter set .flow/quick/nonexistent-file-xyz.md --set key=value", { stdio: "pipe", cwd: process.cwd() });
+    fail("frontmatter set: should exit with error for non-existent file");
+  } catch (e) {
+    const output = e.stdout ? e.stdout.toString() : "";
+    if (output.includes("PATH_NOT_FOUND")) {
+      pass("frontmatter set: non-existent file exits with PATH_NOT_FOUND");
+    } else {
+      fail("frontmatter set: should exit with PATH_NOT_FOUND, got: " + output.slice(0, 100));
+    }
+  }
+})();
+
+// 10t: frontmatter set — value type coercion (bool, number, null)
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-coerce.md");
+  fs.writeFileSync(testFile, "---\ntitle: Test\n---\n\nBody.\n", "utf8");
+  try {
+    execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set enabled=true --set count=42 --set removed=null`, { cwd: process.cwd() }).toString();
+    const content = fs.readFileSync(testFile, "utf8");
+    const fm = parseFrontmatter(content);
+    let ok = true;
+    if (fm.enabled !== true) { fail("frontmatter set: 'true' not coerced to boolean"); ok = false; }
+    if (fm.count !== 42) { fail("frontmatter set: '42' not coerced to number"); ok = false; }
+    if (fm.removed !== null) { fail("frontmatter set: 'null' not coerced to null"); ok = false; }
+    if (ok) pass("frontmatter set: type coercion works (bool, number, null)");
+  } catch (e) {
+    fail("frontmatter set (coerce): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
   }
 })();
 

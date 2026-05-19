@@ -65,12 +65,14 @@ function resolveSafePath(cwd, filePath) {
 }
 
 function collectFlagValues(args, flagName) {
-  const idx = args.indexOf(flagName);
-  if (idx < 0) return [];
   const values = [];
-  for (let i = idx + 1; i < args.length; i++) {
-    if (args[i].startsWith('--')) break;
-    values.push(args[i]);
+  let collecting = false;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flagName) { collecting = true; continue; }
+    if (collecting) {
+      if (args[i].startsWith('--')) { collecting = false; continue; }
+      values.push(args[i]);
+    }
   }
   return values;
 }
@@ -101,7 +103,7 @@ function serializeFrontmatter(obj) {
 function serializeFrontmatterEOL(obj, eol) {
   const lines = ['---'];
   for (const [key, value] of Object.entries(obj)) {
-    if (value === null || value === undefined) continue;
+    if (value === undefined) continue;
     lines.push(`${key}: ${value}`);
   }
   lines.push('---');
