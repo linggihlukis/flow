@@ -156,7 +156,7 @@ Failed deliverable: [UAT title]
 Symptom: [exactly what the developer described]
 Relevant task: M/phases/phase-$ARGUMENTS/tasks/task-NN.md
 Fix task output: M/phases/phase-$ARGUMENTS/tasks/fix-NN.md
-PATTERNS.md: M/phases/phase-$ARGUMENTS/patterns-task-NN.md (if exists; fallback: patterns-scope.md; final fallback: .flow/codebase/patterns.md)
+PATTERNS.md: M/phases/phase-$ARGUMENTS/patterns-scope.md (fallback: .flow/codebase/patterns.md)
 Knowledge base: .flow/memory/knowledge-base.md
 ```
 Use `fix_task_path` and `root_cause` directly. Read the full fix task only if the Return block is absent.

@@ -113,6 +113,58 @@ Confirm these directories exist:
 
 If `--repair`: create any missing directories silently.
 
+## Stage 5: Structural Conformance
+
+Check that files and directories under `.flow/` match the canonical structure in AGENTS.md §2.
+
+### Allowed entries per directory level
+
+| Directory | Allowed entries |
+|-----------|----------------|
+| `.flow/` root | `state.md`, `config.json`, `codebase/`, `milestones/`, `memory/`, `quick/` |
+| `codebase/` | `patterns.md`, `patterns-amendments.md`, `analysis.md`, `service-map.md`, `repo-map.json`, `test-baseline.md`, `compression-exceptions.md` |
+| `memory/` | `lessons.md`, `knowledge-base.md`, `archives/` |
+| `milestones/{milestone}/` | `requirements.md`, `roadmap.md`, `summary.md`, `phases/` |
+| `milestones/{milestone}/phases/` | Only `phase-NN/` subdirectories (no standalone files) |
+| `quick/` | Any file (ad-hoc output directory) |
+
+### Checks
+
+**1. Scan `phases/` root for orphan files:**
+```bash
+# List non-phase-NN entries at phases/ root
+dir /b .flow\milestones\*\phases\* 2>nul | findstr /v /b "phase-" || echo None
+```
+
+**2. Scan each `phase-NN/` directory for `patterns-task-*.md` (obsolete artifact):**
+```bash
+dir /s /b .flow\milestones\*\phases\phase-*\patterns-task-*.md 2>nul || echo None
+```
+
+**3. Scan `codebase/` for undocumented files:**
+```bash
+# List files in codebase/ — flag any not in the allowed list
+for %f in (.flow\codebase\*) do @echo %f
+```
+Compare against: `patterns.md`, `patterns-amendments.md`, `analysis.md`, `service-map.md`, `repo-map.json`, `test-baseline.md`, `compression-exceptions.md`.
+
+**4. Scan `memory/` for undocumented files:**
+```bash
+# List non-allowed entries in memory/
+dir /b .flow\memory\* 2>nul | findstr /v /b "lessons.md knowledge-base.md archives" || echo None
+```
+
+**5. Scan milestone root for undocumented files:**
+```bash
+# List non-allowed entries at milestone root
+for /d %d in (.flow\milestones\*) do @dir /b "%d" 2>nul | findstr /v /b "requirements.md roadmap.md summary.md phases" || echo None
+```
+
+If items found in any scan, flag them as structural drift. If `--repair`:
+- `patterns-task-*.md` → delete (safe, obsolete artifact)
+- `project-research.md`, `research-brief-*.md` at phases/ root → move to `.flow/quick/`
+- Other undocumented files → surface for manual review
+
 ---
 
 ## Report
@@ -125,6 +177,7 @@ state.md YAML:  [✅ valid | ❌ invalid]
 Phase files:    [✅ consistent | ⚠️  N missing for phase N]
 File sizes:     [✅ all within limits | ⚠️  N files approaching limits | ❌ N files at hard limit]
 Directories:    [✅ all present | ⚠️  N missing]
+Structural:     [✅ conformant | ⚠️  N orphan files detected]
 
 [list any issues found]
 ```

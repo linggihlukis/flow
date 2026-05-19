@@ -740,28 +740,33 @@ function installScaffold(projectRoot) {
 //   knowledge-base.md  → never touch
 //   New scaffold dirs  → create if missing
 //   Old flat phases/N/ → migrate to phases/phase-NN/tasks|summaries/ (data preserved)
+
 function deepMergeConfig(target, source) {
-  // Merge source into target: add keys that are missing in target,
-  // never delete or overwrite existing user-set values.
-  // Exception: flow_version is always set to the new version.
-  const result = { ...target };
+  // Merge source (scaffold defaults) into target (user config).
+  // Rules:
+  //   - flow_version is always set to the new version.
+  //   - New keys from source are added.
+  //   - Existing user values are preserved (never overwritten).
+  //   - Stale keys not in source are pruned.
+  //   - Nested objects are merged recursively.
+  const result = {};
+
   for (const key of Object.keys(source)) {
     if (key === "flow_version") {
       result[key] = pkg.version; // always bump
-    } else if (!(key in result)) {
-      result[key] = source[key]; // new key → add it
     } else if (
-      typeof source[key] === "object" &&
-      source[key] !== null &&
-      !Array.isArray(source[key]) &&
-      typeof result[key] === "object" &&
-      result[key] !== null &&
-      !Array.isArray(result[key])
+      typeof source[key] === "object" && source[key] !== null && !Array.isArray(source[key]) &&
+      key in target &&
+      typeof target[key] === "object" && target[key] !== null && !Array.isArray(target[key])
     ) {
-      result[key] = deepMergeConfig(result[key], source[key]); // recurse into objects
+      result[key] = deepMergeConfig(target[key], source[key]); // recurse into objects
+    } else if (key in target) {
+      result[key] = target[key]; // preserve user value
+    } else {
+      result[key] = source[key]; // new key from scaffold
     }
-    // existing scalar values → keep user value untouched
   }
+
   return result;
 }
 
@@ -846,9 +851,73 @@ function updateScaffold(projectRoot) {
     }
   }
 
+  // 5. Migrate old flat phase dirs → new phase-NN structure
+  migratePhaseDirs(projectRoot, report);
+
   return report;
 }
 
+function migratePhaseDirs(projectRoot, report) {
+  const milestonesDir = path.join(projectRoot, ".flow", "milestones");
+  if (!fs.existsSync(milestonesDir)) return;
+
+  const milestones = fs.readdirSync(milestonesDir).filter(d => d.startsWith("milestone-"));
+  let anyNewStyle = false;
+
+  for (const milestone of milestones) {
+    const phasesDir = path.join(milestonesDir, milestone, "phases");
+    if (!fs.existsSync(phasesDir)) continue;
+
+    const entries = fs.readdirSync(phasesDir);
+    for (const entry of entries) {
+      const oldPath = path.join(phasesDir, entry);
+      if (!fs.statSync(oldPath).isDirectory()) continue;
+      // Skip already-migrated dirs (phase-NN pattern)
+      if (/^phase-\d+$/.test(entry)) { anyNewStyle = true; continue; }
+      // Skip non-numeric dirs (e.g., "tasks" at wrong level)
+      if (!/^\d+$/.test(entry)) continue;
+
+      // This is an old flat phase dir — migrate it
+      const phaseNum = parseInt(entry, 10);
+      const newPhaseName = `phase-${String(phaseNum).padStart(2, "0")}`;
+      const newPhaseDir = path.join(phasesDir, newPhaseName);
+      const tasksDir = path.join(newPhaseDir, "tasks");
+      const summariesDir = path.join(newPhaseDir, "summaries");
+
+      ensureDir(tasksDir);
+      ensureDir(summariesDir);
+
+      const files = fs.readdirSync(oldPath);
+      for (const file of files) {
+        const src = path.join(oldPath, file);
+        if (!fs.statSync(src).isFile()) continue; // skip nested dirs
+
+        let dest;
+        if (/^task-.*\.md$/.test(file)) {
+          dest = path.join(tasksDir, file);
+        } else if (/^summary-.*\.md$/.test(file)) {
+          dest = path.join(summariesDir, file);
+        } else {
+          dest = path.join(newPhaseDir, file);
+        }
+
+        if (!fs.existsSync(dest)) {
+          fs.copyFileSync(src, dest);
+          report.migrated.push(`${milestone}/phases/${entry}/${file} → ${newPhaseName}/${path.relative(newPhaseDir, dest)}`);
+        }
+      }
+
+      // Remove old dir after migration
+      fs.rmSync(oldPath, { recursive: true, force: true });
+      report.removed.push(`${milestone}/phases/${entry}`);
+    }
+  }
+
+  // After the migration loop, if nothing was migrated:
+  if (report.migrated.length === 0 && anyNewStyle) {
+    report.warnings.push("Phase directories already use new structure — no migration needed");
+  }
+}
 
 
 // ─── Uninstall ────────────────────────────────────────────────────────────────
@@ -1303,9 +1372,69 @@ async function runUpdate() {
   log("");
   log(bold("Step 2b — Updating Flow tools..."));
   log("");
-  installFlowHome();
-  installWasm();
-  // Bridges are NOT recreated on update — they point to the same ~/.flow/tools/ path
+
+  try {
+    installFlowHome();
+  } catch (e) {
+    err(`Step 2b — installFlowHome failed: ${e.message}`);
+    warn("Flow tools update skipped — project update will continue.");
+  }
+
+  try {
+    installWasm();
+  } catch (e) {
+    err(`Step 2b — installWasm failed: ${e.message}`);
+    warn("WASM files update skipped — optional feature.");
+  }
+  // ── Step 2c: Recreate runtime bridges ──────────────────────────────────────
+  log("");
+  log(bold("Step 2c — Recreating runtime bridges..."));
+  log("");
+
+  // OpenCode global
+  if (installed.opencode.global) {
+    try {
+      createRuntimeBridge(path.join(getGlobalOpenCodeDir(), "flow"));
+    } catch (e) { err(`OpenCode global bridge failed: ${e.message}`); }
+  }
+
+  // OpenCode local
+  if (installed.opencode.local) {
+    try {
+      createRuntimeBridge(path.join(cwd, ".opencode", "flow"));
+    } catch (e) { err(`OpenCode local bridge failed: ${e.message}`); }
+  }
+
+  // Claude Code global
+  if (installed.claude.global) {
+    try {
+      createRuntimeBridge(path.join(getGlobalClaudeDir(), "flow"));
+    } catch (e) { err(`Claude Code global bridge failed: ${e.message}`); }
+  }
+
+  // Claude Code local
+  if (installed.claude.local) {
+    try {
+      createRuntimeBridge(path.join(cwd, ".claude", "flow"));
+    } catch (e) { err(`Claude Code local bridge failed: ${e.message}`); }
+  }
+
+  // Codex global
+  if (installed.codex.global.skills || installed.codex.global.agents) {
+    try {
+      createRuntimeBridge(path.join(path.dirname(getGlobalCodexAgentsDir()), "flow"));
+    } catch (e) { err(`Codex global bridge failed: ${e.message}`); }
+  }
+
+  // Codex local
+  if (installed.codex.local.skills || installed.codex.local.agents) {
+    try {
+      createRuntimeBridge(path.join(cwd, ".codex", "flow"));
+    } catch (e) { err(`Codex local bridge failed: ${e.message}`); }
+  }
+
+  // Antigravity — SKIP (global-only, no local flow dir, bridges not applicable)
+  // (Comment: Antigravity uses workflow files directly, no shim needed)
 
   // ── Step 3: Update project scaffold (AGENTS.md + config.json) ─────────────
   log("");
@@ -1317,35 +1446,45 @@ async function runUpdate() {
     warn(`No .flow/ or AGENTS.md found in: ${dim(cwd)}`);
     warn("Run --update from inside the project directory to update its scaffold.");
   } else {
-    const report = updateScaffold(cwd);
+    let report;
+    try {
+      report = updateScaffold(cwd);
+    } catch (e) {
+      err(`Step 3 — updateScaffold failed: ${e.message}`);
+      warn("Project scaffold update failed — your .flow data is untouched.");
+      warn("Check .flow/config.json for corrupted JSON and retry.");
+      report = null;
+    }
 
-    if (report.newDirs.length > 0) {
-      info("New directories created:");
-      report.newDirs.forEach(d => log(`    ${c.green}+${c.reset} ${d}`));
-    }
-    if (report.migrated.length > 0) {
-      info("Structure migrated (data preserved):");
-      report.migrated.forEach(f => log(`    ${c.cyan}→${c.reset} ${f}`));
-    }
-    if (report.removed.length > 0) {
-      info("Old directories removed after migration:");
-      report.removed.forEach(f => log(`    ${dim("  " + f)}`));
-    }
-    if (report.updated.length > 0) {
-      info("Updated:");
-      report.updated.forEach(f => log(`    ${c.green}↑${c.reset} ${f}`));
-    }
-    if (report.added.length > 0) {
-      info("Added:");
-      report.added.forEach(f => log(`    ${c.green}+${c.reset} ${f}`));
-    }
-    if (report.skipped.length > 0) {
-      info("Preserved (never touched):");
-      report.skipped.forEach(f => log(`    ${dim("  " + f)}`));
-    }
-    if (report.warnings.length > 0) {
-      log("");
-      report.warnings.forEach(w => warn(w));
+    if (report) {
+      if (report.newDirs.length > 0) {
+        info("New directories created:");
+        report.newDirs.forEach(d => log(`    ${c.green}+${c.reset} ${d}`));
+      }
+      if (report.migrated.length > 0) {
+        info("Structure migrated (data preserved):");
+        report.migrated.forEach(f => log(`    ${c.cyan}→${c.reset} ${f}`));
+      }
+      if (report.removed.length > 0) {
+        info("Old directories removed after migration:");
+        report.removed.forEach(f => log(`    ${dim("  " + f)}`));
+      }
+      if (report.updated.length > 0) {
+        info("Updated:");
+        report.updated.forEach(f => log(`    ${c.green}↑${c.reset} ${f}`));
+      }
+      if (report.added.length > 0) {
+        info("Added:");
+        report.added.forEach(f => log(`    ${c.green}+${c.reset} ${f}`));
+      }
+      if (report.skipped.length > 0) {
+        info("Preserved (never touched):");
+        report.skipped.forEach(f => log(`    ${dim("  " + f)}`));
+      }
+      if (report.warnings.length > 0) {
+        log("");
+        report.warnings.forEach(w => warn(w));
+      }
     }
 
     // ── Check for non-inherit model assignments → hint to re-run --sync-models ──
@@ -1405,4 +1544,8 @@ async function runUpdate() {
   log("");
 }
 
-main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
+if (require.main === module) {
+  main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
+}
+
+module.exports = { deepMergeConfig, updateScaffold, createRuntimeBridge, installFlowHome, installWasm };

@@ -8,6 +8,7 @@
 
 const fs   = require("fs");
 const path = require("path");
+const os   = require("os");
 const yaml = require("js-yaml");
 const { parseFrontmatter, serializeFrontmatter, nowISO, escapeRegex, extractField, resolveSafePath } = require("../bin/flow-tools");
 
@@ -612,10 +613,10 @@ suite("Suite 10 — Phase 1 new functions");
 (function () {
   const { execSync } = require("child_process");
   try {
-    execSync("node bin/flow-tools.js files check ../../etc/passwd", { stdio: "pipe", cwd: process.cwd() });
+    execSync("node bin/flow-tools.js files check ../../etc/passwd", { cwd: process.cwd() });
     fail("resolveSafePath: traversal path should have been blocked");
   } catch (e) {
-    const output = e.stderr ? e.stderr.toString() : e.stdout.toString();
+    const output = (e.stdout || e.stderr || e.message || "").toString();
     if (output.includes("PATH_NOT_FOUND") || output.includes("outside")) {
       pass("resolveSafePath: path traversal blocked");
     } else {
@@ -675,8 +676,10 @@ suite("Suite 10 — Phase 1 new functions");
 // 10g: frontmatter get — reads frontmatter from file
 (function () {
   const { execSync } = require("child_process");
+  const testFile = path.join(os.tmpdir(), "flow-test-10g.md");
+  fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
   try {
-    const raw = execSync("node bin/flow-tools.js frontmatter get .flow/milestones/milestone-01/phases/phase-01/CONTEXT.md", { cwd: process.cwd() }).toString();
+    const raw = execSync("node bin/flow-tools.js frontmatter get " + testFile, { cwd: process.cwd() }).toString();
     const parsed = JSON.parse(raw);
     if (parsed._prose_body !== undefined && typeof parsed._prose_body === "string") {
       pass("frontmatter get: returns frontmatter with _prose_body");
@@ -685,14 +688,18 @@ suite("Suite 10 — Phase 1 new functions");
     }
   } catch (e) {
     fail("frontmatter get: command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
   }
 })();
 
 // 10h: frontmatter get — --field filter
 (function () {
   const { execSync } = require("child_process");
+  const testFile = path.join(os.tmpdir(), "flow-test-10h.md");
+  fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
   try {
-    const raw = execSync("node bin/flow-tools.js frontmatter get .flow/milestones/milestone-01/phases/phase-01/CONTEXT.md --field Status", { cwd: process.cwd() }).toString();
+    const raw = execSync("node bin/flow-tools.js frontmatter get " + testFile + " --field Status", { cwd: process.cwd() }).toString();
     const parsed = JSON.parse(raw);
     if (parsed.Status !== undefined && !parsed._prose_body) {
       pass("frontmatter get: --field returns only requested field");
@@ -701,15 +708,18 @@ suite("Suite 10 — Phase 1 new functions");
     }
   } catch (e) {
     fail("frontmatter get (--field): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
   }
 })();
 
 // 10i: frontmatter get — no frontmatter exits with error
 (function () {
   const { execSync } = require("child_process");
+  const testFile = path.join(os.tmpdir(), "flow-test-10i.md");
+  fs.writeFileSync(testFile, "# No frontmatter\n\nJust prose.\n", "utf8");
   try {
-    // Use a file without frontmatter — AGENTS.md has no YAML frontmatter
-    execSync("node bin/flow-tools.js frontmatter get AGENTS.md", { stdio: "pipe", cwd: process.cwd() });
+    execSync("node bin/flow-tools.js frontmatter get " + testFile, { stdio: "pipe", cwd: process.cwd() });
     fail("frontmatter get: should exit with error for file without frontmatter");
   } catch (e) {
     const output = e.stdout ? e.stdout.toString() : "";
@@ -718,6 +728,8 @@ suite("Suite 10 — Phase 1 new functions");
     } else {
       fail("frontmatter get: should exit with FRONTMATTER_NOT_FOUND, got: " + output.slice(0, 100));
     }
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
   }
 })();
 
@@ -772,8 +784,10 @@ suite("Suite 10 — Phase 1 new functions");
 // 10m: patterns extract — --section filter returns matching section
 (function () {
   const { execSync } = require("child_process");
+  const testFile = path.join(os.tmpdir(), "flow-test-10m-patterns.md");
+  fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
   try {
-    const raw = execSync("node bin/flow-tools.js patterns extract --section Stack", { cwd: process.cwd() }).toString();
+    const raw = execSync("node bin/flow-tools.js patterns extract --section Stack --patterns " + testFile, { cwd: process.cwd() }).toString();
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) {
       pass("patterns extract: --section filter returns matching section(s)");
@@ -782,13 +796,15 @@ suite("Suite 10 — Phase 1 new functions");
     }
   } catch (e) {
     fail("patterns extract (--section): command failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
   }
 })();
 
 // 10n: frontmatter set — basic single key set
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-basic.md");
+  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-basic.md");
   // Create fixture with frontmatter
   fs.writeFileSync(testFile, "---\ntitle: Old\n---\n\nBody text.\n", "utf8");
   try {
@@ -817,7 +833,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10o: frontmatter set — multiple --set flags in one call
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-multi.md");
+  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-multi.md");
   fs.writeFileSync(testFile, "---\ntitle: Old\nstatus: draft\n---\n\nBody.\n", "utf8");
   try {
     const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New --set status=published`, { cwd: process.cwd() }).toString();
@@ -844,7 +860,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10p: frontmatter set — dry-run does not mutate file
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-dryrun.md");
+  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-dryrun.md");
   fs.writeFileSync(testFile, "---\ntitle: Original\n---\n\nBody.\n", "utf8");
   try {
     const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Changed --dry-run`, { cwd: process.cwd() }).toString();
@@ -872,7 +888,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10q: frontmatter set — CRLF line endings preserved
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-crlf.md");
+  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-crlf.md");
   // Write with CRLF line endings
   fs.writeFileSync(testFile, "---\r\ntitle: Old\r\n---\r\n\r\nBody.\r\n", "utf8");
   try {
@@ -899,7 +915,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10r: frontmatter set — creates frontmatter when file has none
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-create.md");
+  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-create.md");
   // File without frontmatter
   fs.writeFileSync(testFile, "# Just a heading\n\nSome prose.\n", "utf8");
   try {
@@ -943,7 +959,7 @@ suite("Suite 10 — Phase 1 new functions");
 // 10t: frontmatter set — value type coercion (bool, number, null)
 (function () {
   const { execSync } = require("child_process");
-  const testFile = path.join(ROOT, ".flow", "quick", "test-fm-set-coerce.md");
+  const testFile = path.join(os.tmpdir(), "flow-test-fm-set-coerce.md");
   fs.writeFileSync(testFile, "---\ntitle: Test\n---\n\nBody.\n", "utf8");
   try {
     execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set enabled=true --set count=42 --set removed=null`, { cwd: process.cwd() }).toString();
@@ -958,6 +974,278 @@ suite("Suite 10 — Phase 1 new functions");
     fail("frontmatter set (coerce): command failed — " + e.message);
   } finally {
     try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 10u: statusline show — happy path (returns valid JSON with expected fields)
+(function () {
+  const { execSync } = require("child_process");
+  const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-statusline-happy");
+  try {
+    fs.mkdirSync(path.join(tmpDir, ".flow"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\n---\n", "utf8");
+    const raw = execSync("node bin/flow-tools.js statusline show --cwd " + tmpDir, { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.milestone && parsed.phase && parsed.status && parsed.task_counts && typeof parsed.task_counts.total === "number") {
+      pass("statusline show: happy path returns valid JSON with expected fields");
+    } else {
+      fail("statusline show: unexpected output shape — " + raw.slice(0, 200));
+    }
+  } catch (e) {
+    fail("statusline show: command failed — " + e.message);
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 10v: statusline show — --phase flag returns data for specified phase
+(function () {
+  const { execSync } = require("child_process");
+  const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-statusline-phase");
+  try {
+    fs.mkdirSync(path.join(tmpDir, ".flow"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\n---\n", "utf8");
+    const testPhase = "99";
+    const raw = execSync("node bin/flow-tools.js statusline show --phase " + testPhase + " --cwd " + tmpDir, { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.phase === testPhase && typeof parsed.task_counts.total === "number") {
+      pass("statusline show: --phase flag returns data for specified phase");
+    } else {
+      fail("statusline show: --phase flag unexpected output — " + raw.slice(0, 200));
+    }
+  } catch (e) {
+    fail("statusline show (--phase): command failed — " + e.message);
+  }
+})();
+
+// 10w: statusline show — missing state.md exits with STATE_NOT_FOUND
+(function () {
+  const { execSync } = require("child_process");
+  const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-statusline-no-state");
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    execSync("node bin/flow-tools.js statusline show --cwd " + tmpDir, { stdio: "pipe", cwd: process.cwd() });
+    fail("statusline show: should exit with error when state.md missing");
+  } catch (e) {
+    const output = e.stdout ? e.stdout.toString() : "";
+    if (output.includes("STATE_NOT_FOUND")) {
+      pass("statusline show: missing state.md exits with STATE_NOT_FOUND");
+    } else {
+      fail("statusline show: missing state.md should exit with STATE_NOT_FOUND, got: " + (output || e.message).slice(0, 200));
+    }
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 10x: audit open — happy path (returns valid JSON with valid + drift fields)
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node bin/flow-tools.js audit open", { cwd: process.cwd() }).toString();
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.valid === "boolean" && Array.isArray(parsed.drift)) {
+      pass("audit open: happy path returns { valid, drift }");
+    } else {
+      fail("audit open: unexpected output shape — " + raw.slice(0, 200));
+    }
+  } catch (e) {
+    fail("audit open: command failed — " + e.message);
+  }
+})();
+
+// 10y: audit open — missing state.md produces drift entry (not exit)
+(function () {
+  const { execSync } = require("child_process");
+  const flowToolsPath = path.join(ROOT, "bin", "flow-tools.js");
+  const tmpDir = path.join(os.tmpdir(), "flow-test-audit-no-state");
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const raw = execSync("node " + flowToolsPath + " audit open", { cwd: tmpDir }).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.valid === false && parsed.drift.length > 0 && parsed.drift[0].field === "state.md") {
+      pass("audit open: missing state.md produces drift entry, does not exit");
+    } else {
+      fail("audit open: missing state.md unexpected output — " + raw.slice(0, 200));
+    }
+  } catch (e) {
+    // audit open should NOT exit even with missing state.md
+    fail("audit open: should not exit on missing state.md — " + e.message);
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// ─── Suite 11: Updater Hardening ────────────────────────────────────────────────
+
+suite("Suite 11 — Updater Hardening");
+
+const installModule = require("../bin/install.js");
+const { deepMergeConfig, updateScaffold, createRuntimeBridge } = installModule;
+
+// 11a: deepMergeConfig prunes stale keys
+(function () {
+  const scaffoldConfig = {
+    flow_version: "x.x.x",
+    workflow: { research: true, plan_check: true },
+    models: {},
+    git: {},
+    destructive_tier: {},
+  };
+  const userConfig = {
+    flow_version: "0.9.0",
+    workflow: { research: false, deprecated_flag: true },
+    old_feature: true,
+    models: {},
+    git: {},
+    destructive_tier: {},
+  };
+  try {
+    const result = deepMergeConfig(userConfig, scaffoldConfig);
+
+    let ok = true;
+
+    // stale top-level key pruned
+    if ("old_feature" in result) {
+      fail("11a: stale top-level key 'old_feature' should be pruned");
+      ok = false;
+    }
+
+    // stale nested key pruned
+    if (result.workflow && "deprecated_flag" in result.workflow) {
+      fail("11a: stale nested key 'deprecated_flag' should be pruned");
+      ok = false;
+    }
+
+    // user values preserved for existing scaffold keys
+    if (result.workflow && result.workflow.research !== false) {
+      fail("11a: user value workflow.research should be preserved");
+      ok = false;
+    }
+
+    // flow_version updated
+    if (typeof result.flow_version !== "string" || result.flow_version === "0.9.0") {
+      fail("11a: flow_version should be updated to pkg.version");
+      ok = false;
+    }
+
+    if (ok) pass("11a: deepMergeConfig prunes stale keys correctly");
+  } catch (e) {
+    fail("11a: deepMergeConfig threw: " + e.message);
+  }
+})();
+
+// 11b: updateScaffold migrates old flat phase dirs
+(function () {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11b-"));
+  try {
+    // Create old-style flat phase dirs
+    const oldPhaseDir = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "1");
+    fs.mkdirSync(oldPhaseDir, { recursive: true });
+    fs.writeFileSync(path.join(oldPhaseDir, "task-01.md"), "# Task 01", "utf8");
+    fs.writeFileSync(path.join(oldPhaseDir, "task-02.md"), "# Task 02", "utf8");
+    fs.writeFileSync(path.join(oldPhaseDir, "summary-01.md"), "# Summary 01", "utf8");
+    fs.writeFileSync(path.join(oldPhaseDir, "context.md"), "# Context", "utf8");
+
+    // Ensure .flow/ exists for updateScaffold
+    const flowDir = path.join(tmpDir, ".flow");
+    if (!fs.existsSync(flowDir)) fs.mkdirSync(flowDir, { recursive: true });
+
+    const report = updateScaffold(tmpDir);
+
+    // Check new structure exists
+    const newTask01 = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks", "task-01.md");
+    const newTask02 = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks", "task-02.md");
+    const newSum01  = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "summaries", "summary-01.md");
+    const newCtx    = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "context.md");
+    const oldDir    = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "1");
+
+    let ok = true;
+    if (!fs.existsSync(newTask01)) { fail("11b: task-01.md not migrated"); ok = false; }
+    if (!fs.existsSync(newTask02)) { fail("11b: task-02.md not migrated"); ok = false; }
+    if (!fs.existsSync(newSum01))  { fail("11b: summary-01.md not migrated"); ok = false; }
+    if (!fs.existsSync(newCtx))    { fail("11b: context.md not migrated to phase root"); ok = false; }
+    if (fs.existsSync(oldDir))     { fail("11b: old phases/1/ directory not removed"); ok = false; }
+    if (!Array.isArray(report.migrated) || report.migrated.length === 0) {
+      fail("11b: report.migrated should be non-empty"); ok = false;
+    }
+
+    if (ok) pass("11b: updateScaffold migrates old flat phase dirs");
+  } catch (e) {
+    fail("11b: updateScaffold migration threw or failed: " + e.message);
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 11c: updateScaffold warns when structure already matches
+(function () {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11c-"));
+  try {
+    // New structure already in place
+    const newPhaseTasks = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks");
+    fs.mkdirSync(newPhaseTasks, { recursive: true });
+    fs.writeFileSync(path.join(newPhaseTasks, "task-01.md"), "# Task 01", "utf8");
+
+    // Ensure .flow/ exists for updateScaffold
+    const flowDir = path.join(tmpDir, ".flow");
+    if (!fs.existsSync(flowDir)) fs.mkdirSync(flowDir, { recursive: true });
+
+    const report = updateScaffold(tmpDir);
+
+    let ok = true;
+    // Expect warnings about structure already matching or migrated array empty
+    if (Array.isArray(report.migrated) && report.migrated.length > 0) {
+      fail("11c: report.migrated should be empty when structure already matches");
+      ok = false;
+    }
+    if (!Array.isArray(report.warnings) || report.warnings.length === 0) {
+      fail("11c: report.warnings should contain a message about structure already matching");
+      ok = false;
+    }
+
+    if (ok) pass("11c: updateScaffold warns when structure already matches");
+  } catch (e) {
+    fail("11c: updateScaffold threw instead of warning: " + e.message);
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 11d: createRuntimeBridge is idempotent
+(function () {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11d-"));
+  try {
+    // First call should succeed
+    createRuntimeBridge(tmpDir);
+
+    // Second call should NOT throw or error
+    let secondCallError = null;
+    try {
+      createRuntimeBridge(tmpDir);
+    } catch (e) {
+      secondCallError = e;
+    }
+
+    if (secondCallError) {
+      fail("11d: second createRuntimeBridge call threw: " + secondCallError.message);
+    } else {
+      pass("11d: createRuntimeBridge is idempotent (no error on second call)");
+    }
+
+    // Bridge file should exist after both calls
+    const expectedFile = process.platform === "win32"
+      ? path.join(tmpDir, "flow-tools.cmd")
+      : path.join(tmpDir, "flow-tools.js");
+    if (fs.existsSync(expectedFile)) {
+      pass("11d: bridge file exists after both calls");
+    } else {
+      fail("11d: bridge file not found: " + expectedFile);
+    }
+  } catch (e) {
+    fail("11d: createRuntimeBridge first call threw: " + e.message);
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   }
 })();
 

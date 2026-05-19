@@ -61,7 +61,7 @@ Previous milestone summary: M/summary.md
 PATTERNS.md: .flow/codebase/patterns.md
 Focus: new features being added in this milestone
 depth: [from config]
-Output: M/phases/milestone-[N+1]-research.md
+Output: .flow/quick/milestone-[N+1]-research.md
 model: [value of models.flow-researcher from config.json — omit this line entirely if "inherit"]
 ```
 

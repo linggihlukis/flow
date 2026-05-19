@@ -176,7 +176,15 @@ The raw output is still available in the terminal — this is the structured sum
 [the verify command from the task]
 ```
 
-If it passes — proceed to commit.
+If it passes:
+  - Read `.flow/config.json` → `workflow.always_commit`
+  - If `always_commit: true`: proceed to commit.
+  - If `always_commit: false`:
+    ```
+    ℹ️  always_commit is disabled — changes staged but not committed.
+       Use 'git commit' when ready to complete this task.
+    ```
+    Skip commit and summary writing. Report back to orchestrator with `committed: false`.
 
 If it fails:
 - Fix only the specific thing causing the failure
@@ -251,6 +259,8 @@ Not all deviations are equal. Apply these rules before stopping:
 
 ## Commit
 
+Only run this section when the verify-pass path selected `proceed to commit` (i.e., `workflow.always_commit` is `true`).
+
 ```bash
 git add [only files modified by this task]
 git status  # verify staged files match announced scope
@@ -268,7 +278,7 @@ git rev-parse HEAD        # capture commit hash
 git diff HEAD~1 --name-only  # capture files changed
 ```
 
-Write the summary file immediately. Do not wait for orchestrator instruction.
+Only write the summary when the task was committed. Do not write a summary for staged-only tasks.
 
 ```markdown
 # Phase [N] — Task [NN] Summary: [Task Title]

@@ -149,7 +149,7 @@ Spawn `@flow-researcher` for each brief (parallel if depth is standard/comprehen
 
 **Brief 4 — Risks & Pitfalls:** Common scope creep patterns, technical debt traps, integration risks, security considerations.
 
-Each researcher writes its findings. Consolidate into `.flow/milestones/milestone-01/phases/project-research.md`.
+Each researcher writes its findings to `.flow/quick/research-brief-{N}.md`. Consolidate into `.flow/quick/project-research.md`.
 
 ---
 
