@@ -617,7 +617,7 @@ function cmdIndex(args) {
   if (scopeDirs.length > 0 && phaseNum) {
     const { fm } = readStateFile(cwd);
     const mName = fm.active_milestone || 'milestone-01';
-    outputPath = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${phaseNum}`, 'repo-map.json');
+    outputPath = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${String(phaseNum).padStart(2, '0')}`, 'repo-map.json');
   } else {
     outputPath = path.join(cwd, '.flow', 'codebase', 'repo-map.json');
   }
