@@ -16,6 +16,7 @@ const ERROR_CODES = {
   NO_TASKS:         'NO_TASKS',
   PATH_NOT_FOUND:   'PATH_NOT_FOUND',
   FRONTMATTER_NOT_FOUND: 'FRONTMATTER_NOT_FOUND',
+  WRITE_FAILED:        'WRITE_FAILED',
 };
 
 const KB = 1024;
@@ -97,6 +98,16 @@ function serializeFrontmatter(obj) {
   return lines.join('\n');
 }
 
+function serializeFrontmatterEOL(obj, eol) {
+  const lines = ['---'];
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) continue;
+    lines.push(`${key}: ${value}`);
+  }
+  lines.push('---');
+  return lines.join(eol);
+}
+
 function readStateFile(cwd) {
   const statePath = path.join(cwd, '.flow', 'state.md');
   if (!fs.existsSync(statePath)) exitErr(ERROR_CODES.STATE_NOT_FOUND, `.flow/state.md not found at ${cwd}`);
@@ -133,6 +144,133 @@ function getConfigValue(cwd, keyPath, defaultValue) {
     val = val[k];
   }
   return val !== undefined && val !== null ? val : defaultValue;
+}
+
+// ─── Command: config get ───────────────────────────────────────────────────────
+function cmdConfigGet(args) {
+  const cwd = getCwd(args);
+  // Extract first non-flag positional arg as the key path
+  let keyPath = null;
+  for (let i = 0; i < args.length; i++) {
+    if (!args[i].startsWith('--')) { keyPath = args[i]; break; }
+  }
+
+  if (!keyPath) {
+    // No key given — return full config object
+    output({ value: readConfig(cwd), key: null });
+    return;
+  }
+
+  const value = getConfigValue(cwd, keyPath, undefined);
+  // Missing key returns { value: null } (not exitErr)
+  output({ value: value !== undefined ? value : null, key: keyPath });
+}
+
+// ─── Command: frontmatter get ────────────────────────────────────────────────
+function cmdFrontmatterGet(args) {
+  const cwd = getCwd(args);
+  // Extract first non-flag positional arg as file path
+  let filePath = null;
+  for (let i = 0; i < args.length; i++) {
+    if (!args[i].startsWith('--')) { filePath = args[i]; break; }
+  }
+
+  if (!filePath) {
+    exitErr(ERROR_CODES.PATH_NOT_FOUND, 'File path is required for frontmatter get');
+  }
+
+  // Resolve path safely (prevents traversal)
+  const resolved = resolveSafePath(cwd, filePath);
+
+  if (!fs.existsSync(resolved)) {
+    exitErr(ERROR_CODES.PATH_NOT_FOUND, `File not found: ${resolved}`);
+  }
+
+  const content = fs.readFileSync(resolved, 'utf8');
+  const fm = parseFrontmatter(content);
+
+  if (!fm) {
+    exitErr(ERROR_CODES.FRONTMATTER_NOT_FOUND, `No YAML frontmatter found in ${filePath}`);
+  }
+
+  // Extract prose body (everything after frontmatter)
+  const body = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim();
+
+  // Check for --field flag
+  const fields = collectFlagValues(args, '--field');
+
+  if (fields.length === 0) {
+    // No --field given: return all frontmatter + _prose_body
+    output({ ...fm, _prose_body: body });
+    return;
+  }
+
+  // --field given: return only requested fields
+  const result = {};
+  for (const field of fields) {
+    result[field] = fm[field] !== undefined ? fm[field] : null;
+  }
+  output(result);
+}
+
+// ─── Command: frontmatter set ────────────────────────────────────────────────
+function cmdFrontmatterSet(args) {
+  const cwd = getCwd(args);
+  let filePath = null;
+  for (let i = 0; i < args.length; i++) {
+    if (!args[i].startsWith('--')) { filePath = args[i]; break; }
+  }
+  if (!filePath) exitErr(ERROR_CODES.PATH_NOT_FOUND, 'File path is required for frontmatter set');
+  const resolved = resolveSafePath(cwd, filePath);
+  if (!fs.existsSync(resolved)) exitErr(ERROR_CODES.PATH_NOT_FOUND, `File not found: ${resolved}`);
+
+  const content = fs.readFileSync(resolved, 'utf8');
+  let fm = parseFrontmatter(content);
+  const hadFrontmatter = fm !== null;
+  if (!fm) fm = {};
+
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
+
+  const sets = collectFlagValues(args, '--set');
+  const changes = {};
+  const patched = [];
+
+  for (const pair of sets) {
+    const eqIdx = pair.indexOf('=');
+    if (eqIdx < 0) continue;
+    const key = pair.slice(0, eqIdx).trim();
+    let value = pair.slice(eqIdx + 1).trim();
+    if (value === 'true') value = true;
+    else if (value === 'false') value = false;
+    else if (value === 'null') value = null;
+    else if (/^\d+$/.test(value)) value = parseInt(value, 10);
+    else if (/^\d+\.\d+$/.test(value)) value = parseFloat(value);
+    changes[key] = { old: fm[key] ?? null, new: value };
+    fm[key] = value;
+    patched.push(key);
+  }
+
+  const dryRun = args.includes('--dry-run');
+  if (dryRun) {
+    output({ patched: false, dry_run: true, fields: patched, changes });
+    return;
+  }
+
+  const bodyMatch = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  const body = bodyMatch ? content.slice(bodyMatch[0].length) : content;
+
+  const tmpPath = resolved + '.tmp';
+  try {
+    const newFrontmatter = serializeFrontmatterEOL(fm, eol);
+    const newContent = newFrontmatter + eol + body;
+    fs.writeFileSync(tmpPath, newContent, 'utf8');
+    fs.renameSync(tmpPath, resolved);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch {}
+    exitErr(ERROR_CODES.WRITE_FAILED, `Failed to write ${resolved}: ${err.message}`);
+  }
+
+  output({ patched: true, fields: patched });
 }
 
 // ─── Command: state get ───────────────────────────────────────────────────────
@@ -290,7 +428,7 @@ function cmdFilesCheck(args) {
   }
 
   const results = paths.map(p => {
-    const resolved = path.isAbsolute(p) ? p : path.join(cwd, p);
+    const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
     let exists = false;
     let readable = false;
     try {
@@ -584,6 +722,144 @@ function cmdKbSearch(args) {
   }));
 
   output({ results });
+}
+
+// ─── Command: history digest ─────────────────────────────────────────────────
+function cmdHistoryDigest(args) {
+  const cwd = getCwd(args);
+  const nIdx = args.indexOf('--n');
+  const n = nIdx >= 0 ? parseInt(args[nIdx + 1], 10) || 5 : 5;
+
+  const kbPath = path.join(cwd, '.flow', 'memory', 'knowledge-base.md');
+  if (!fs.existsSync(kbPath)) {
+    output({ results: [] });
+    return;
+  }
+
+  const content = fs.readFileSync(kbPath, 'utf8');
+  if (!content.trim()) {
+    output({ results: [] });
+    return;
+  }
+
+  // Split entries by ## headers (same algorithm as cmdLessonsRecent)
+  const entries = [];
+  let current = null;
+  for (const line of content.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (current) entries.push(current);
+      current = { header: line.slice(3).trim(), body: '' };
+    } else if (current) {
+      current.body += line + '\n';
+    }
+  }
+  if (current) entries.push(current);
+
+  // Take last N entries, return header + summary (first non-empty line of body)
+  const recent = entries.slice(-n).reverse().map(e => {
+    const firstNonEmpty = e.body.split('\n').find(l => l.trim());
+    return {
+      header: e.header,
+      summary: firstNonEmpty ? firstNonEmpty.trim() : '',
+    };
+  });
+
+  output({ results: recent });
+}
+
+// ─── Command: patterns extract ───────────────────────────────────────────────
+function cmdPatternsExtract(args) {
+  const cwd = getCwd(args);
+  const sectionIdx = args.indexOf('--section');
+  const sectionFilter = sectionIdx >= 0 ? args[sectionIdx + 1] : null;
+  const patternsIdx = args.indexOf('--patterns');
+  const patternsPath = patternsIdx >= 0
+    ? (path.isAbsolute(args[patternsIdx + 1]) ? args[patternsIdx + 1] : path.join(cwd, args[patternsIdx + 1]))
+    : path.join(cwd, '.flow', 'codebase', 'patterns.md');
+
+  if (!fs.existsSync(patternsPath)) {
+    output({ sections: [] });
+    return;
+  }
+
+  const content = fs.readFileSync(patternsPath, 'utf8');
+
+  // Split sections by ## headers
+  const sections = [];
+  let current = null;
+  for (const line of content.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (current) sections.push(current);
+      current = { header: line.slice(3).trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) sections.push(current);
+
+  // Filter by section name if specified (case-insensitive substring)
+  let filtered = sections;
+  if (sectionFilter) {
+    const lowerFilter = sectionFilter.toLowerCase();
+    filtered = sections.filter(s => s.header.toLowerCase().includes(lowerFilter));
+  }
+
+  // Parse each section: classify as table or bullet, extract rows
+  const result = filtered.map(s => {
+    const nonEmpty = s.lines.filter(l => l.trim());
+    const sectionType = classifySectionType(nonEmpty);
+    const rows = extractRows(nonEmpty, sectionType);
+    return {
+      section: s.header,
+      type: sectionType,
+      rows,
+    };
+  });
+
+  output({ sections: result });
+}
+
+function classifySectionType(lines) {
+  // Table detection: look for |---| separator row
+  for (const line of lines) {
+    if (/^\s*\|[\s-:|]+\|\s*$/.test(line)) return 'table';
+  }
+  // Bullet detection: lines starting with - or *
+  const bulletCount = lines.filter(l => /^\s*[-*]\s/.test(l)).length;
+  if (bulletCount > 0) return 'bullet';
+  return 'text';
+}
+
+function extractRows(lines, type) {
+  if (type === 'table') {
+    const rows = [];
+    let headerRow = null;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // Skip separator rows (contain only |, -, :, spaces)
+      if (/^\|[\s-:|]+\|$/.test(trimmed)) continue;
+      // Parse table row: split by | and trim each cell
+      const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
+      if (!headerRow) {
+        headerRow = cells;
+      } else {
+        const row = {};
+        headerRow.forEach((h, i) => { row[h] = cells[i] || ''; });
+        rows.push(row);
+      }
+    }
+    return rows;
+  }
+
+  if (type === 'bullet') {
+    return lines
+      .filter(l => /^\s*[-*]\s/.test(l))
+      .map(l => l.replace(/^\s*[-*]\s/, '').trim());
+  }
+
+  // text: return non-empty lines as-is
+  return lines.filter(l => l.trim()).map(l => l.trim());
 }
 
 // ─── Command: index ───────────────────────────────────────────────────────────
@@ -978,12 +1254,16 @@ function showHelp() {
       'state patch': '--cwd path --set key=value ...',
       'state validate': '--cwd path',
       'state sync': '--cwd path',
+      'config get': '[key] --cwd path',
+      'frontmatter get': 'path/to/file [--field field1 field2] --cwd path',
       'lessons recent': '--cwd path --n 5 --type phase-type',
       'files check': 'path1 path2 ...',
       'context estimate': 'path1 path2 ... --cwd path',
       'phase list': '--cwd path --phase N',
       'wave resolve': '--cwd path --phase N',
       'kb search': '--cwd path --zone zoneName --n 5',
+      'history digest': '--cwd path --n 5',
+      'patterns extract': '--cwd path --section name --patterns path',
     },
     error_codes: ERROR_CODES,
   });
@@ -1006,6 +1286,22 @@ function main() {
     else if (sub === 'validate') cmdStateValidate(subArgs);
     else if (sub === 'sync') cmdStateSync(subArgs);
     else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown state subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'config') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'get') cmdConfigGet(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown config subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'frontmatter') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'get') cmdFrontmatterGet(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown frontmatter subcommand: ${sub}`);
     return;
   }
 
@@ -1054,6 +1350,22 @@ function main() {
     const subArgs = args.slice(2);
     if (sub === 'search') cmdKbSearch(subArgs);
     else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown kb subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'history') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'digest') cmdHistoryDigest(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown history subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'patterns') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'extract') cmdPatternsExtract(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown patterns subcommand: ${sub}`);
     return;
   }
 
