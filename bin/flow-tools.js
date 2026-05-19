@@ -1256,6 +1256,7 @@ function showHelp() {
       'state sync': '--cwd path',
       'config get': '[key] --cwd path',
       'frontmatter get': 'path/to/file [--field field1 field2] --cwd path',
+      'frontmatter set': 'path/to/file --set key=value [--set k2=v2] [--dry-run] --cwd path',
       'lessons recent': '--cwd path --n 5 --type phase-type',
       'files check': 'path1 path2 ...',
       'context estimate': 'path1 path2 ... --cwd path',
@@ -1301,6 +1302,7 @@ function main() {
     const sub = args[1];
     const subArgs = args.slice(2);
     if (sub === 'get') cmdFrontmatterGet(subArgs);
+    else if (sub === 'set') cmdFrontmatterSet(subArgs);
     else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown frontmatter subcommand: ${sub}`);
     return;
   }
