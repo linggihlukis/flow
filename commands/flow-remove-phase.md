@@ -56,15 +56,20 @@ Show the full diff to the developer before writing.
 
 ## Step 3: Clean Up Context Files
 
-Check `M/phases/$ARGUMENTS/` for files belonging to Phase $ARGUMENTS:
+Check `M/phases/phase-$ARGUMENTS/` for files belonging to Phase $ARGUMENTS:
 - `CONTEXT.md`
-- `plan-NN.md`
 - `research.md`
+- `tasks/task-NN.md`
+- `tasks/fix-NN.md`
+- `summaries/summary-NN.md`
+- `handoff.md`
+- `patterns-scope.md`
+- `context-log.md`
 
 If any exist, list them:
 ```
 The following context files belong to Phase $ARGUMENTS:
-  - M/phases/$ARGUMENTS/ (directory and all contents)
+  - M/phases/phase-$ARGUMENTS/ (directory and all contents)
 
 Delete these files? (yes/no)
 ```

@@ -135,7 +135,7 @@ Run all four of the following in order. All four must pass before commit:
 
 1. The task's `## Verify` command
 2. Full test suite — only failures NOT listed in `.flow/codebase/test-baseline.md` are regressions
-3. Scope check: run `git diff --name-only HEAD` and confirm every modified file was announced in the task's pre-implementation file list. Any file appearing here that was not announced is an unexpected side-effect — report it and stop. Do not use test-baseline.md for this check; test-baseline.md contains test names, not file paths. The reference for expected files is the task's own announced scope.
+3. Scope check: run `git diff --name-only HEAD~1` and confirm every modified file was announced in the task's pre-implementation file list. Any file appearing here that was not announced is an unexpected side-effect — report it and stop. Do not use test-baseline.md for this check; test-baseline.md contains test names, not file paths. The reference for expected files is the task's own announced scope.
 4. Linter
 
 If the full test suite introduces a new failure not in test-baseline.md:
@@ -181,10 +181,11 @@ If it passes:
   - If `always_commit: true`: proceed to commit.
   - If `always_commit: false`:
     ```
-    ℹ️  always_commit is disabled — changes staged but not committed.
-       Use 'git commit' when ready to complete this task.
+    ℹ️  always_commit is disabled — changes are NOT staged and NOT committed.
+       Do not run `git add` or `git commit`.
+       Report changes to orchestrator for manual review.
     ```
-    Skip commit and summary writing. Report back to orchestrator with `committed: false`.
+    Skip commit. Write summary file as normal. Report back to orchestrator with `committed: false`.
 
 If it fails:
 - Fix only the specific thing causing the failure
@@ -198,7 +199,7 @@ If it fails:
     ```
     Print: `⚠️ always_commit is enabled — committing despite verify failure. Fix before merging.`
     Write the summary file as normal but mark `verify_result: FAILED` in it.
-  - If `always_commit: false` (default): stop, report exactly what failed and what was tried. Do not commit.
+  - If `always_commit: false` (default): stop, report exactly what failed and what was tried. Write summary file with `verify_result: FAILED`. Do not run `git add` or `git commit`.
 
 ## Verify scope
 
@@ -215,6 +216,21 @@ If files appear that were not in your announced list, flag them before committin
   - [file]
 Confirm these are intentional before I commit.
 ```
+
+## PATTERNS-AMENDMENTS
+
+After verifying scope and before committing, check whether your scope announcement revealed
+any file whose actual pattern contradicts what PATTERNS.md states for its zone.
+
+If a material contradiction was found:
+  Append an amendment entry to .flow/codebase/patterns-amendments.md using the
+  format defined in AGENTS.md §19 — PATTERNS-AMENDMENTS Protocol.
+
+  A contradiction is material if it would cause a future planner to generate
+  incorrect tasks for this zone. Cosmetic differences are not material.
+
+If no material contradiction was found:
+  Do not append anything. An empty file and an absent file are equivalent.
 
 ## Deviation Threshold Calibration
 
@@ -274,16 +290,16 @@ Never batch tasks. Never commit broken code.
 After committing, write `M/phases/[N]/summaries/summary-[NN].md` where [N] is the zero-padded phase number and [NN] is the zero-padded task sequence number — both from the task filename.
 
 ```bash
-git rev-parse HEAD        # capture commit hash
-git diff HEAD~1 --name-only  # capture files changed
+git rev-parse HEAD 2>/dev/null || echo "none"  # capture commit hash (or "none" if not committed)
+git diff --name-only  # capture files changed (working tree — works whether committed or not)
 ```
 
-Only write the summary when the task was committed. Do not write a summary for staged-only tasks.
+Always write the summary file regardless of commit status. If the task was not committed, set **Committed:** to `none (staged only)`.
 
 ```markdown
 # Phase [N] — Task [NN] Summary: [Task Title]
 
-**Committed:** [hash from git rev-parse HEAD]
+**Committed:** [hash from git rev-parse HEAD, or `none (staged only)` if not committed]
 **Completed:** [ISO 8601 datetime]
 
 ## What was done
@@ -325,17 +341,4 @@ summary_path: M/phases/[N]/summaries/summary-[NN].md
 
 Your job is done when the commit is made, the summary is written, the Return block is appended, and the report is sent.
 
-## PATTERNS-AMENDMENTS
 
-After writing the task summary, check whether your scope announcement revealed
-any file whose actual pattern contradicts what PATTERNS.md states for its zone.
-
-If a material contradiction was found:
-  Append an amendment entry to .flow/codebase/patterns-amendments.md using the
-  format defined in AGENTS.md §19 — PATTERNS-AMENDMENTS Protocol.
-
-  A contradiction is material if it would cause a future planner to generate
-  incorrect tasks for this zone. Cosmetic differences are not material.
-
-If no material contradiction was found:
-  Do not append anything. An empty file and an absent file are equivalent.

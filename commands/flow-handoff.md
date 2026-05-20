@@ -13,7 +13,7 @@ Phase number: **$ARGUMENTS** (defaults to current phase from state.md if not pro
 
 Read:
 - `.flow/state.md` — current position and decisions
-- All `plan-NN.md` files for this phase from `M/phases/N/`
+- All `task-NN.md` files for this phase from `M/phases/phase-N/tasks/`
 - All `summary-NN.md` files for this phase from `M/phases/N/` — use these as the primary source for workarounds, decisions, and files changed. Fall back to `git log` if no summaries exist.
 - `git log` for commits in this phase
 - `M/phases/N/CONTEXT.md`
@@ -35,6 +35,11 @@ Write `M/phases/N/handoff.md`:
 ### Plans Completed
 | Plan | Title | Commit |
 |---|---|---|
+
+## Deliverables
+[For each plan, extract the `## Done Condition` and write a plain-language testable statement.]
+
+- [Task task-NN]: [done condition transformed into a testable statement]
 
 ## Key Decisions Made This Phase
 [decisions made during execution not in CONTEXT.md]

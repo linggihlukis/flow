@@ -464,9 +464,33 @@ must-deliver item from CONTEXT.md is covered by at least one task.
      (a) Proceed — these items are intentionally deferred or handled implicitly
      (b) Stop — re-run /flow-plan-phase to regenerate tasks with full coverage
    ```
-   Wait for developer response. Maximum 1 confirmation round.
-   If developer chooses (a) → proceed to Schema Gate.
-   If developer chooses (b) → stop. Do not spawn critic.
+   Wait for developer response. Parse the response explicitly:
+
+   - If response is `(a)` (case-insensitive, with or without surrounding whitespace):
+     ```
+     ✓ Developer chose to proceed despite coverage gap.
+     ```
+     Proceed to Schema Gate.
+
+   - If response is `(b)` (case-insensitive, with or without surrounding whitespace):
+     ```
+     ⛔ Developer chose to stop. Re-running /flow-plan-phase to regenerate tasks.
+     ```
+     Stop. Do not spawn critic.
+
+   - If response is anything else (ambiguous):
+     Re-prompt once:
+     ```
+     ⚠️  Response not recognised. Please reply with exactly (a) to proceed or (b) to stop.
+     ```
+     Wait for second response.
+     - If second response is `(a)` → proceed to Schema Gate.
+     - If second response is `(b)` → stop. Do not spawn critic.
+     - If second response is still ambiguous:
+       ```
+       ⛔ Ambiguous response after re-prompt. Stopping for safety.
+       ```
+       Stop. Do not spawn critic.
 
 ---
 
@@ -524,11 +548,18 @@ awk '/^## Files/{f=1;next} /^## [^#]/{f=0} f' [file] | grep -qE "\.|/" \
   || FAIL "task-NN: ## Files section has no file paths"
 
 # 7. Task number in filename appears verbatim in the title line
-# Extracts the numeric suffix (e.g. task-03.md → "03") and does a fixed-string
-# match — no regex quantifiers, no ambiguity with zero-padding.
+# Extracts the numeric suffix (e.g. task-03.md → "03", fix-01.md → "01") and does
+# a fixed-string match — no regex quantifiers, no ambiguity with zero-padding.
+# For fix-*.md files, greps for "Fix $TASKNUM"; for task-*.md, greps for "Task $TASKNUM".
 TASKNUM=$(basename [file] .md | grep -oP "\d+$")
-head -5 [file] | grep -qF "Task $TASKNUM" \
-  || FAIL "task-NN: task number '$TASKNUM' not found in title line"
+BASENAME=$(basename [file])
+if [[ "$BASENAME" == fix-* ]]; then
+  head -5 [file] | grep -qF "Fix $TASKNUM" \
+    || FAIL "fix-NN: task number '$TASKNUM' not found in title line"
+else
+  head -5 [file] | grep -qF "Task $TASKNUM" \
+    || FAIL "task-NN: task number '$TASKNUM' not found in title line"
+fi
 
 # 8. ## Implementation Steps has at least 2 steps
 # Uses [ ] arithmetic to avoid piping grep -c output into a second grep,
@@ -585,15 +616,46 @@ If ≥ low → apply §16 Context Discipline, then proceed.
 
 **Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
 
+**Patterns context injection (G-01):**
+Before spawning the critic, extract global sections from PATTERNS.md and inline them
+into the spawn brief. This gives the critic visibility into Do Not Change constraints
+and Confidence Notes without passing the file itself.
+
+```bash
+PATTERNS_FILE="M/phases/phase-$ARGUMENTS/patterns-scope.md"
+if [ ! -f "$PATTERNS_FILE" ]; then
+  PATTERNS_FILE=".flow/codebase/patterns.md"
+fi
+
+PATTERNS_CONTEXT=""
+if [ -f "$PATTERNS_FILE" ]; then
+  # Extract ## Do Not Change section
+  DNC=$(awk '/^## Do Not Change/{f=1;next} /^## [^#]/{f=0} f' "$PATTERNS_FILE")
+  # Extract ## Confidence Notes section
+  CN=$(awk '/^## Confidence Notes/{f=1;next} /^## [^#]/{f=0} f' "$PATTERNS_FILE")
+
+  if [ -n "$DNC" ] || [ -n "$CN" ]; then
+    PATTERNS_CONTEXT="
+Patterns Context:
+## Do Not Change
+$DNC
+
+## Confidence Notes
+$CN"
+  fi
+fi
+```
+
 Spawn `@flow-critic` with the following brief:
 
 ```
 Phase: $ARGUMENTS
 Tasks: [list every task file path written by the planner — e.g. M/phases/phase-$ARGUMENTS/tasks/task-01.md, task-02.md, ...]
+[PATTERNS_CONTEXT — inline text from extraction step above, or empty if no global sections found]
 model: [value of models.flow-critic from config.json — omit this line entirely if "inherit"]
 ```
 
-The critic reads task files only. Do not pass patterns.md, CONTEXT.md, lessons.md, or any other file — the critic's value is a fresh-context read.
+The critic reads task files only. Do not pass patterns.md, CONTEXT.md, lessons.md, or any other file — the critic's value is a fresh-context read. Global sections (Do Not Change + Confidence Notes) are inlined as text above, not passed as file paths.
 
 Wait for the critic report before proceeding.
 
@@ -636,28 +698,28 @@ When all remaining tasks pass:
 
 Reached only via the Pre-flight step 0 gate (`.refresh-paused` sentinel exists).
 
-  1. Delete the pause sentinel:
-     ```bash
-     rm M/phases/phase-$ARGUMENTS/.refresh-paused
-     ```
+  1. Re-read the updated PATTERNS.md.
 
-  2. Re-read the updated PATTERNS.md.
-
-  3. Run a zone diff: for each zone referenced in research.md, check whether
+  2. Run a zone diff: for each zone referenced in research.md, check whether
      the refreshed PATTERNS.md entry for that zone contradicts what research.md
      describes.
        grep "[zone pattern claim]" .flow/codebase/patterns.md
 
-  4. If no contradictions found:
+  3. If no contradictions found:
      Proceed to spawn @flow-planner with the existing research.md.
      No re-research needed.
 
-  5. If contradictions found for one or more zones:
+  4. If contradictions found for one or more zones:
      Re-spawn @flow-researcher for the affected zones only, with a brief that:
        - Includes the existing research.md
        - Asks it to update only the contradicted zones
        - Instructs it to append corrections in place (not rewrite the whole file)
      Proceed to spawn @flow-planner with the updated research.md.
+
+  5. Delete the pause sentinel (recovery complete):
+     ```bash
+     rm M/phases/phase-$ARGUMENTS/.refresh-paused
+     ```
 
 This avoids a full phase restart. Worst case is a zone-scoped partial re-research.
 

@@ -71,8 +71,23 @@ Capture answers. Continue.
 
 **Fast-Path check:** If the developer provided an explicit file path in the command arguments (e.g. `/flow-quick fix Gaia/core.php`), skip the researcher spawn.
 - Print: `⚡ Researcher fast-path: using explicit file [path]`
-- Write `.flow/quick/[task-slug]-impact.md` directly with the provided file as PRIMARY.
+- Run a lightweight grep for textual references to the filename in source files:
+  ```bash
+  FILENAME=$(basename "[path]")
+  SECONDARY=$(grep -rl "$FILENAME" --include="*.js" --include="*.ts" --include="*.md" --include="*.json" --include="*.yaml" --include="*.yml" . 2>/dev/null | grep -v "node_modules" | grep -v ".git" | grep -v "^\./\.flow/" | head -20)
+  ```
+- Write `.flow/quick/[task-slug]-impact.md` directly with the provided file as PRIMARY and the grep results as SECONDARY.
 - Skip to Step 5.
+
+The impact.md content for the fast-path should be:
+```markdown
+## Return
+status: complete
+primary_files: ["[path]"]
+secondary_files: ["path/one", "path/two"]
+open_questions: []
+```
+If grep finds no matches, `SECONDARY` is empty; write `secondary_files: []` in the impact.md.
 
 **Otherwise**, spawn `@flow-researcher` with this specific brief:
 

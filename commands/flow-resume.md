@@ -33,8 +33,12 @@ for f in ".flow/codebase/patterns.md" "${M}requirements.md" "${M}roadmap.md" ".f
   [ -f "$f" ] && echo "OK: $f" || echo "MISSING: $f"
 done
 
-# Check PATTERNS.md mandatory headers (lightweight grep)
-grep -qE "^## (Global: )?Do Not Change" .flow/codebase/patterns.md && echo "PATTERNS HEADERS OK" || echo "PATTERNS HEADERS MISSING OR MALFORMED"
+# Check PATTERNS.md exists and is non-empty (headers are optional for resume)
+if [ -s ".flow/codebase/patterns.md" ]; then
+  grep -qE "^## (Global: )?Do Not Change" .flow/codebase/patterns.md 2>/dev/null && echo "PATTERNS HEADERS OK" || echo "WARNING: PATTERNS.md headers missing — resuming anyway (file exists and is non-empty)"
+else
+  echo "MISSING OR EMPTY: .flow/codebase/patterns.md"
+fi
 
 # Check config.json is valid JSON (stack-agnostic: python3 preferred, grep heuristic fallback)
 if command -v python3 >/dev/null 2>&1; then
@@ -47,7 +51,9 @@ else
 fi
 ```
 
-If any check fails, stop immediately and run `/flow-health --repair` before continuing. Do not proceed past this step with a broken scaffold — lesson and handoff loads will silently use wrong data.
+If state.md, requirements.md, roadmap.md, config.json, or AGENTS.md checks fail, stop immediately and run `/flow-health --repair` before continuing. Do not proceed past this step with a broken scaffold — lesson and handoff loads will silently use wrong data.
+
+For PATTERNS.md: if the file exists and is non-empty, resume may proceed even if mandatory headers are not detected. A warning will be printed but execution continues.
 
 If all checks pass, continue to Step 3 silently (do not print the OK lines unless something failed).
 

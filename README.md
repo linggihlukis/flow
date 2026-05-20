@@ -450,6 +450,7 @@ Edit `.flow/config.json`:
 | `workflow.parallel_execution` | bool | `true` | Wave execution vs sequential |
 | `workflow.verifier` | bool | `false` | Pre-UAT automated evidence check |
 | `workflow.always_commit` | bool | `false` | Commit even when verify fails (marks commit as `wip`) |
+| `workflow.schema_gate` | bool | `true` | Run structural validation on every task file before critic pass |
 
 ### Model routing
 

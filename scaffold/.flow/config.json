@@ -26,7 +26,8 @@
     "node_repair_budget": 2,
     "parallel_execution": true,
     "verifier": false,
-    "always_commit": false
+    "always_commit": false,
+    "schema_gate": true
   },
   "models": {
     "flow-researcher": "inherit",

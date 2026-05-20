@@ -121,12 +121,13 @@ Update `.flow/state.md` YAML frontmatter — copy this block and substitute valu
  ---
  active_milestone: milestone-[N+1]
  active_phase: 0
+ active_composite: milestone-[N+1].phase-00
  status: ready
  updated_at: [ISO 8601 datetime — e.g. 2026-03-25T10:00:00+07:00]
  ---
  ```
 
-Do not reformat or restructure the YAML. Change only the four fields above.
+Do not reformat or restructure the YAML. Change only the five fields above.
 
 ```
 ✅ Milestone [N+1] initialised — [name]

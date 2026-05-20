@@ -144,7 +144,7 @@ If service-map.md exists and the phase touches a service boundary:
 
 Lock all answers to these conflict questions into CONTEXT.md alongside the domain answers. They are not optional — do not skip to domain questions if conflicts exist.
 
-If no conflicts found — note "No codebase conflicts detected" and proceed directly to Step 1.
+If no conflicts found — note "No codebase conflicts detected" in the `## Codebase Conflict Resolutions` section of CONTEXT.md, then proceed to Step 1.
 
 ---
 
@@ -207,7 +207,7 @@ Synthesise the discussion into `M/phases/phase-$ARGUMENTS/CONTEXT.md`:
 ## Codebase Conflict Resolutions
 [Answers to Step 0 conflict questions — which pattern to follow in deviating zones,
 clarifications on low-confidence areas, service contract confirmations.
-Empty if no conflicts were detected.]
+If no conflicts were detected, write "No conflicts detected." here.]
 
 ## Phase Goal
 [one sentence — what this phase must deliver]

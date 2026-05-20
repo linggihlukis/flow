@@ -62,7 +62,7 @@ If `--auto` is absent: `auto_mode = false`. Proceed normally. No escalation.
    - `mode`: if `yolo`, skip developer confirmations
     - `workflow.always_commit`:
        - If `true`, print once at start: `⚠️  always_commit is ON — tasks will commit on success (or on verify failure with wip prefix). Disable in config.json when ready for clean execution.`
-       - If `false`, print once at start: `ℹ️  always_commit is OFF — tasks will NOT auto-commit on success. Changes remain staged. Use 'git commit' to finalize.`
+        - If `false`, print once at start: `ℹ️  always_commit is OFF — tasks will NOT auto-commit on success. Changes are not staged and not committed. Do not run 'git add' or 'git commit'.`
    - `models`: read the `models` object. If `models.flow-executor` is not "inherit", include a `model:` line in every executor spawn brief.
 6. **Zone-scoped PATTERNS.md extraction** — if `.flow/codebase/patterns.md` exists AND
    `M/phases/phase-$ARGUMENTS/patterns-scope.md` does NOT already exist
@@ -291,7 +291,7 @@ The executor will:
 4. Run the task's `<verify>` command — this must pass
 5. Run `git diff --name-only` to confirm scope wasn't exceeded
 6. Run the task's `## Verify` command and linter. If `VERIFY_DEPTH: deep`, also run the full test suite (baseline-aware: only failures not in `.flow/codebase/test-baseline.md` are regressions). Do NOT run the full test suite for shallow tasks.
-7. Commit, write task summary to `M/phases/phase-$ARGUMENTS/summaries/summary-NN.md`, and report back
+7. Write task summary to `M/phases/phase-$ARGUMENTS/summaries/summary-NN.md`. Commit if `workflow.always_commit` is `true`, then report back
 
 If the executor reports a task error (task assumes something that isn't true):
 - Stop all execution
@@ -335,10 +335,12 @@ After each executor completes (success or failure), check whether escalation app
    ⚠️  AR3 escalation: task-NN failed on instruction-tier model [model_id].
        Retrying with reasoning-tier model [reasoning_model_id].
        Escalation budget: 1/1 (final attempt before standard retry).
+       Repair budget reset to 1 for this escalated attempt.
    ```
    a. Revert the task's changes: `git checkout -- [files from task ## Files section]`
-   b. Re-spawn `@flow-executor` with the same brief but with `model:` set to
-      `model_tiers.reasoning[0]`
+   b. Re-spawn `@flow-executor` with the same brief but with:
+      - `model:` set to `model_tiers.reasoning[0]`
+      - `node_repair_budget: 1` (override for this escalated attempt only — does not modify config.json)
    c. Mark this task as escalated (do not escalate again)
    d. If the escalated attempt succeeds → proceed normally (commit, report)
    e. If the escalated attempt fails → fall through to standard recovery
@@ -363,7 +365,7 @@ git status  # verify staged files
 git commit -m "type(milestone-phase-task): description"
 ```
 
-If `workflow.always_commit` is `false`, skip the commit. Changes remain staged. The executor reports `committed: false` and the orchestrator notes this in the handoff.
+If `workflow.always_commit` is `false`, skip the commit. Do not run `git add` or `git commit`. Changes are not staged and not committed. The executor still writes the task summary and reports `committed: false`. The orchestrator notes this in the handoff.
 
 Never batch multiple tasks into one commit. Never commit broken code.
 
@@ -491,6 +493,13 @@ Write `M/phases/phase-$ARGUMENTS/handoff.md`:
 | Task | Title | Commit |
 |---|---|---|
 | task-NN | [title] | [hash from summary-NN.md] |
+
+## Deliverables
+[Populated from each task's `## Done Condition` at handoff-write time]
+
+| Task | Deliverable | Verified |
+|---|---|---|
+| task-NN | [done condition from task-NN.md] | [PASS/FAIL] |
 
 ## Key Decisions Made This Phase
 [From summary "Workarounds" fields — any deviations from task steps and why.

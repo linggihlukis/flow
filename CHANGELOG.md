@@ -3,6 +3,31 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.4] - 2026-05-20
+
+### Added
+- Added `schema_gate` parameter inside `scaffold/.flow/config.json` to allow toggling plan validation checks.
+
+### Changed
+- Upgraded the `flow-critic` subagent to utilize a high-quality reasoning-tier model.
+- Granted `critic` subagent access to `PATTERNS.md` global sections (such as *Do Not Change* & *Confidence Notes*) during task analysis.
+- Shifted `PATTERNS-AMENDMENTS` serialization logic to occur *before* rather than *after* git commits in the executor cycle.
+- Switched `flow-resume` check for `PATTERNS.md` from a hard-stop block to a warning.
+- Implemented lightweight `grep`-based secondary file discovery on `flow-quick` fast-paths.
+- Integrated `active_composite` state tracking across state initialization templates.
+
+### Fixed
+- Resolved `always_commit: false` bug where the executor still performed git commits.
+- Restored the mandatory `## Deliverables` section inside the handoff template to ensure proper downstream verification.
+- Ensured that the `pause-refresh` sentinel is only deleted *after* a successful codebase recovery, preventing state corruption during crashes.
+- Restricted executor `deep-verify` diff calculations strictly against `HEAD~1` to prevent historical diff pollution.
+- Corrected `flow-handoff` to resolve tasks from milestone `phase-NN/tasks/task-NN.md` instead of `plan-NN.md`.
+- Upgraded `schema_gate` to support and recognize `fix-NN.md` files and "Fix N" naming formats.
+- Provisioned a dedicated, independent repair budget for AR3 reasoning-tier retry processes to prevent loop starvation.
+- Configured `flow-remove-phase` directory cleanup logic to use the correct target path and file directories.
+- Ensured `CONTEXT.md` always generates the `## Codebase Conflict Resolutions` section (even when empty).
+- Ensured that summary files are successfully written even during `always_commit: false` (no-commit) runs.
+
 ## [0.1.3] - 2026-05-19
 
 ### Security
