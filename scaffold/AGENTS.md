@@ -14,7 +14,7 @@ You are an agent in FLOW. Follow this system precisely — no inventing, no skip
 
 All FLOW files live under `.flow/`. AGENTS.md stays at root (auto-loaded by runtimes).
 
-**Shorthand:** `M` = `.flow/milestones/{active_milestone}/`, `P` = `M/phases/phase-{active_phase}/`
+**Shorthand:** `M` = `.flow/milestones/{active_milestone}/`, `P` = `M/phases/phase-{active_phase}/` where `{active_phase}` is zero-padded to two digits (e.g., `phase-01`, `phase-12`)
 Values from `.flow/state.md` YAML frontmatter.
 
 ```
@@ -97,7 +97,16 @@ Every session, in order. No exceptions.
 5. Baseline-aware health check: if `test-baseline.md` exists, only new failures block. No baseline = all failures block. Baseline says "no test infrastructure" → skip.
 6. Announce: "Resuming Milestone {active_milestone}, Phase {active_phase} — [last action]"
 
-Do not write code before completing all 6 steps.
+Do not write code before completing all steps (1-7).
+
+7. **Optional health check** — if `/flow-health` is available (i.e. the command file
+   exists at `commands/flow-health.md`), run it as a pre-flight sanity check:
+   - Run: `node [flow-tools-path] health --cwd .` (or read `commands/flow-health.md`
+     for the manual protocol if flow-tools is unavailable)
+   - If health check reports issues: note them, continue (advisory only, not blocking)
+   - If health check fails critically (missing core files): stop and run
+     `/flow-health --repair` before proceeding
+   - If `/flow-health` is not available: skip silently
 
 ---
 
@@ -382,6 +391,11 @@ Not material = cosmetic, naming, style differences.
 
 ## 20. PATTERNS.md Global Sections
 
+> **Source of truth:** The `<!-- flow-global-sections: ... -->` comment block at the
+> top of `.flow/codebase/patterns.md` is the machine-readable list of global sections.
+> This section in AGENTS.md is documentation only — update the comment block first,
+> then sync this section to match.
+
 When PATTERNS.md is zone-scoped, these sections are ALWAYS included regardless
 of which zones the phase touches:
 
@@ -391,8 +405,10 @@ of which zones the phase touches:
 **Conditional (include if present, skip silently if absent):**
 `## Learned Heuristics`, `## What Actually Works`
 
-When adding a new global section, update this list atomically — the scoped
-extract will miss unlisted sections.
+When adding a new global section, update the `<!-- flow-global-sections -->` comment
+block at the top of PATTERNS.md FIRST, then update this section in AGENTS.md to match.
+The extraction awk in flow-plan-phase.md reads from the comment block — if the comment
+and this section disagree, the comment wins.
 
 ---
 

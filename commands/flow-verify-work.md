@@ -90,6 +90,26 @@ If `[flow-tools-path]` is not available, proceed with manual file checks.
 
 ---
 
+**Fix-cycle reset:** Before any verification stage runs, reset the fix-cycle counter
+to ensure it reflects only the current session:
+
+Check `.flow/state.md` prose section for a line matching `fix_cycles: [N]`.
+If found, remove it or set to 0 (reset for this verification session).
+If not found — skip (counter was never written or already clean).
+
+```bash
+# Remove or reset fix_cycles in state.md prose
+# Using sed/awk — examples for POSIX and Windows:
+# Linux/macOS: sed -i '/^fix_cycles:/d' .flow/state.md
+# Windows (PowerShell): (Get-Content .flow/state.md) -notmatch '^fix_cycles:' | Set-Content .flow/state.md
+```
+
+Note: This reset runs BEFORE Stage 1. The Completion — All Pass section still retains its
+existing reset for the normal end-of-verification path. This new reset handles the
+re-run case (when a user runs /flow-verify-work again after fixing issues).
+
+---
+
 ## Stage 1: Extract Testable Deliverables
 
 **Source check:** If `M/phases/phase-$ARGUMENTS/handoff.md` exists, read it as the primary source for deliverables (Stage 4 of `flow-execute-phase` generates this).
@@ -186,9 +206,10 @@ After appending to lessons.md, check the newly written entry for `**Compression 
 If the lessons.md entry written above contains `**Compression Signal:**`:
 1. The debugger has already tagged this as a compression-related failure (O2)
 2. Extract the affected zone/section from the signal details
-3. Append an exception entry to `.flow/codebase/compression-exceptions.md`
+3. Before appending, check whether an entry for this exact zone already exists in `.flow/codebase/compression-exceptions.md`. If found → skip (dedup). Print dedup skip message.
+4. If no existing entry found, append an exception entry to `.flow/codebase/compression-exceptions.md`
    (same format as flow-execute-phase post-execution check)
-4. Print:
+5. Print:
    ```
    ✓ S2: compression exception recorded for zone "[zone]" — future extracts will include it
    ```

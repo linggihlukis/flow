@@ -3,6 +3,26 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.5] - 2026-05-21
+
+### Added
+- Added compression dedup guard (skip on exact zone + path + pattern match) in `flow-execute-phase.md` and `flow-verify-work.md`.
+- Added `last_refresh_at` field and zero-entry migration detection to `flow-map-codebase.md --refresh` and `scaffold/.flow/config.json`.
+- Added `fix_cycles` counter reset at START of `flow-verify-work` (before Stage 1).
+- Added 1 re-investigation cycle to the Evidence Summary path in `flow-plan-phase.md` for legacy research completeness.
+- Added `last_refresh_at` write on `--refresh` completion and surfaced it in `flow-resume.md`.
+- Added optional `flow-health` pre-flight check step to AGENTS.md §4 Session Start Protocol.
+- Added evidence standard template (file:line refs, code snippets, severity colors) to `flow-audit-milestone.md`.
+- Added `<!-- flow-global-sections -->` machine-readable comment block at top of `PATTERNS.md`; updated AGENTS.md §20 to reference it.
+- Added `## Limitations` section to `commands/flow-do.md` documenting `--auto` cross-phase chaining constraints.
+- Added phase-NN zero-padding convention documentation to `scaffold/AGENTS.md` §2.
+
+### Changed
+- Merged duplicate `M/requirements.md` entries in `commands/flow-help.md` KEY FILES table into a single entry.
+
+### Removed
+- Removed dead YAML fields (`last_user`, `last_session`, `last_action`, `flow_version`, `runtime_mode`) from `scaffold/.flow/state.md`.
+
 ## [0.1.4] - 2026-05-20
 
 ### Added

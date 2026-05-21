@@ -4,13 +4,6 @@ active_phase: 1
 active_composite: milestone-01.phase-01
 status: not-started
 updated_at: 1970-01-01T00:00:00Z
-
-last_user: ""
-last_session: 0
-last_action: ""
-
-flow_version: 0.0.0
-runtime_mode: parallel
 ---
 
 ## Last Session

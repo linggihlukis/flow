@@ -38,6 +38,21 @@ For each Must Have requirement, check the codebase:
 2. Determine what evidence in the codebase would prove it's delivered
 3. Check for that evidence — read source files, run commands, check tests
 
+**Minimum evidence standard (M-05):**
+For each requirement check, the evidence produced MUST include:
+   (i) File:line references — specific source file paths and line numbers for every claim
+       Example: "User authentication is implemented in auth/login.php:42-58"
+   (ii) Code snippets — relevant code blocks that prove the requirement is met
+        At minimum, function signatures, route definitions, and key conditional branches
+   (iii) Severity per finding — each finding MUST be tagged with one of:
+        - 🔴 **Critical** — requirement completely unimplemented, or implementation is broken
+        - 🟠 **High** — requirement partially implemented with significant gaps
+        - 🟡 **Medium** — requirement implemented but with minor deviations or edge cases
+        - 🔵 **Low** — requirement implemented, finding is a suggestion or cosmetic issue
+
+Evidence that does NOT meet this standard (e.g. vague descriptions without file:line
+references, or "looks correct" without code inspection) must be flagged and re-collected.
+
 Mark each requirement:
 - ✅ **Delivered** — codebase clearly satisfies this requirement
 - ⚠️  **Partial** — some implementation exists but requirement not fully met

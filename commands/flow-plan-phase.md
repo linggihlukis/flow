@@ -298,9 +298,29 @@ If all rows have real file paths and valid anchors (or "new file" markers):
 
 If any row has "N/A" file paths or is missing:
   Do not spawn the planner.
-  Treat as a blocked item — surface the specific row(s) and their blocker reasons.
-  Ask the developer whether to proceed with the gap or halt for manual investigation.
-  Maximum 1 confirmation round.
+  Re-spawn `@flow-researcher` with a targeted re-investigation brief listing exactly
+  which rows lack valid file paths or Verbatim Anchors. The brief must name:
+    - The specific locked decision(s) from the Evidence Summary table missing evidence
+    - The exact columns that are "N/A" or empty
+  Instruct the researcher to append updated rows to the Evidence Summary table — not rewrite it.
+
+  Repeat the completeness check after re-investigation.
+  Maximum 1 re-investigation round.
+
+If still incomplete after 1 re-investigation round:
+  ```
+  ⚠️  Research completeness gap after 1 re-investigation round.
+  The following Evidence Summary rows lack codebase evidence:
+    - [list missing file paths / anchors]
+  Please review research.md and confirm whether it is sufficient to proceed,
+  or add the missing evidence manually before running /flow-plan-phase again.
+  ```
+  Stop. Do not spawn the planner.
+
+Note: The Evidence Summary path allows 1 re-investigation round (targeted).
+The Legacy path below allows 2 re-investigation rounds (comprehensive).
+This reflects the higher confidence of Evidence Summary findings — a single
+targeted re-investigation is sufficient to fill gaps.
 
 **Legacy path (fallback — for research files without `## Evidence Summary`):**
 

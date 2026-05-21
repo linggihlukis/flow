@@ -7,6 +7,7 @@
     "type": "",
     "repo_structure": "",
     "detected_at": "",
+    "last_refresh_at": "",
     "signals": {
       "debt_density": 0,
       "zone_count": 0,

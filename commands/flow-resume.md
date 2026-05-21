@@ -169,6 +169,22 @@ If any mismatches found, print once:
 
 If no mismatches → proceed silently. Do not print "all good" messages.
 
+## Codebase Profile Staleness Indicator
+
+Read `.flow/config.json` → `codebase_profile.last_refresh_at`.
+
+If `last_refresh_at` exists and is non-empty:
+  Print as part of the announcement:
+  ```
+  Profile last refreshed: [last_refresh_at value]
+  ```
+
+If `last_refresh_at` is absent or empty:
+  Print as part of the announcement:
+  ```
+  Profile last refreshed: never (run /flow-map-codebase --refresh)
+  ```
+
 ## Step 9: Announce Position
 
 If state.md `status` is `paused`, prefix the announcement with `⏸️  Resuming from paused session`. Otherwise use `▶️  Resuming FLOW`.

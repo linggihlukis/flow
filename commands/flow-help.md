@@ -90,9 +90,8 @@ KEY FILES
 ─────────
   AGENTS.md                        Every agent reads this first (root — auto-loaded)
   .flow/state.md                   Current state — YAML + prose
-  M/requirements.md    ## Scope + MoSCoW requirements
-  M/roadmap.md            Phases and milestones
-  M/requirements.md       MoSCoW requirements with IDs
+  M/requirements.md                Scope + MoSCoW requirements with IDs
+  M/roadmap.md                     Phases and milestones
   .flow/codebase/patterns.md           Codebase reality map
   .flow/memory/lessons.md          Cross-milestone lessons (append-only)
   .flow/memory/knowledge-base.md   Debug knowledge base (append-only)

@@ -455,7 +455,15 @@ grep -A 5 "Compression Signal" .flow/memory/lessons.md | grep -i "Phase $ARGUMEN
 If any matches are found:
 1. For each match, extract the `Source:` and `Excluded by:` fields
 2. Determine the affected zone/section name from the `Source:` path
-3. Append an exception entry to `.flow/codebase/compression-exceptions.md`:
+3. Before appending, check whether an entry for this exact zone already exists:
+   ```bash
+   grep -q "\*\*Zone/Section:\*\* \[zone name\]" .flow/codebase/compression-exceptions.md 2>/dev/null && echo "EXISTS" || echo "NOT_FOUND"
+   ```
+   If an entry with the same `Zone/Section` already exists → skip (dedup). Print:
+   ```
+   - S2: compression exception for zone "[zone]" already exists — skipping (dedup)
+   ```
+4. If no existing entry found, append an exception entry to `.flow/codebase/compression-exceptions.md`:
    ```markdown
    ## Exception — [ISO date] — Phase $ARGUMENTS
    **Zone/Section:** [zone name matching the source file's PATTERNS.md zone]
@@ -463,7 +471,7 @@ If any matches are found:
    **Information lost:** [value from Compression Signal entry]
    **Action:** Always include this zone/section in future scoped extracts
    ```
-4. Print:
+5. Print:
    ```
    ✓ S2: compression exception added for zone "[zone]" — future extracts will include it
    ```

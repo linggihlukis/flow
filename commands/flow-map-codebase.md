@@ -238,6 +238,8 @@ already in memory (do not re-run Stage 1–3 agents):
 type          — derive from Step 3 codebase_type classification
 repo_structure — derive from Step 3 repo_structure classification
 detected_at   — current ISO 8601 timestamp
+last_refresh_at — same as detected_at on initial map; updated to current ISO 8601
+                  timestamp on --refresh completion (see completion section below)
 signals:
   debt_density        — count lines in PATTERNS.md ## Known Technical Debt that are NOT
                         struck-through (i.e. active debt entries)
@@ -270,6 +272,10 @@ signals:
         AND signals.entry_point_count === 0
         AND signals.entry_points === []
         AND signals.cross_zone_coupling === false
+        AND (signals.last_refresh_at is absent OR signals.last_refresh_at === "")
+      Note: If `last_refresh_at` is absent AND all signals are zero, this is a new project
+      with no prior scan data — skip migration. If `last_refresh_at` exists (even if zero signals),
+      this is an upgrade from pre-v0.3.0 — run migration.
       Action: derive lightweight values via targeted bash scans.
 
       entry_points / entry_point_count:
@@ -1104,6 +1110,16 @@ Replace `[ISO 8601 datetime]` with the current ISO 8601 timestamp.
 ---
 
 ## Completion
+
+**Write last_refresh_at:** Before printing completion, update `last_refresh_at` in
+`.flow/config.json` → `codebase_profile.last_refresh_at` to the current ISO 8601 timestamp:
+
+```bash
+# Update last_refresh_at in config.json
+# This is only written on --refresh completion, not on initial map
+```
+
+This ensures the field exists only after at least one `--refresh` has run.
 
 Print:
 ```

@@ -183,3 +183,17 @@ steps in order. Between each step:
    discuss → plan → execute → verify
    [N] tasks executed. Next: /flow-audit-milestone or /flow-add-phase for Phase [N+1]
 ```
+
+---
+
+## Limitations
+
+`--auto` lifecycle chaining is **per-invocation only**. Each `flow-do` call resolves
+to a single command and chains that command's lifecycle for one phase. It cannot:
+
+- Chain across multiple phases in a single invocation (e.g. "build phases 1 through 3")
+- Resume a previously interrupted chain after the process exits
+- Override §17 Session Discipline (one phase per session)
+
+If you need to run multiple phases, invoke `flow-do` separately for each phase or
+use `/flow-execute-phase [N]` directly.
