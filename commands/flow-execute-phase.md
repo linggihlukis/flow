@@ -48,11 +48,20 @@ If `--auto` is absent: `auto_mode = false`. Proceed normally. No escalation.
      ```
    - When the executor reports deep verification results, it will use the categorised
      format (Passing / Baseline / New) — see flow-executor.md for details.
-3. Read `.flow/memory/lessons.md` — load last 5 entries.
-   Filter to entries matching the current phase type (Visual/UI, API/Backend,
-   Data/Content, Infrastructure). Apply only matching entries.
-   If fewer than 2 matching entries in the last 5, expand to last 10.
-   If none found — skip silently.
+3. **Lesson loading** — check if `[flow-tools-path]` exists:
+
+   a. If available:
+      ```bash
+      node [flow-tools-path] lessons recent --cwd . --n 5 --type "[phase-type from CONTEXT.md]"
+      ```
+      Use the returned JSON entries. Each entry has `context`, `mistake`, `fix`, `pattern` fields.
+
+   b. If `[flow-tools-path]` is not available:
+      Read `.flow/memory/lessons.md` — load last 5 entries.
+      Filter to entries matching the current phase type (Visual/UI, API/Backend,
+      Data/Content, Infrastructure). Apply only matching entries.
+      If fewer than 2 matching entries in the last 5, expand to last 10.
+      If none found — skip silently.
 4. Read `M/phases/phase-$ARGUMENTS/patterns-scope.md` if it exists
    (generated in step 6 below); fallback to `.flow/codebase/patterns.md` — all new code must follow conventions
 5. Read `.flow/config.json` — apply these settings:
@@ -400,10 +409,10 @@ Before writing the handoff, compare actual file changes against planned file cha
 1. Collect the expected file set — for each completed task, extract its `## Files`
    section to build the union of all expected files:
    ```bash
-   M=".flow/milestones/$(sed -n 's/^active_milestone: *//p' .flow/state.md)/"
+    M=".flow/milestones/$(node [flow-tools-path] frontmatter get .flow/state.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.active_milestone||'')})")/"
    for f in "${M}phases/phase-${ARGUMENTS}/tasks/task-*.md" \
             "${M}phases/phase-${ARGUMENTS}/tasks/fix-*.md"; do
-     [ -f "$f" ] && awk '/^## Files/{f=1;next} /^## [^#]/{f=0} f' "$f"
+      [ -f "$f" ] && node [flow-tools-path] patterns extract --section "Files" --patterns "$f" --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section==='Files');if(s)console.log(s.rows.filter(r=>r.content.trim()).map(r=>r.content).join('\n'));else console.log('')})"
    done | grep -oE '[^ *-]+\.[a-zA-Z0-9]+' | sort -u
    ```
 

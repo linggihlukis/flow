@@ -29,23 +29,55 @@ The developer must use the feature. This cannot be automated.
 
 ## Stage 0: Automated Pre-check (only if `workflow.verifier: true`)
 
-**Trace entry:** Before spawning, estimate the token load:
+**Trace entry:** Before starting, estimate the token load:
 - Identify files: verification.md + all task summary files (summary-NN.md)
 - Calculate: `sum_of_all_chars ÷ 4`, round to nearest 100
-- If `M/phases/phase-$ARGUMENTS/context-log.md` does not exist, create with
-  table header (see AGENTS.md §21)
-- Append row to `M/phases/phase-$ARGUMENTS/context-log.md`
+- If `M/phases/phase-$ARGUMENTS/context-log.md` does not exist, create with table header
+- Append row to `M/phases/phase-$ARGUMENTS/context-log.md` with agent name: `orchestrator-inline-verifier` for inline mode, `flow-verifier` for spawn mode
+
+**Inline Mode Check:** Read `.flow/config.json` → `workflow.inline_verifier`.
+If `true` (or absent — default is `true`), proceed with **Inline Verifier Pass** below.
+If `false`, proceed with **Spawn Fallback: Spawn @flow-verifier** below.
+
+---
+
+### Path A: Inline Verifier Pass (Default)
+
+The orchestrator model (you) performs the verifier checks directly to avoid subagent spawn latency.
+
+**Step 1: Extract must-deliver items**
+Read `M/phases/phase-$ARGUMENTS/CONTEXT.md` to extract all locked decisions, must-deliver requirements, and technical constraints.
+
+**Step 2: Collect evidence inline**
+Check for evidence of implementation across the codebase:
+- Spot-check files and directories listed in the tasks using exact searches or `ls`.
+- For each must-deliver item, verify its code artifact exists:
+  ```bash
+  # Linux/macOS:
+  grep -rn "class|function [name]" [expected-path] | head -5
+  # Windows PowerShell:
+  # Select-String -Path "[expected-path]\*" -Pattern "class |function [name]" | Select-Object -First 5
+  ```
+- If task verify commands are pure read operations (e.g. testing an endpoint, calling a query without mutating data), run them now to collect proof.
+
+**Step 3: Analyze and Report**
+Compare observed evidence against `CONTEXT.md` requirements.
+If all must-delivers have evidence — proceed directly to **Pre-check Completion** below.
+If any gaps are found — list the missing items and proceed to **Pre-check Completion** below.
+
+---
+
+### Path B: Spawn Fallback (when `workflow.inline_verifier: false`)
 
 **Budget check:** Before spawning, check context budget per AGENTS.md §22.
 Read `config.json` → `context` block. If absent → skip.
-If present → sum Est. Tokens from context-log.md (awk extraction — do not load full file).
+If present → sum Est. Tokens from context-log.md.
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
 If ≥ low → apply §16 Context Discipline, then proceed.
 
 **Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
 
 Spawn `@flow-verifier` with this brief:
-
 ```
 Phase: $ARGUMENTS
 CONTEXT.md: M/phases/phase-$ARGUMENTS/CONTEXT.md
@@ -53,13 +85,13 @@ Tasks: all files matching M/phases/phase-$ARGUMENTS/tasks/task-*.md
 model: [value of models.flow-verifier from config.json — omit this line entirely if "inherit"]
 ```
 
-The verifier will:
-1. Read CONTEXT.md — extract all locked decisions and must-deliver items
-2. For each must-deliver item, search the codebase for evidence (expected routes, functions, components, files)
-3. Run each task's `Verify` command if it is a pure read check (no side effects)
-4. Report must-deliver items with no evidence found
+Wait for verifier to complete. Proceed to **Pre-check Completion** below.
 
-Wait for verifier to complete. If all must-delivers have evidence — print:
+---
+
+### Path C: Pre-check Completion (Common)
+
+If all must-delivers have evidence — print:
 ```
 ✅ Pre-check passed — all must-deliver items have evidence. Proceeding to UAT.
 ```

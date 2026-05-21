@@ -41,7 +41,7 @@ For each must-deliver item, gather evidence using only read-only operations:
 
 **File existence:**
 ```bash
-ls [expected file path]
+node [flow-tools-path] files check [expected file path] --cwd .
 ```
 
 **Function / route / component presence:**

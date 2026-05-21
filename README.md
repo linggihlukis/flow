@@ -424,7 +424,11 @@ Edit `.flow/config.json`:
     "node_repair_budget": 2,
     "parallel_execution": true,
     "verifier": false,
-    "always_commit": false
+    "always_commit": false,
+    "schema_gate": true,
+    "inline_research": true,
+    "inline_critic": true,
+    "inline_verifier": true
   },
   "models": {
     "flow-researcher": "inherit",
@@ -443,7 +447,7 @@ Edit `.flow/config.json`:
 |---|---|---|---|
 | `mode` | `interactive`, `yolo` | `interactive` | `yolo` skips developer confirmations, keeps intent echo |
 | `depth` | `quick`, `standard`, `comprehensive` | `standard` | Research depth per phase |
-| `workflow.research` | bool | `true` | Spawns `@flow-researcher` in plan-phase |
+| `workflow.research` | bool | `true` | Performs research stage in plan-phase |
 | `workflow.plan_check` | bool | `true` | Runs critic pass after task generation |
 | `workflow.node_repair` | bool | `true` | Auto-retries failed tasks |
 | `workflow.node_repair_budget` | number | `2` | Max retries before escalating |
@@ -451,6 +455,9 @@ Edit `.flow/config.json`:
 | `workflow.verifier` | bool | `false` | Pre-UAT automated evidence check |
 | `workflow.always_commit` | bool | `false` | Commit even when verify fails (marks commit as `wip`) |
 | `workflow.schema_gate` | bool | `true` | Run structural validation on every task file before critic pass |
+| `workflow.inline_research` | bool | `true` | Run research inline in orchestrator instead of spawning `@flow-researcher` |
+| `workflow.inline_critic` | bool | `true` | Run critic inline in orchestrator instead of spawning `@flow-critic` |
+| `workflow.inline_verifier` | bool | `true` | Run verifier inline in orchestrator instead of spawning `@flow-verifier` |
 
 ### Model routing
 

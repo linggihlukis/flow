@@ -180,7 +180,7 @@ Check `.flow/config.json` → `workflow.research`. If false, skip to Stage 2.
 
 **Trace entry:** Before starting, estimate the token load and append to trace:
 - Identify files involved: CONTEXT.md, patterns-scope.md (or PATTERNS.md fallback), requirements.md, SERVICE-MAP.md (if cross-service phase)
-- For each file, get size: `wc -c [file]` (Windows: `(Get-Content [file] -Raw).Length`)
+- For each file, get size via `node [flow-tools-path] context estimate [file] --cwd .` (returns JSON with `total_chars` — use `total_chars ÷ 4` for token estimate)
 - Calculate: `sum_of_all_chars ÷ 4`, round to nearest 100
 - If `M/phases/phase-$ARGUMENTS/context-log.md` does not exist, create it with the table header (see AGENTS.md §21)
 - Append one row: `| [now ISO 8601] | [agent] | [est_tokens] | [file list] |` (agent: `orchestrator-inline` for inline mode, `flow-researcher` for spawn mode)

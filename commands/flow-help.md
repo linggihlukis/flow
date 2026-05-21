@@ -58,12 +58,12 @@ UTILITIES
 
 AGENTS  (subagents — fresh context per invocation)
 ───────────────────────────────────────────────────
-  @flow-researcher           Spawned by plan-phase Stage 1 — investigates implementation
-  @flow-planner              Spawned by plan-phase Stage 2 — generates atomic task files
-  @flow-critic               Spawned by plan-phase Stage 3 — checks tasks against 8 rules
+  @flow-researcher           Plan-phase Stage 1 — investigates implementation (inline by default)
+  @flow-planner              Plan-phase Stage 2 — generates atomic task files
+  @flow-critic               Plan-phase Stage 3 — checks tasks against 8 rules (inline by default)
   @flow-executor             Spawned per task by execute-phase — implements + commits
   @flow-debugger             Spawned by verify-work on failure — diagnoses + fix task
-  @flow-verifier             Spawned by verify-work Stage 0 (opt-in) — pre-UAT gap check
+  @flow-verifier             Verify-work Stage 0 (opt-in) — pre-UAT gap check (inline by default)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -103,11 +103,14 @@ CONFIG (.flow/config.json)
 ──────────────────────────────────
   mode:                      interactive (default) or yolo
   depth:                     quick / standard (default) / comprehensive
-  workflow.research:         true/false — spawn @flow-researcher
+  workflow.research:         true/false — run research phase
   workflow.plan_check:       true/false — run critic pass after planning
   workflow.node_repair:      true/false — auto-retry failed tasks
   workflow.node_repair_budget: 2 — max retries before escalating
   workflow.parallel_execution: true/false — wave execution vs sequential
+  workflow.inline_research:  true (default)/false — run research inline vs spawn agent
+  workflow.inline_critic:    true (default)/false — run critic inline vs spawn agent
+  workflow.inline_verifier:  true (default)/false — run verifier inline vs spawn agent
   models.*:                  per-agent model ID or "inherit" (default)
                              e.g. models.flow-executor: deepseek/v4-flash
 

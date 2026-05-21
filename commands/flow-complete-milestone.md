@@ -71,10 +71,11 @@ heuristic rules. This step runs **inline** — do not spawn a subagent.
 2. Check if `.flow/codebase/patterns.md` exists.
    → If absent: print `ℹ️  No PATTERNS.md — skipping heuristic distillation (no target file).` Continue to Stage 2.
 
-3. **Read entries:** Read the last 50 entries from `.flow/memory/lessons.md`.
-   Each entry starts with `## [Milestone X / Phase Y]`. On Unix: `tail -n 400` then
-   filter from the last 50 `^## \[Milestone` matches. On Windows: `Get-Content`
-   then take the last 50 entries by splitting on `^## \[Milestone`.
+3. **Read entries:** Read the last 50 entries:
+   ```bash
+   node [flow-tools-path] lessons recent --cwd . --n 50
+   ```
+   Each entry has `context`, `mistake`, `fix`, `pattern` fields.
 
    If lessons.md has fewer than 50 entries, read all of them.
 

@@ -59,9 +59,7 @@ You are a planning agent. You generate atomic task files for one phase. You do n
     grep argument — it would match individual characters rather than the zone name):
 
     ```bash
-    # Example: if zone name is "payments" and path is "payments/"
-    grep -i "payments" .flow/memory/knowledge-base.md | head -20
-    # Run one grep per zone, substituting the real zone name each time
+    node [flow-tools-path] kb search --cwd . --zone "[zone-name]" --n 20
     ```
 
     **If any entries match:**

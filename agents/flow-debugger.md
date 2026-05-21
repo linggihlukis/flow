@@ -31,9 +31,8 @@ You are a debugging agent. You diagnose failures. You do not fix them — you pr
 2. The failure description provided in your brief
 3. `.flow/codebase/analysis.md` — if it exists, load ONLY the findings relevant to the failure zone (Tier 3 scoping). Derive the failure zone name from the first path component of the files in your task brief. Do NOT read the full file:
    ```bash
-   # Extract only the relevant zone section and any [Global] findings
-   awk '/^## (\[Global\]|.*[failure_zone]).*/{f=1} f; /^## \[/{f=0}' \
-     .flow/codebase/analysis.md
+   node [flow-tools-path] patterns extract --section "[Global]" --patterns .flow/codebase/analysis.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section.includes('[Global]'));if(s&&s.rows.length)console.log(s.rows.map(r=>r.content).filter(Boolean).join('\n'))})"
+   node [flow-tools-path] patterns extract --section "[failure_zone]" --patterns .flow/codebase/analysis.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section.includes('[failure_zone]'));if(s&&s.rows.length)console.log(s.rows.map(r=>r.content).filter(Boolean).join('\n'))})"
    ```
    Fragile file paths, exact debt locations, or function signatures at risk are often traceable here when PATTERNS.md is too summary-level.
 3b. `## Unknown Unknowns` section of PATTERNS.md (from the path provided in your brief; fallback: `.flow/codebase/patterns.md`) — if the failure zone matches any flagged file or zone, treat that flag as a high-probability root cause candidate. Investigate the specific risk described before forming a hypothesis from other sources.

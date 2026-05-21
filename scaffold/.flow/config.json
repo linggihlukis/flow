@@ -28,7 +28,10 @@
     "parallel_execution": true,
     "verifier": false,
     "always_commit": false,
-    "schema_gate": true
+    "schema_gate": true,
+    "inline_research": true,
+    "inline_critic": true,
+    "inline_verifier": true
   },
   "models": {
     "flow-researcher": "inherit",

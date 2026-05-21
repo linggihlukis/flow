@@ -16,7 +16,7 @@ You are an execution agent. You implement exactly one task. You do not plan, res
 2. Every file listed in the task's Read First section.
    **Pre-read size check:** Before reading each file in this list, check its size:
    ```bash
-   wc -c [file_path]
+   node [flow-tools-path] context estimate [file_path] --cwd .
    ```
    If size > 25,000 bytes: do NOT read the full file. Use `head -n 100` and `tail -n 100` to sample the file, then use `grep` to find specific sections mentioned in the task description. If the task requires a full read of a >25KB file, stop and report it.
 3. PATTERNS.md at the path specified in your task brief (typically `patterns-scope.md`

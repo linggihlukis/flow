@@ -25,30 +25,19 @@ Before loading any state, run a lightweight integrity check. A corrupted state.m
 scaffold would poison everything that follows.
 
 ```bash
-# Check state.md exists and has valid YAML frontmatter
-head -5 .flow/state.md 2>/dev/null | grep -q "^---" && echo "STATE OK" || echo "STATE MISSING OR MALFORMED"
+M=".flow/milestones/$(node [flow-tools-path] frontmatter get .flow/state.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.active_milestone||'')})")/"
+# Check file existence
+node [flow-tools-path] files check ".flow/codebase/patterns.md" "${M}requirements.md" "${M}roadmap.md" ".flow/config.json" "AGENTS.md" --cwd . 2>/dev/null
 
-M=".flow/milestones/$(sed -n 's/^active_milestone: *//p' .flow/state.md)/"
-for f in ".flow/codebase/patterns.md" "${M}requirements.md" "${M}roadmap.md" ".flow/config.json" "AGENTS.md"; do
-  [ -f "$f" ] && echo "OK: $f" || echo "MISSING: $f"
-done
-
-# Check PATTERNS.md exists and is non-empty (headers are optional for resume)
+# Check PATTERNS.md non-empty and has headers
 if [ -s ".flow/codebase/patterns.md" ]; then
   grep -qE "^## (Global: )?Do Not Change" .flow/codebase/patterns.md 2>/dev/null && echo "PATTERNS HEADERS OK" || echo "WARNING: PATTERNS.md headers missing — resuming anyway (file exists and is non-empty)"
 else
   echo "MISSING OR EMPTY: .flow/codebase/patterns.md"
 fi
 
-# Check config.json is valid JSON (stack-agnostic: python3 preferred, grep heuristic fallback)
-if command -v python3 >/dev/null 2>&1; then
-  python3 -m json.tool .flow/config.json > /dev/null 2>&1 && echo "config.json OK" || echo "config.json INVALID JSON"
-elif command -v node >/dev/null 2>&1; then
-  node -e "JSON.parse(require('fs').readFileSync('.flow/config.json','utf8'))" 2>/dev/null && echo "config.json OK" || echo "config.json INVALID JSON"
-else
-  # Structural heuristic: file must start with { and end with }
-  head -1 .flow/config.json | grep -q "^{" && tail -1 .flow/config.json | grep -q "^}" && echo "config.json OK (heuristic)" || echo "config.json may be INVALID (no parser available)"
-fi
+# Check config.json validity
+node [flow-tools-path] config get --cwd . > /dev/null 2>&1 && echo "config.json OK" || echo "config.json INVALID"
 ```
 
 If state.md, requirements.md, roadmap.md, config.json, or AGENTS.md checks fail, stop immediately and run `/flow-health --repair` before continuing. Do not proceed past this step with a broken scaffold — lesson and handoff loads will silently use wrong data.
@@ -78,11 +67,21 @@ Extract from the result:
 - Health status when work paused
 
 ## Step 4: Load Relevant Lessons
-Read `.flow/memory/lessons.md` — load last 5 entries.
-Filter to entries matching the current phase type (Visual/UI, API/Backend,
-Data/Content, Infrastructure). Surface only matching entries.
-If fewer than 2 matching entries exist in the last 5, expand to last 10.
-If no relevant entries found — skip silently.
+
+**Lesson loading** — check if `[flow-tools-path]` exists:
+
+a. If available:
+   ```bash
+   node [flow-tools-path] lessons recent --cwd . --n 5 --type "[phase-type]"
+   ```
+   Use the returned JSON entries. Each entry has `context`, `mistake`, `fix`, `pattern` fields.
+
+b. If `[flow-tools-path]` is not available:
+   Read `.flow/memory/lessons.md` — load last 5 entries.
+   Filter to entries matching the current phase type (Visual/UI, API/Backend,
+   Data/Content, Infrastructure). Surface only matching entries.
+   If fewer than 2 matching entries exist in the last 5, expand to last 10.
+   If no relevant entries found — skip silently.
 
 If relevant lessons found, surface them:
 ```
@@ -106,9 +105,9 @@ If exists:
 If status is `in-progress` (mid-phase crash — no handoff written yet):
 Check for task summary files:
 ```bash
-M=".flow/milestones/$(sed -n 's/^active_milestone: *//p' .flow/state.md)/"
-P_PHASE=$(sed -n 's/^active_phase: *//p' .flow/state.md)
-ls "$M/phases/phase-$(printf '%02d' "$P_PHASE")/summaries/summary-*.md" 2>/dev/null
+M=".flow/milestones/$(node [flow-tools-path] frontmatter get .flow/state.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.active_milestone||'')})")/"
+P_PHASE=$(node [flow-tools-path] frontmatter get .flow/state.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.active_phase||'0')})")
+node [flow-tools-path] files check "$M/phases/phase-$(printf '%02d' "$P_PHASE")/summaries/summary-*.md" --cwd . 2>/dev/null
 ```
 If any summaries exist, surface them:
 ```

@@ -71,10 +71,18 @@ Capture answers. Continue.
 
 **Fast-Path check:** If the developer provided an explicit file path in the command arguments (e.g. `/flow-quick fix Gaia/core.php`), skip the researcher spawn.
 - Print: `⚡ Researcher fast-path: using explicit file [path]`
-- Run a lightweight grep for textual references to the filename in source files:
+- Run a lightweight search for textual references to the filename in source files:
   ```bash
+  # Linux/macOS:
   FILENAME=$(basename "[path]")
   SECONDARY=$(grep -rl "$FILENAME" --include="*.js" --include="*.ts" --include="*.md" --include="*.json" --include="*.yaml" --include="*.yml" . 2>/dev/null | grep -v "node_modules" | grep -v ".git" | grep -v "^\./\.flow/" | head -20)
+  # Windows PowerShell:
+  # $FILENAME = Split-Path -Leaf "[path]"
+  # $SECONDARY = Get-ChildItem -Recurse -Include *.js,*.ts,*.md,*.json,*.yaml,*.yml -File |
+  #   Where-Object { $_.FullName -notmatch 'node_modules|\.git|\.flow' } |
+  #   Select-String -Pattern $FILENAME -List |
+  #   Select-Object -ExpandProperty Path |
+  #   Select-Object -First 20
   ```
 - Write `.flow/quick/[task-slug]-impact.md` directly with the provided file as PRIMARY and the grep results as SECONDARY.
 - Skip to Step 5.
@@ -89,28 +97,31 @@ open_questions: []
 ```
 If grep finds no matches, `SECONDARY` is empty; write `secondary_files: []` in the impact.md.
 
-**Otherwise**, spawn `@flow-researcher` with this specific brief:
+**Otherwise (no fast-path):**
+The orchestrator model (you) performs the file-impact scan directly inline:
+1. **Read Patterns:** Scan `.flow/codebase/patterns.md` (specifically Module Zones) to understand the codebase layout.
+2. **Scan Codebase:** For each keyword from the task description, locate relevant files:
+   ```bash
+   # Linux/macOS:
+   grep -rl "[keyword]" --include="*.js" --include="*.ts" --include="*.php" --include="*.py" . | head -20
+   # Windows PowerShell:
+   # Get-ChildItem -Recurse -Include *.js,*.ts,*.php,*.py -File |
+   #   Select-String -Pattern "[keyword]" -List |
+   #   Select-Object -ExpandProperty Path -Unique |
+   #   Select-Object -First 20
+   ```
+3. **Map Blast Radius:** Classify matching files as PRIMARY (must change) or SECONDARY (likely ripple).
+4. **Write impact.md:** Output the findings directly to `.flow/quick/[task-slug]-impact.md` in the standard Return block format:
 
-```
-Task: [one sentence description]
-Stack: [from `M/requirements.md` ## Scope or detected]
-Codebase map: `.flow/codebase/patterns.md` (Module Zones table)
-depth: quick
-Goal: Enumerate which files will likely need to change to implement this task.
-      Do NOT assess approach or best practices — only map blast radius.
-      For each file: name it, state why it is affected, and classify as
-      PRIMARY (must change) or SECONDARY (likely ripple).
-Output: .flow/quick/[task-slug]-impact.md
-model: [value of models.flow-researcher from config.json — omit this line entirely if "inherit"]
-
+```markdown
 ## Return
-status: complete | blocked
+status: complete
 primary_files: ["path/one", "path/two"]
 secondary_files: ["path/three"]
 open_questions: ["anything uncertain about blast radius"]
 ```
 
-Wait for the scan to complete. Extract the `## Return` block.
+Proceed directly to Step 5.
 
 ---
 

@@ -114,12 +114,12 @@ Do not write code before completing all steps (1-7).
 
 | Agent | When spawned | What it does |
 |---|---|---|
-| `@flow-researcher` | `flow-plan-phase` Stage 1 | Investigates implementation approach |
+| `@flow-researcher` | `flow-plan-phase` Stage 1 | Investigates implementation approach (inline by default; `workflow.inline_research: false` spawns agent) |
 | `@flow-planner` | `flow-plan-phase` Stage 2 | Generates atomic task files |
-| `@flow-critic` | `flow-plan-phase` Stage 3 | Checks tasks against 8 atomic rules |
+| `@flow-critic` | `flow-plan-phase` Stage 3 | Checks tasks against 8 atomic rules (inline by default; `workflow.inline_critic: false` spawns agent) |
 | `@flow-executor` | Per task in `flow-execute-phase` | Implements one task, verifies, commits |
 | `@flow-debugger` | UAT failure in `flow-verify-work` | Diagnoses root cause, writes fix task |
-| `@flow-verifier` | `flow-verify-work` Stage 0 (opt-in) | Checks must-deliver items have evidence |
+| `@flow-verifier` | `flow-verify-work` Stage 0 (opt-in) | Checks must-deliver items have evidence (inline by default; `workflow.inline_verifier: false` spawns agent) |
 
 Subagents read their own brief. They do not need full session history.
 

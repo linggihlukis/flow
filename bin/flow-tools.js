@@ -1376,7 +1376,7 @@ function extractGeneric(rootNode, result, flaggedPatterns) {
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.1.5',
+    version: '0.1.6',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',

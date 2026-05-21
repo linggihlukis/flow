@@ -3,7 +3,43 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.5] - 2026-05-21
+## [0.1.6] - 2026-05-21
+
+### Added
+- `inline_research`, `inline_critic`, `inline_verifier` workflow config fields with `true` defaults — orchestrator absorbs instruction-tier agents by default, spawn fallback when `false`.
+- `patterns extract` subcommand usage across plan-phase, discuss-phase, execute-phase, and debugger — replaces all awk-based section extraction with deterministic structured JSON.
+- `context estimate`, `files check`, `config get`, `frontmatter get`, `state validate`, `kb search`, `lessons recent` subcommand usage — 19 shell commands replaced with cross-platform flow-tools.js equivalents across 10 files.
+- Windows PowerShell alternatives for all grep, find, and awk commands across plan-phase, verify-work, and quick — eliminates silent failure on Windows (staleness check, evidence collection, blast radius scan).
+- Explicit command templates for zone spot-check, completeness gate re-investigation, evidence collection, and file-impact scan — model no longer infers or hallucinates commands from prose descriptions.
+- Inline research.md output format reference with full Evidence Summary + Return block schema — model does not need to read flow-researcher.md separately.
+- Destructive action Windows equivalents (`Remove-Item -Recurse`, `Clear-Content`) in critic pass destructive-command detection.
+- Agent name column values for all context-log trace entries (`orchestrator-inline`, `orchestrator-inline-critic`, `orchestrator-inline-verifier`).
+
+### Changed
+- `flow-plan-phase.md` Stage 1: researcher spawn replaced with inline evidence collection (default). Spawn fallback preserved under `workflow.inline_research: false`.
+- `flow-plan-phase.md` Stage 3: critic spawn replaced with inline rule checks (default). Spawn fallback preserved under `workflow.inline_critic: false`.
+- `flow-verify-work.md` Stage 0: verifier spawn replaced with inline evidence check (default). Spawn fallback preserved under `workflow.inline_verifier: false`.
+- `flow-quick.md` Step 4: researcher spawn replaced with inline blast radius scan (no fallback — inline is strictly better for quick tasks).
+- `flow-plan-phase.md` Step 8: per-phase repo-map generation replaced with global staleness check (`find -newer` / `Get-ChildItem`, expanded extension coverage including `.rb`, `.go`, `.rs`, `.java`, reads `config.json` → `languages` for custom extensions).
+- `flow-plan-phase.md` pause-refresh recovery: unconditional `@flow-researcher` re-spawn replaced with inline re-research (default); spawn fallback under `workflow.inline_research: false`.
+- All trace entry instructions now specify the exact agent name for context-log — no model inference needed.
+- `flow-resume.md` Step 2: integrity check uses `files check` + `config get` + `frontmatter get` instead of `test -f` loop, `head/grep` frontmatter detection, `sed` milestone extraction, and `python3/node/grep` JSON validation.
+- `flow-resume.md` Steps 4 and 5: lesson loading and milestone extraction use `lessons recent` and `frontmatter get` as primary paths with manual fallbacks.
+- `flow-execute-phase.md`: lesson loading uses `lessons recent`; post-execution drift check uses `frontmatter get` + `patterns extract`; pre-flight lesson read uses flow-tools primary with fallback.
+- `flow-discuss-phase.md` Step 0: all section extractions use `patterns extract` instead of awk.
+- `flow-health.md` Stage 2: state validation uses `state validate` as the primary check.
+- `flow-complete-milestone.md`: lesson reading uses `lessons recent --n 50` instead of `tail`/`Get-Content` split.
+- `agents/flow-planner.md`: knowledge base lookup uses `kb search` instead of raw `grep`.
+- `agents/flow-verifier.md`: file existence check uses `files check` instead of `ls`.
+- `agents/flow-debugger.md`: analysis.md section extraction uses `patterns extract` instead of awk.
+- `agents/flow-executor.md`: pre-read size check uses `context estimate` instead of `wc -c`.
+- `scaffold/AGENTS.md` and `commands/flow-help.md`: subagent descriptions updated to reflect inline-by-default documentation.
+
+### Removed
+- All awk-based `##` section extraction across commands/ and agents/ — replaced with `patterns extract`.
+- All `wc -c` file size checks — replaced with `context estimate`.
+- All `sed`-based YAML frontmatter field extraction — replaced with `frontmatter get`.
+- Deleted `.flow/quick/flow-performance-optimization-plan.md` and `.flow/quick/flow-tools-full-sweep.md` (ephemeral plan files).
 
 ### Added
 - Added compression dedup guard (skip on exact zone + path + pattern match) in `flow-execute-phase.md` and `flow-verify-work.md`.

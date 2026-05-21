@@ -76,7 +76,7 @@ If any file is at or over its hard limit: flag as ❌ and recommend running `/fl
 
 Parse `.flow/state.md` YAML frontmatter. Check:
 
-- Valid YAML (no syntax errors)
+- Valid YAML: run `node [flow-tools-path] state validate --cwd .` — if it exits non-zero, YAML is malformed
 - Required fields present: `milestone`, `phase`, `status`, `updated_at`
 - `status` is a known value: `not-started`, `ready`, `planned`, `in-progress`, `executed`, `needs-fixes`, `verified`, `paused`, `milestone-complete`
 
