@@ -80,10 +80,12 @@ Before asking any questions, check whether codebase knowledge is available and w
   - `## What Actually Works` / `## Global: What Actually Works` (if present)
   - `## Learned Heuristics` (if present)
 
-  Use awk to extract only these sections — do NOT read the full file:
+  Use `patterns extract` to load each section individually — do NOT read the full file:
   ```bash
-  awk '/^## (Global: )?(Do Not Change|Unknown Unknowns|Confidence Notes|What Actually Works|Learned Heuristics)/{f=1} f; /^## [^#]/ && f && !/^## (Global: )?(Do Not Change|Unknown Unknowns|Confidence Notes|What Actually Works|Learned Heuristics)/{f=0}' \
-    .flow/codebase/patterns.md
+  node [flow-tools-path] patterns extract --section "Do Not Change" --patterns .flow/codebase/patterns.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section.includes('Do Not Change'));console.log(s?s.rows.map(r=>r.content).filter(Boolean).join('\n'):'')})"
+  node [flow-tools-path] patterns extract --section "Unknown Unknowns" --patterns .flow/codebase/patterns.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section.includes('Unknown Unknowns'));console.log(s?s.rows.map(r=>r.content).filter(Boolean).join('\n'):'')})"
+  node [flow-tools-path] patterns extract --section "Confidence Notes" --patterns .flow/codebase/patterns.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section.includes('Confidence Notes'));console.log(s?s.rows.map(r=>r.content).filter(Boolean).join('\n'):'')})"
+  # Repeat for What Actually Works, Learned Heuristics if present
   ```
 
   Scan these extracted sections for low confidence notes and deviation entries
@@ -92,9 +94,9 @@ Before asking any questions, check whether codebase knowledge is available and w
 - `.flow/codebase/service-map.md` — check if this phase's ROADMAP entry implies touching any service boundary
 - `.flow/codebase/analysis.md` — load ONLY the `## [Global]` findings for conflict pre-check.
   Zone-specific findings are not available yet (Tier 1 scoping).
-  Use awk to extract only the global section:
+  Use `patterns extract` to load only the global section:
   ```bash
-  awk '/^## \[Global\]/{f=1} f; /^## \[/{f=0}' .flow/codebase/analysis.md
+  node [flow-tools-path] patterns extract --section "[Global]" --patterns .flow/codebase/analysis.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section.includes('[Global]'));console.log(s?s.rows.map(r=>r.content).filter(Boolean).join('\n'):'')})"
   ```
   Scan these for fragile file paths, exact debt locations, or function signatures
   at risk that apply project-wide.
