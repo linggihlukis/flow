@@ -3,6 +3,16 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.7] - 2026-05-22
+
+### Changed
+- `scaffold/AGENTS.md`: merged §§21–23 (Agent Context Load Trace, Context Budget Protocol, Pre-Spawn Context Limit Check) into a single §21 "Pre-Spawn Protocol" with Steps 1–3; added §22 "Context Budget Reference" as a pointer section.
+- `scaffold/AGENTS.md`: removed `patterns-task-NN.md` from directory tree (already eliminated in v0.1.2, scaffold now reflects reality).
+- `scaffold/AGENTS.md`: compacted tool output caps table into prose in §3.
+- `scaffold/AGENTS.md`: moved "Do not write code" guard after step 7 to match root behavior.
+- `scaffold/AGENTS.md`: simplified subagent descriptions — inline-default notes moved from table to §5 prose.
+- `commands/flow-execute-phase.md`, `commands/flow-plan-phase.md`: updated budget check and context limit check cross-references from `§22`/`§23` to `§21 Step 2`/`§21 Step 3` to match consolidated Pre-Spawn Protocol.
+
 ## [0.1.6] - 2026-05-21
 
 ### Added
@@ -40,6 +50,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - All `wc -c` file size checks — replaced with `context estimate`.
 - All `sed`-based YAML frontmatter field extraction — replaced with `frontmatter get`.
 - Deleted `.flow/quick/flow-performance-optimization-plan.md` and `.flow/quick/flow-tools-full-sweep.md` (ephemeral plan files).
+
+## [0.1.5] - 2026-05-21
 
 ### Added
 - Added compression dedup guard (skip on exact zone + path + pattern match) in `flow-execute-phase.md` and `flow-verify-work.md`.

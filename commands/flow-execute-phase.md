@@ -233,11 +233,11 @@ b. If `[flow-tools-path]` is not available:
 - Append row to `M/phases/phase-$ARGUMENTS/context-log.md`
 
 **Budget check:** Before spawning each executor, check context budget per
-AGENTS.md §22. Read `config.json` → `context` block. If absent → skip.
+AGENTS.md §21 Step 2. Read `config.json` → `context` block. If absent → skip.
 If present → sum Est. Tokens from context-log.md (awk extraction).
 Calculate `usage_pct`. If ≥ critical → HALT. If ≥ low → summarize, then proceed.
 
-**Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
+**Context limit check:** Run pre-spawn context limit check per AGENTS.md §21 Step 3.
 
 **VERIFY_DEPTH model-tier check:** Before spawning, check if the executor
 model warrants a verification upgrade:

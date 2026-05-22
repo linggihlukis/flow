@@ -271,7 +271,7 @@ Proceed directly to **Research Completeness Gate** below.
 
 ### Path B: Spawn Fallback (when `workflow.inline_research: false`)
 
-**Budget check:** Before spawning, check context budget per AGENTS.md §22.
+**Budget check:** Before spawning, check context budget per AGENTS.md §21 Step 2.
 Read `config.json` → `context` block. If absent → skip.
 If present → sum Est. Tokens from context-log.md (awk extraction — do not load full file).
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
@@ -291,7 +291,7 @@ If ≥ low → apply §16 Context Discipline, then proceed.
 4. If `estimated_tokens ≤ (model_context_limit × 0.60)` → proceed silently.
 5. If `context` block absent from config.json → skip silently.
 
-**Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
+**Context limit check:** Run pre-spawn context limit check per AGENTS.md §21 Step 3.
 
 Spawn `@flow-researcher` with the following brief:
 ```
@@ -456,13 +456,13 @@ touch M/phases/phase-$ARGUMENTS/.plan-start
 - Calculate: `sum_of_all_chars ÷ 4`, round to nearest 100
 - Append row to `M/phases/phase-$ARGUMENTS/context-log.md`
 
-**Budget check:** Before spawning, check context budget per AGENTS.md §22.
+**Budget check:** Before spawning, check context budget per AGENTS.md §21 Step 2.
 Read `config.json` → `context` block. If absent → skip.
 If present → sum Est. Tokens from context-log.md (awk extraction — do not load full file).
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
 If ≥ low → apply §16 Context Discipline, then proceed.
 
-**Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
+**Context limit check:** Run pre-spawn context limit check per AGENTS.md §21 Step 3.
 
 **Research compaction:** Check whether research.md contains a
 `## Evidence Summary` section:
@@ -755,13 +755,13 @@ Proceed directly to **Critic Pass Completion** below.
 
 ### Path B: Spawn Fallback (when `workflow.inline_critic: false`)
 
-**Budget check:** Before spawning, check context budget per AGENTS.md §22.
+**Budget check:** Before spawning, check context budget per AGENTS.md §21 Step 2.
 Read `config.json` → `context` block. If absent → skip.
 If present → sum Est. Tokens from context-log.md.
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
 If ≥ low → apply §16 Context Discipline, then proceed.
 
-**Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
+**Context limit check:** Run pre-spawn context limit check per AGENTS.md §21 Step 3.
 
 **Patterns context injection (G-01):**
 Extract global sections from PATTERNS.md:

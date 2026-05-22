@@ -45,7 +45,6 @@ AGENTS.md                              ← you are here (root)
 │   │           ├── handoff.md
 │   │           ├── context-log.md
 │   │           ├── patterns-scope.md
-│   │           ├── patterns-task-NN.md
 │   │           ├── tasks/
 │   │           │   ├── task-01.md
 │   │           │   └── fix-01.md
@@ -73,15 +72,7 @@ AGENTS.md                              ← you are here (root)
 
 **Sequential fallback:** Execute all stages sequentially. Note `runtime_mode: sequential` in state.md.
 
-**Tool output caps (sequential mode only):**
-
-| Tool output | Cap | Method |
-|---|---|---|
-| Test runners | First 20 + last 30 lines + **all failure/error lines** | Failure-first: extract FAIL/Error/stack traces first, pad with context. Never naive first-N/last-N. |
-| grep/find/ls | 50 results max | Append `… [N more omitted]` if truncated |
-| git log | 20 commits | `git log -20` |
-| git diff | 200 lines max | If exceeded: list changed files with +/- counts, then first 200 lines |
-| File reads | No cap | Always re-read files written this session |
+**Tool output caps (sequential mode only):** test runners — failure-first first 20 + last 30 lines + all error lines; grep/find/ls — 50 results max; git log — 20 commits; git diff — 200 lines max then file list; file reads — no cap.
 
 ---
 
@@ -96,9 +87,6 @@ Every session, in order. No exceptions.
 4. Resolve M and P from state.md. If handoff exists: read `P/handoff.md`.
 5. Baseline-aware health check: if `test-baseline.md` exists, only new failures block. No baseline = all failures block. Baseline says "no test infrastructure" → skip.
 6. Announce: "Resuming Milestone {active_milestone}, Phase {active_phase} — [last action]"
-
-Do not write code before completing all steps (1-7).
-
 7. **Optional health check** — if `/flow-health` is available (i.e. the command file
    exists at `commands/flow-health.md`), run it as a pre-flight sanity check:
    - Run: `node [flow-tools-path] health --cwd .` (or read `commands/flow-health.md`
@@ -108,18 +96,20 @@ Do not write code before completing all steps (1-7).
      `/flow-health --repair` before proceeding
    - If `/flow-health` is not available: skip silently
 
+Do not write code before completing all steps (1–7).
+
 ---
 
 ## 5. Subagents
 
 | Agent | When spawned | What it does |
 |---|---|---|
-| `@flow-researcher` | `flow-plan-phase` Stage 1 | Investigates implementation approach (inline by default; `workflow.inline_research: false` spawns agent) |
+| `@flow-researcher` | `flow-plan-phase` Stage 1 | Investigates implementation approach; writes research.md |
 | `@flow-planner` | `flow-plan-phase` Stage 2 | Generates atomic task files |
-| `@flow-critic` | `flow-plan-phase` Stage 3 | Checks tasks against 8 atomic rules (inline by default; `workflow.inline_critic: false` spawns agent) |
+| `@flow-critic` | `flow-plan-phase` Stage 3 | Checks tasks against 8 atomic rules |
 | `@flow-executor` | Per task in `flow-execute-phase` | Implements one task, verifies, commits |
 | `@flow-debugger` | UAT failure in `flow-verify-work` | Diagnoses root cause, writes fix task |
-| `@flow-verifier` | `flow-verify-work` Stage 0 (opt-in) | Checks must-deliver items have evidence (inline by default; `workflow.inline_verifier: false` spawns agent) |
+| `@flow-verifier` | `flow-verify-work` Stage 0 (opt-in) | Checks must-deliver items have evidence |
 
 Subagents read their own brief. They do not need full session history.
 
@@ -184,8 +174,7 @@ Split if: multiple independent deliverables, unrelated systems, or >~30 minutes.
 
 ## 9. Lesson Injection
 
-**Read:** Use `flow-tools lessons recent --n 5 --type {phase-type}` at session start (§4 step 3).
-If flow-tools unavailable: read last 5 from `.flow/memory/lessons.md`, filter by phase type, expand to 10 if <2 matches.
+**Read:** See §4 step 3.
 
 **Write:** After every debug resolution or failed verification, append to lessons.md:
 ```
@@ -412,20 +401,11 @@ and this section disagree, the comment wins.
 
 ---
 
-## 21. Agent Context Load Trace
+## 21. Pre-Spawn Protocol
 
-Before spawning any agent in a phase-scoped command, append a context-log entry
-to `P/context-log.md`.
+Before spawning any agent in a phase-scoped command, execute these three steps in order:
 
-**Purpose:** Measure what enters each agent's context window.
-**Who writes:** Orchestrator only (pre-spawn). Never agents.
-**Who reads:** Budget check (§22), failure diagnosis (future).
-**Lifecycle:** Dies with phase directory.
-
-**Token estimation:** Use `flow-tools context estimate [files] --cwd .` if available.
-Fallback: `sum of (file_size_in_chars ÷ 4)`, rounded to nearest 100.
-
-**Context-log format** (create on first write):
+**Step 1 — Write trace entry** to `P/context-log.md` (create with table header on first write):
 
 ```markdown
 # Phase [N] — Agent Context Log
@@ -435,23 +415,17 @@ Fallback: `sum of (file_size_in_chars ÷ 4)`, rounded to nearest 100.
 | [ISO 8601] | [agent_name] | [N] | [comma-separated file list] |
 ```
 
-Append-only. Do not read back except for §22 budget checks.
+Token estimation: `flow-tools context estimate [files] --cwd .` if available. Fallback: `sum of (file_size_in_chars ÷ 4)`, rounded to nearest 100. Append-only.
 
----
+**Who writes:** Orchestrator only (pre-spawn). Never agents. Lifecycle: dies with phase directory.
 
-## 22. Context Budget Protocol
+**Step 2 — Check context budget** against accumulated spend:
 
-Before each agent spawn, check accumulated token spend against the context budget.
+Budget source: `P/context-log.md` → sum all `Est. Tokens`. Limits from `.flow/config.json` → `context`:
+- `model_context_limit` (default: 200000), `budget_low_pct` (default: 70), `budget_critical_pct` (default: 90)
 
-**Budget source:** `P/context-log.md` → sum all `Est. Tokens`.
-**Limits from** `.flow/config.json` → `context`:
-- `model_context_limit` (default: 200000)
-- `budget_low_pct` (default: 70)
-- `budget_critical_pct` (default: 90)
-
-**Procedure:**
 1. If `config.json` has no `context` block → skip.
-2. If `P/context-log.md` does not exist → skip (first spawn).
+2. If `P/context-log.md` does not exist → skip (first spawn, just written above).
 3. Sum Est. Tokens (do NOT load full file):
    ```bash
    awk -F'|' 'NR>3 {gsub(/[^0-9]/,"",$4); sum+=$4} END{print sum+0}' P/context-log.md
@@ -471,15 +445,10 @@ Before each agent spawn, check accumulated token spend against the context budge
 6. If `≥ budget_low_pct` → warn, apply §16, then proceed.
 7. Below low → proceed silently.
 
----
-
-## 23. Pre-Spawn Context Limit Check
-
-Before spawning any agent (after §22), check if this specific agent's load
-might exceed the model's context window.
+**Step 3 — Advisory context limit check** for this specific agent's load:
 
 1. Read `config.json` → `context.model_context_limit`. If absent → skip.
-2. Use token estimation from §21.
+2. Use token estimation from Step 1.
 3. If `estimated_tokens > (model_context_limit × 0.80)`:
    ```
    ⚠️  Context limit advisory: [agent_name] load is [tokens] tokens ([pct]% of [limit]).
@@ -488,3 +457,10 @@ might exceed the model's context window.
 4. If ≤ 80% → proceed silently.
 
 **Advisory only — never blocks execution.**
+
+---
+
+## 22. Context Budget Reference
+
+Commands that spawn agents reference §21 Steps 2–3 for budget checking. The procedure
+is defined once in §21 and not repeated per-command.
