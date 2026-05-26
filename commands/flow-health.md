@@ -36,7 +36,7 @@ Verify these files exist:
 
 **PATTERNS.md section check** — if PATTERNS.md exists, verify it contains the `## Unknown Unknowns` section:
 ```bash
-grep -q "## Unknown Unknowns" .flow/codebase/patterns.md && echo "OK" || echo "MISSING: ## Unknown Unknowns section — run /flow-map-codebase or add manually"
+node [flow-tools-path] patterns extract --section "Unknown Unknowns" | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.sections.length>0?'OK':'MISSING')})"
 ```
 
 **config.json validity check:**
@@ -55,9 +55,9 @@ node -e "JSON.parse(require('fs').readFileSync('.flow/config.json','utf8'))" 2>/
 
 Count entries using:
 ```bash
-grep -c "^## " .flow/memory/lessons.md
-grep -c "^## " .flow/memory/knowledge-base.md
-wc -l < .flow/state.md
+node [flow-tools-path] lessons recent --count-only
+node [flow-tools-path] kb search --count-only
+node [flow-tools-path] files check .flow/state.md --line-count
 ```
 
 Report in the health output:

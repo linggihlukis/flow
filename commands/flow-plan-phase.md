@@ -87,9 +87,9 @@ Phase number: **$ARGUMENTS**
 
    a2. **Compression exceptions** — if `.flow/codebase/compression-exceptions.md` exists:
        Extract all zone/section names from exception entries:
-       ```bash
-       grep -oP "(?<=\*\*Zone/Section:\*\*\s).*" .flow/codebase/compression-exceptions.md
-       ```
+        ```bash
+        node [flow-tools-path] extract field --file .flow/codebase/compression-exceptions.md --field "Zone/Section"
+        ```
        Add these zones/sections to the extraction list (in addition to the zones from
        CONTEXT.md scope). Deduplicate — if a zone is already in the scope list, skip it.
        If any zones were added from exceptions, print:
@@ -163,7 +163,8 @@ Phase number: **$ARGUMENTS**
    If successful:
    - Read `treesitter_health` from `.flow/codebase/repo-map.json` and print diagnostic line:
      ```
-     ✓ treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  ast_yield=[N]
+     ✓ treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  symbols=[N]  size=[N]kb
+       coverage: [lang]=[yield_rate]/[extractor] ...
      ```
    - If `wasm_loaded` is `false`:
      ```
@@ -340,9 +341,9 @@ If `patterns_stale` is non-empty:
 
     If developer chooses (b):
       Write the pause sentinel so recovery is automatic on re-entry:
-      ```bash
-      touch M/phases/phase-$ARGUMENTS/.refresh-paused
-      ```
+       ```bash
+       node [flow-tools-path] files check M/phases/phase-$ARGUMENTS/.refresh-paused --touch
+       ```
       Then stop.
 
 ---
@@ -446,7 +447,7 @@ For each locked decision in CONTEXT.md's "Locked Decisions" table:
 
 Before spawning the planner, write a timestamp sentinel so the post-planner integrity check can detect any source files the planner touches:
 ```bash
-touch M/phases/phase-$ARGUMENTS/.plan-start
+node [flow-tools-path] files check M/phases/phase-$ARGUMENTS/.plan-start --touch
 ```
 
 **Trace entry:** Before spawning, estimate the token load and append to trace:
@@ -458,7 +459,7 @@ touch M/phases/phase-$ARGUMENTS/.plan-start
 
 **Budget check:** Before spawning, check context budget per AGENTS.md §21 Step 2.
 Read `config.json` → `context` block. If absent → skip.
-If present → sum Est. Tokens from context-log.md (awk extraction — do not load full file).
+If present → sum Est. Tokens from context-log.md (use `context trace-avg` for cross-platform extraction — do not load full file).
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
 If ≥ low → apply §16 Context Discipline, then proceed.
 
@@ -516,7 +517,7 @@ Use the `.plan-start` sentinel written before the planner was spawned as the anc
 
 - If git is available: `git diff --name-only`
   Any modified file outside `.flow/` is an error — surface to developer and halt.
-- If no git: `find . -newer M/phases/phase-$ARGUMENTS/.plan-start -not -path "./.flow/*" -not -path "./.git/*"`
+- If no git: `node [flow-tools-path] files check . --newer M/phases/phase-$ARGUMENTS/.plan-start` (then filter results for `newer: true`)
   Any result is an error — surface to developer and halt.
 
 Note: `.plan-start` is a zero-byte sentinel written immediately before the planner is spawned.
@@ -606,62 +607,15 @@ machine-checkable structural validation on every task file.
 For each task-NN.md file written by the planner, run these checks in order.
 Every check is a `grep`/`awk`/shell test — no LLM call.
 
-In all `awk` patterns below, `/^## [^#]/` is the section-end sentinel: it stops
-at the next `##`-level header without falsely triggering on `###` subheadings
-inside a section.
-
 ```bash
-# 1. Required section headers present
-grep -q "^## Context"               [file] || FAIL "task-NN: missing ## Context"
-grep -q "^## Read First"            [file] || FAIL "task-NN: missing ## Read First"
-grep -q "^## Implementation Steps"  [file] || FAIL "task-NN: missing ## Implementation Steps"
-grep -q "^## Files"                 [file] || FAIL "task-NN: missing ## Files"
-grep -qP "^## Verify$"              [file] || FAIL "task-NN: missing ## Verify"
-grep -q "^## Done Condition"        [file] || FAIL "task-NN: missing ## Done Condition"
+# Single command replaces all 13 grep/awk/basename/head/touch/find checks
+node [flow-tools-path] task validate --file [file]
+# Returns {"valid": true/false, "file": "task-NN.md", "errors": [...]}
+```
 
-# 2. Depends on field present (bold markdown format only: **Depends on:** value)
-grep -qP "^\*\*Depends on:\*\*" [file] || FAIL "task-NN: missing **Depends on:** field"
-
-# 3. Depends on value is "none" or a "task-NN" reference — not free prose
-# Lookbehind matches the bold-markdown field prefix including the trailing space.
-grep -oP "(?<=\*\*Depends on:\*\*\s).*" [file] | grep -qiP "^none$|^task-\d+" \
-  || FAIL "task-NN: **Depends on:** value is not 'none' or 'task-NN' pattern"
-
-# 4. ## Verify section starts with a recognised shell command token (not prose)
-awk '/^## Verify$/{f=1;next} /^## [^#]/{f=0} f' [file] | grep -qE \
-  "^\s*(grep|find|ls|cat|node|php|python|python3|pytest|npm|go|cargo|curl|diff|git|bash|sh|test|wc|echo|ruby|rspec|bundle|rails|composer|artisan|mvn|gradle|make|docker|npx|yarn|pnpm|bun|deno|java|dotnet|\[|\./|/)" \
-  || FAIL "task-NN: ## Verify does not start with a recognised shell command token"
-
-# 5. ## Verify does not contain prose masquerading as a command
-awk '/^## Verify$/{f=1;next} /^## [^#]/{f=0} f' [file] | grep -qiE \
-  "manually|check that|ensure that|verify that|make sure|confirm that" \
-  && FAIL "task-NN: ## Verify contains prose instruction instead of a shell command"
-
-# 6. ## Files section contains at least one path (line with a dot-extension or slash)
-awk '/^## Files/{f=1;next} /^## [^#]/{f=0} f' [file] | grep -qE "\.|/" \
-  || FAIL "task-NN: ## Files section has no file paths"
-
-# 7. Task number in filename appears verbatim in the title line
-# Extracts the numeric suffix (e.g. task-03.md → "03", fix-01.md → "01") and does
-# a fixed-string match — no regex quantifiers, no ambiguity with zero-padding.
-# For fix-*.md files, greps for "Fix $TASKNUM"; for task-*.md, greps for "Task $TASKNUM".
-TASKNUM=$(basename [file] .md | grep -oP "\d+$")
-BASENAME=$(basename [file])
-if [[ "$BASENAME" == fix-* ]]; then
-  head -5 [file] | grep -qF "Fix $TASKNUM" \
-    || FAIL "fix-NN: task number '$TASKNUM' not found in title line"
-else
-  head -5 [file] | grep -qF "Task $TASKNUM" \
-    || FAIL "task-NN: task number '$TASKNUM' not found in title line"
-fi
-
-# 8. ## Implementation Steps has at least 2 steps
-# Uses [ ] arithmetic to avoid piping grep -c output into a second grep,
-# which is fragile when awk produces no output.
-STEPCOUNT=$(awk '/^## Implementation Steps/{f=1;next} /^## [^#]/{f=0} f' [file] \
-  | grep -cP "^###\s|^\d+\.")
-[ "$STEPCOUNT" -ge 2 ] \
-  || FAIL "task-NN: ## Implementation Steps has fewer than 2 steps (found: $STEPCOUNT)"
+If `--phase` is used, validate all task files at once:
+```bash
+node [flow-tools-path] task validate --phase $ARGUMENTS
 ```
 
 **If ANY check fails:**
@@ -757,7 +711,7 @@ Proceed directly to **Critic Pass Completion** below.
 
 **Budget check:** Before spawning, check context budget per AGENTS.md §21 Step 2.
 Read `config.json` → `context` block. If absent → skip.
-If present → sum Est. Tokens from context-log.md.
+If present → sum Est. Tokens from context-log.md (use `context trace-avg` for cross-platform extraction — do not load full file).
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
 If ≥ low → apply §16 Context Discipline, then proceed.
 
@@ -835,7 +789,7 @@ Reached only via the Pre-flight step 0 gate (`.refresh-paused` sentinel exists).
   2. Run a zone diff: for each zone referenced in research.md, check whether
      the refreshed PATTERNS.md entry for that zone contradicts what research.md
      describes.
-       grep "[zone pattern claim]" .flow/codebase/patterns.md
+       node [flow-tools-path] patterns extract --query "[zone pattern claim]"
 
   3. If no contradictions found:
      Proceed to spawn @flow-planner with the existing research.md.

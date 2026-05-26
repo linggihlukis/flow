@@ -45,10 +45,9 @@ Read .flow/config.json → codebase_profile.signals.service_count
 If service_count > 1:
   Read .flow/codebase/service-map.md
 
-  Check for the presence of the placeholder marker:
-    grep "Add one section per service" .flow/codebase/service-map.md
+  Read .flow/codebase/service-map.md
 
-  If the marker is found:
+  If content contains "Add one section per service":
     ⛔ SERVICE-MAP.md has not been filled in.
        Your codebase has [service_count] detected services.
        Agents cannot plan cross-service work without contract documentation.

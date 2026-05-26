@@ -3,6 +3,40 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] - 2026-05-26
+
+### Added
+- `extract field` command — extracts `**Field:** value` patterns from any markdown file
+- `task validate` command — 13-check schema gate for task files (replaces POSIX-only grep/awk pipeline)
+- `context trace-avg` command — computes average token load from context-log.md tables
+- `repo-map search` command — targeted symbol/filename search against `repo-map.json` index with `--query` and `--max-results`
+- Language-specific AST extractors: `extractTS`, `extractPython`, `extractRuby`, `extractGo`, `extractJava`, `extractRust` — previously only PHP, JS, and generic were handled; all 6 languages now produce accurate `functions`, `classes`, and `includes` arrays
+- `index` command output now includes `lang_coverage` (per-language file/yield stats), `total_symbols`, and `repo_map_size_kb` — replaces the single `ast_yield_rate` field
+- `lessons recent` flags: `--count-only`, `--query`, `--body-filter`
+- `kb search` flag: `--count-only` (counts all entries when no `--zone` given)
+- `patterns extract` flag: `--query` (body-content text filtering)
+- `files check` flags: `--line-count`, `--touch` (sentinel creation), `--newer` (modified-since check)
+- Suite 15 tests for all new commands and flags (18 tests, 15a–15r)
+
+### Changed
+- All `.flow/` file operations in `commands/*.md` now use `flow-tools` instead of POSIX-only commands
+- All codebase discovery in `agents/*.md` now uses `repo-map search` instead of `grep -rn`
+- `flow-researcher.md`: size-aware repo-map strategy — repos ≤ 50 KB load full map; repos > 50 KB use `repo-map search` first, then read only confirmed-relevant files (reduces context load on large codebases)
+- `scaffold/AGENTS.md` §21 budget check uses `context trace-avg` as primary path with shell fallback
+- `flow-verify-work.md` fix_cycles removal uses `state patch` instead of `sed`/`awk`
+- `files check --newer` on directories now excludes `node_modules`, `.git`, `vendor`, `.next`, `dist`, `build`, `.cache`, `__pycache__` (prevents scanning dependency trees)
+- `flow-map-codebase.md` Pre-Stage: dep verification is now a mandatory 3-step protocol (verify → install → run); adds per-error diagnosis matrix (`WASM_NOT_FOUND`, `Cannot find module`, `Parser.init is not a function`) and retry logic before falling back to manual walks
+- `flow-map-codebase.md` Stage 1 consolidation: `analysis.md` write is now a mandatory deliverable with explicit existence gate — Stage 2 cannot start until the file is confirmed on disk
+- `flow-map-codebase.md` output format: `treesitter` status line now shows `symbols=[N]  size=[N]kb` and per-language `coverage:` line (replaces `ast_yield=[N]`)
+- `index` command output schema: `lang_coverage` (per-language file/yield/extractor stats), `total_symbols`, and `repo_map_size_kb` replace the single `ast_yield_rate` field
+- `test/flow-test.js` `CANONICAL_FLOW_PREFIXES`: added `.flow/tools/` and `.flow/tools` to recognize the installer-managed runtime deps directory
+
+### Fixed
+- `bin/install.js`: added `installNodeDeps()` — automatically installs `js-yaml`, `web-tree-sitter@0.20.8`, and `tree-sitter-wasms` into `~/.flow/tools/` (Windows: `%USERPROFILE%\.flow\tools\`) during `installFlowHome()`; previously these had to be installed manually after every fresh install or update
+
+### Removed
+- All grep/awk/wc/sed/touch/find targeting `.flow/` files across commands/ and agents/ (replaced by flow-tools)
+
 ## [0.1.7] - 2026-05-22
 
 ### Changed

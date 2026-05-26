@@ -53,7 +53,7 @@ Read the source files. Trace the actual code. Do not guess.
 
 Before forming a hypothesis, run targeted queries to confirm your code path trace:
 
-  grep -rn "[function_name]" . --include="*.[ext]" | head -10
+  flow-tools repo-map search --query "[function_name]" --max-results 10
     Confirm where the function is actually defined — on legacy codebases,
     functions may be defined in a shared file, not the one you are reading.
 
@@ -99,7 +99,7 @@ your hypothesis:
 
 2. Run targeted queries (from your permitted commands) to gather that evidence:
    ```bash
-   grep -rn "[specific_pattern]" [suspected_files] | head -10
+   flow-tools repo-map search --query "[specific_pattern]" --max-results 10
    git log --oneline -5 [suspected_file]
    cat [config_or_env_file]
    ```

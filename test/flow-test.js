@@ -42,6 +42,8 @@ const CANONICAL_FLOW_PREFIXES = [
   ".flow/memory/",
   ".flow/config.json",
   ".flow/quick/",
+  ".flow/tools/",
+  ".flow/tools",
 ];
 
 // Required frontmatter fields per file type.
@@ -1381,6 +1383,370 @@ suite("Suite 14 — B-03 pause-refresh sentinel ordering regression");
     pass("14c: Zone diff step present in recovery section");
   } else {
     fail("14c: Zone diff step missing from recovery section — B-03 regression");
+  }
+})();
+
+// ─── Suite 15: Cross-platform command extensions ──────────────────────────────
+
+suite("Suite 15 — Cross-platform command extensions");
+
+const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
+
+// 15a: lessons count-only
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " lessons recent --count-only").toString();
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.count === "number" && parsed.count >= 0) {
+      pass("15a: lessons recent --count-only returns { count: N }");
+    } else {
+      fail("15a: lessons recent --count-only unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15a: lessons recent --count-only failed — " + e.message);
+  }
+})();
+
+// 15b: lessons query filter
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " lessons recent --query \"Compression Signal\"").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results)) {
+      pass("15b: lessons recent --query returns results array");
+    } else {
+      fail("15b: lessons recent --query unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15b: lessons recent --query failed — " + e.message);
+  }
+})();
+
+// 15c: lessons body-filter
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " lessons recent --query \"Signal\" --body-filter \"Phase\"").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results)) {
+      pass("15c: lessons recent --body-filter returns results array");
+    } else {
+      fail("15c: lessons recent --body-filter unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15c: lessons recent --body-filter failed — " + e.message);
+  }
+})();
+
+// 15d: kb count-only (no zone)
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " kb search --count-only").toString();
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.count === "number" && parsed.count >= 0) {
+      pass("15d: kb search --count-only returns { count: N }");
+    } else {
+      fail("15d: kb search --count-only unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15d: kb search --count-only failed — " + e.message);
+  }
+})();
+
+// 15e: kb count-only (with zone)
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " kb search --zone \"test\" --count-only").toString();
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.count === "number" && parsed.count >= 0) {
+      pass("15e: kb search --zone --count-only returns { count: N }");
+    } else {
+      fail("15e: kb search --zone --count-only unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15e: kb search --zone --count-only failed — " + e.message);
+  }
+})();
+
+// 15f: patterns query
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15f-patterns.md");
+  fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " patterns extract --query \"Node.js\" --patterns " + testFile).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) {
+      pass("15f: patterns extract --query returns matching sections");
+    } else {
+      fail("15f: patterns extract --query unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15f: patterns extract --query failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 15g: patterns query + section
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15g-patterns.md");
+  fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " patterns extract --section Stack --query \"Node\" --patterns " + testFile).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) {
+      pass("15g: patterns extract --section+--query returns AND-filtered result");
+    } else {
+      fail("15g: patterns extract --section+--query unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15g: patterns extract --section+--query failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 15h: extract field happy path
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15h-fixture.md");
+  fs.writeFileSync(testFile, "## Entry\n**Zone/Section:** database\n**Field:** value\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " extract field --file " + testFile + " --field \"Zone/Section\"").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.values) && parsed.values.includes("database")) {
+      pass("15h: extract field returns values array with found field");
+    } else {
+      fail("15h: extract field unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15h: extract field failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 15i: extract field empty
+(function () {
+  const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15i-fixture.md");
+  fs.writeFileSync(testFile, "## Entry\nNo match here\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " extract field --file " + testFile + " --field \"NonExistent\"").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.values) && parsed.values.length === 0) {
+      pass("15i: extract field returns empty array for missing field");
+    } else {
+      fail("15i: extract field unexpected output — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15i: extract field failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
+  }
+})();
+
+// 15j: task validate happy
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15j");
+  fs.mkdirSync(testDir, { recursive: true });
+  const validTask = path.join(testDir, "task-01.md");
+  fs.writeFileSync(validTask, "# Task 01\n\n## Context\nTest context\n\n## Read First\nRead this\n\n## Implementation Steps\n1. Step one\n2. Step two\n\n## Files\n- src/file.php\n\n## Verify\n`node test/something.js`\n\n## Done Condition\nAll tests pass\n\n**Depends on:** none\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " task validate --file " + validTask).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.valid === true) {
+      pass("15j: task validate returns valid: true for well-formed task");
+    } else {
+      fail("15j: task validate unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15j: task validate failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15k: task validate missing section
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15k");
+  fs.mkdirSync(testDir, { recursive: true });
+  const badTask = path.join(testDir, "task-02.md");
+  fs.writeFileSync(badTask, "# Task 02\n\n## Context\nTest\n\n## Read First\nRead\n\n## Implementation Steps\n1. Step\n\n## Verify\n`test`\n\n**Depends on:** none\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " task validate --file " + badTask).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.valid === false && Array.isArray(parsed.errors) && parsed.errors.length > 0) {
+      pass("15k: task validate returns valid: false for malformed task");
+    } else {
+      fail("15k: task validate unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15k: task validate failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15l: task validate --phase (synthetic phase dir)
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15l");
+  const phasesDir = path.join(testDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks");
+  fs.mkdirSync(phasesDir, { recursive: true });
+  fs.writeFileSync(path.join(testDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\n---\n", "utf8");
+  fs.writeFileSync(path.join(phasesDir, "task-01.md"), "# Task 01\n\n## Context\nTest\n\n## Read First\nRead\n\n## Implementation Steps\n1. Step one\n2. Step two\n\n## Files\n- src/file.php\n\n## Verify\n`test`\n\n## Done Condition\nDone\n\n**Depends on:** none\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " task validate --phase 1 --cwd " + testDir).toString();
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.valid === "boolean" && Array.isArray(parsed.errors)) {
+      pass("15l: task validate --phase returns expected shape");
+    } else {
+      fail("15l: task validate --phase unexpected output — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15l: task validate --phase failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15m: files line-count
+(function () {
+  const { execSync } = require("child_process");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " files check .flow/state.md --line-count").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results) && parsed.results.length > 0 && typeof parsed.results[0].line_count === "number") {
+      pass("15m: files check --line-count returns line_count field");
+    } else {
+      fail("15m: files check --line-count unexpected — " + raw.slice(0, 100));
+    }
+  } catch (e) {
+    fail("15m: files check --line-count failed — " + e.message);
+  }
+})();
+
+// 15n: files touch create
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15n");
+  try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  const sentinel = path.join(testDir, ".sentinel");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " files check " + sentinel + " --touch").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results) && parsed.results[0].created === true && fs.existsSync(sentinel)) {
+      pass("15n: files check --touch creates file, returns created: true");
+    } else {
+      fail("15n: files check --touch unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15n: files check --touch failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15o: files touch existing
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15o");
+  fs.mkdirSync(testDir, { recursive: true });
+  const sentinel = path.join(testDir, ".existing");
+  fs.writeFileSync(sentinel, "content", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " files check " + sentinel + " --touch").toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results) && parsed.results[0].created === false && parsed.results[0].exists === true) {
+      pass("15o: files check --touch on existing file returns created: false");
+    } else {
+      fail("15o: files check --touch unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15o: files check --touch failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15p: files newer
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15p");
+  fs.mkdirSync(testDir, { recursive: true });
+  try {
+    const reference = path.join(testDir, ".ref");
+    const newFile = path.join(testDir, "new.txt");
+    // Write both files
+    fs.writeFileSync(reference, "old", "utf8");
+    fs.writeFileSync(newFile, "new content", "utf8");
+    // Backdate reference by 5 seconds so newFile is guaranteed newer
+    const pastTime = new Date(Date.now() - 5000);
+    fs.utimesSync(reference, pastTime, pastTime);
+    const raw = execSync("node " + FLOW_TOOLS + " files check " + newFile + " --newer " + reference).toString();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.results) && parsed.results.some(r => r.newer === true)) {
+      pass("15p: files check --newer detects newer file");
+    } else {
+      fail("15p: files check --newer unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15p: files check --newer failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15q: context trace-avg
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15q");
+  fs.mkdirSync(testDir, { recursive: true });
+  const logFile = path.join(testDir, "context-log.md");
+  fs.writeFileSync(logFile, "# Phase 1 — Agent Context Log\n\n| Timestamp | Agent | Est. Tokens | Sections Loaded |\n|-----------|-------|-------------|-----------------|\n| 2026-01-01 | agent1 | 1000 | file1 |\n| 2026-01-02 | agent2 | 2000 | file2 |\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " context trace-avg --file " + logFile).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.avg_tokens > 0 && parsed.total_entries === 2 && parsed.total_tokens === 3000) {
+      pass("15q: context trace-avg returns correct avg_tokens, total_entries, total_tokens");
+    } else {
+      fail("15q: context trace-avg unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15q: context trace-avg failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+  }
+})();
+
+// 15r: context trace-avg empty
+(function () {
+  const { execSync } = require("child_process");
+  const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15r");
+  fs.mkdirSync(testDir, { recursive: true });
+  const logFile = path.join(testDir, "context-log-md");
+  fs.writeFileSync(logFile, "# No table here\n", "utf8");
+  try {
+    const raw = execSync("node " + FLOW_TOOLS + " context trace-avg --file " + logFile).toString();
+    const parsed = JSON.parse(raw);
+    if (parsed.avg_tokens === 0 && parsed.total_entries === 0 && parsed.total_tokens === 0) {
+      pass("15r: context trace-avg returns zeros for empty/no-table file");
+    } else {
+      fail("15r: context trace-avg unexpected — " + JSON.stringify(parsed));
+    }
+  } catch (e) {
+    fail("15r: context trace-avg failed — " + e.message);
+  } finally {
+    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
   }
 })();
 

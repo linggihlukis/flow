@@ -162,10 +162,9 @@ the estimated context capacity:
 1. Read `config.json` → `context.model_context_limit`. If absent → skip this check.
 2. If `M/phases/phase-$ARGUMENTS/context-log.md` exists with previous entries:
    - Calculate average agent token load from prior trace entries:
-     ```bash
-     awk -F'|' 'NR>3 {gsub(/[^0-9]/,"",$4); sum+=$4; n++} END{if(n>0) print int(sum/n); else print 0}' \
-       M/phases/phase-$ARGUMENTS/context-log.md
-     ```
+      ```bash
+      node [flow-tools-path] context trace-avg --file M/phases/phase-$ARGUMENTS/context-log.md
+      ```
    - If average > 0: `estimated_capacity = model_context_limit ÷ average_agent_load`
    - For each wave with more parallel tasks than `estimated_capacity`:
      ```
@@ -234,7 +233,7 @@ b. If `[flow-tools-path]` is not available:
 
 **Budget check:** Before spawning each executor, check context budget per
 AGENTS.md §21 Step 2. Read `config.json` → `context` block. If absent → skip.
-If present → sum Est. Tokens from context-log.md (awk extraction).
+If present → sum Est. Tokens from context-log.md (use `context trace-avg` for cross-platform extraction).
 Calculate `usage_pct`. If ≥ critical → HALT. If ≥ low → summarize, then proceed.
 
 **Context limit check:** Run pre-spawn context limit check per AGENTS.md §21 Step 3.
@@ -412,8 +411,10 @@ Before writing the handoff, compare actual file changes against planned file cha
     M=".flow/milestones/$(node [flow-tools-path] frontmatter get .flow/state.md --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.active_milestone||'')})")/"
    for f in "${M}phases/phase-${ARGUMENTS}/tasks/task-*.md" \
             "${M}phases/phase-${ARGUMENTS}/tasks/fix-*.md"; do
-      [ -f "$f" ] && node [flow-tools-path] patterns extract --section "Files" --patterns "$f" --cwd . 2>/dev/null | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);const s=j.sections.find(x=>x.section==='Files');if(s)console.log(s.rows.filter(r=>r.content.trim()).map(r=>r.content).join('\n'));else console.log('')})"
-   done | grep -oE '[^ *-]+\.[a-zA-Z0-9]+' | sort -u
+      [ -f "$f" ] && node [flow-tools-path] patterns extract --section "Files" --patterns "$f" --cwd . 2>/dev/null
+   done
+   # Orchestrator parses the JSON output natively — extracts file paths from
+   # the "Files" section rows. No grep/sort pipeline needed.
    ```
 
 2. Collect the actual file set — all source files changed since the phase started:
@@ -458,7 +459,7 @@ If git is not available or the diff command fails, skip this check silently.
 After drift detection, scan lessons.md for compression signals from the current phase:
 
 ```bash
-grep -A 5 "Compression Signal" .flow/memory/lessons.md | grep -i "Phase $ARGUMENTS"
+node [flow-tools-path] lessons recent --query "Compression Signal" --body-filter "Phase $ARGUMENTS"
 ```
 
 If any matches are found:
@@ -466,7 +467,7 @@ If any matches are found:
 2. Determine the affected zone/section name from the `Source:` path
 3. Before appending, check whether an entry for this exact zone already exists:
    ```bash
-   grep -q "\*\*Zone/Section:\*\* \[zone name\]" .flow/codebase/compression-exceptions.md 2>/dev/null && echo "EXISTS" || echo "NOT_FOUND"
+   node [flow-tools-path] extract field --file .flow/codebase/compression-exceptions.md --field "Zone/Section" | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.values.includes('[zone name]')?'EXISTS':'NOT_FOUND')})"
    ```
    If an entry with the same `Zone/Section` already exists → skip (dedup). Print:
    ```
@@ -491,7 +492,7 @@ If `.flow/memory/lessons.md` does not exist → skip silently.
 **Read executor Return blocks:**
 For each completed task, extract the `## Return` block from its summary file:
 ```bash
-grep -A 10 "^## Return" M/phases/phase-$ARGUMENTS/summaries/summary-NN.md
+node [flow-tools-path] patterns extract --section "Return" --patterns M/phases/phase-$ARGUMENTS/summaries/summary-NN.md
 ```
 Use the `commit`, `files_changed`, and `workarounds` fields directly. If a summary has no Return block (execution predates R5), fall back to reading the full summary file.
 

@@ -9,7 +9,7 @@
 
 Flow is a spec-driven agentic development workflow for solo developers. It brings structure, memory, and discipline to AI-assisted coding — not by asking you to be more organised, but by making the system carry that weight itself.
 
-It runs on OpenCode, Claude Code, Codex App & CLI, and Antigravity.
+It runs on OpenCode, Claude Code, Codex App & CLI, and Antigravity — on macOS, Linux, and Windows natively.
 
 ---
 
@@ -368,7 +368,7 @@ Flow wins on legacy codebase depth, cross-session memory, and self-improving heu
 | Command | What it does |
 |---|---|
 | `/flow-new-project` | Questions, research, requirements, roadmap |
-| `/flow-map-codebase` | Analyse existing codebase → patterns.md + service detection |
+| `/flow-map-codebase` | Analyse existing codebase → patterns.md + repo-map index + service detection |
 | `/flow-discuss-phase N` | Capture intent, surface codebase conflicts, lock decisions |
 | `/flow-plan-phase N` | Research + atomic tasks + critic verification pass |
 | `/flow-execute-phase N` | Wave execution + commits + auto handoff |
@@ -610,24 +610,26 @@ Flow auto-discovers all `tree-sitter-*.wasm` files installed in `node_modules/tr
 npx @linggihlukis/flow --update
 ```
 
+The installer automatically installs the required npm dependencies (`js-yaml`, `web-tree-sitter@0.20.8`, `tree-sitter-wasms`) into `~/.flow/tools/` during install and update. If repo-map generation fails, check that directory first — see [Troubleshooting](#troubleshooting).
+
 **Supported extensions** are mapped automatically for common languages:
 
-| Language | Extensions |
-|---|---|
-| `php` | `.php` |
-| `javascript` | `.js`, `.jsx`, `.mjs`, `.cjs` |
-| `python` | `.py` |
-| `ruby` | `.rb` |
-| `java` | `.java` |
-| `go` | `.go` |
-| `rust` | `.rs` |
-| `typescript` | `.ts`, `.tsx` |
-| `c_sharp` | `.cs` |
-| `c` | `.c`, `.h` |
-| `cpp` | `.cpp`, `.hpp`, `.cc`, `.cxx` |
-| `vue` | `.vue` |
+| Language | Extensions | AST extractor |
+|---|---|---|
+| `php` | `.php` | Language-specific |
+| `javascript` | `.js`, `.jsx`, `.mjs`, `.cjs` | Language-specific |
+| `typescript` | `.ts`, `.tsx` | Language-specific |
+| `python` | `.py` | Language-specific |
+| `ruby` | `.rb` | Language-specific |
+| `go` | `.go` | Language-specific |
+| `java` | `.java` | Language-specific |
+| `rust` | `.rs` | Language-specific |
+| `c_sharp` | `.cs` | Generic fallback |
+| `c` | `.c`, `.h` | Generic fallback |
+| `cpp` | `.cpp`, `.hpp`, `.cc`, `.cxx` | Generic fallback |
+| `vue` | `.vue` | Generic fallback |
 
-Languages without a built-in mapping default to `.{language}` (e.g. `scala` → `.scala`).
+Languages without a built-in mapping default to `.{language}` (e.g. `scala` → `.scala`). Languages with a language-specific extractor produce accurate `functions`, `classes`, and `includes` arrays. Generic-fallback languages still parse but with lower yield rates — check `lang_coverage` in the `index` command output.
 
 **Custom extension mappings** — if your project uses non-standard extensions (e.g. `.vue` mapped to `javascript`, or a framework-specific extension), add a `languages` block to `.flow/config.json`:
 
@@ -679,7 +681,6 @@ project-root/
     │   │           ├── handoff.md         ← written by flow-execute-phase
     │   │           ├── context-log.md     ← agent context load trace
     │   │           ├── patterns-scope.md  ← JIT scoped extract
-    │   │           ├── patterns-task-NN.md
     │   │           ├── tasks/
     │   │           │   ├── task-01.md
     │   │           │   └── fix-01.md
@@ -702,6 +703,8 @@ project-root/
         └── adhoc-fix-[date]-01.md
 ```
 
+> **Runtime tools:** `~/.flow/tools/` (outside your project, managed by the installer) holds `flow-tools.js` and its npm dependencies (`js-yaml`, `web-tree-sitter`, `tree-sitter-wasms`). Do not commit or edit manually.
+
 > Do not add `.flow/` to `.gitignore`. It is your project's persistent memory. Losing it means losing all state, lessons, and context.
 
 ---
@@ -719,6 +722,25 @@ npx @linggihlukis/flow@latest --update
 
 **Sequential mode instead of parallel?**
 If your runtime doesn't support subagent spawning (e.g. Claude Code), Flow automatically falls back to sequential mode. This is noted in state.md as `runtime_mode: sequential`. Same quality, just slower.
+
+**Repo-map generation fails or shows `WASM_NOT_FOUND`?**
+The tree-sitter dependencies are installed automatically during `npx @linggihlukis/flow --update`. If generation still fails, verify the deps:
+```bash
+# macOS / Linux
+ls ~/.flow/tools/node_modules/js-yaml ~/.flow/tools/node_modules/web-tree-sitter ~/.flow/tools/node_modules/tree-sitter-wasms
+
+# Windows
+dir "%USERPROFILE%\.flow\tools\node_modules"
+```
+If any are missing, install them:
+```bash
+# macOS / Linux
+cd ~/.flow/tools && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms
+
+# Windows
+cd %USERPROFILE%\.flow\tools && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms
+```
+If you see `Parser.init is not a function`, `web-tree-sitter` is the wrong version — pin it to `@0.20.8`.
 
 **Environment variables consumed by the installer?**
 The `bin/install.js` installer reads these environment variables at runtime:

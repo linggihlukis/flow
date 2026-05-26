@@ -46,7 +46,7 @@ node [flow-tools-path] files check [expected file path] --cwd .
 
 **Function / route / component presence:**
 ```bash
-grep -r "[expected name]" [relevant directory] --include="*.ts" --include="*.js" --include="*.py" -l
+flow-tools repo-map search --query "[expected name]" --max-results 10
 ```
 Adapt the file extensions to the detected stack.
 

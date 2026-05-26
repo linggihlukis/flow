@@ -309,7 +309,7 @@ Configure in `model_tiers` block in config.json.
 
 ## 15. Reading Discipline
 
-Before reading accumulating files, check line count first (`wc -l` / `Measure-Object -Line`).
+Before reading accumulating files, check line count first (`flow-tools files check [file] --line-count` / fallback: `wc -l` or `Measure-Object -Line`).
 
 | File (if >100 lines) | Read only |
 |---|---|
@@ -396,7 +396,7 @@ of which zones the phase touches:
 
 When adding a new global section, update the `<!-- flow-global-sections -->` comment
 block at the top of PATTERNS.md FIRST, then update this section in AGENTS.md to match.
-The extraction awk in flow-plan-phase.md reads from the comment block — if the comment
+The extraction in flow-plan-phase.md reads from the comment block — if the comment
 and this section disagree, the comment wins.
 
 ---
@@ -428,13 +428,11 @@ Budget source: `P/context-log.md` → sum all `Est. Tokens`. Limits from `.flow/
 2. If `P/context-log.md` does not exist → skip (first spawn, just written above).
 3. Sum Est. Tokens (do NOT load full file):
    ```bash
-   awk -F'|' 'NR>3 {gsub(/[^0-9]/,"",$4); sum+=$4} END{print sum+0}' P/context-log.md
+   node [flow-tools-path] context trace-avg --file P/context-log.md
    ```
-   Windows:
-   ```powershell
-   (Get-Content P/context-log.md | Select-Object -Skip 3 |
-     ForEach-Object { if ($_ -match '\|\s*(\d+)\s*\|') { [int]$matches[1] } } |
-     Measure-Object -Sum).Sum
+   If flow-tools unavailable, fallback:
+   ```bash
+   awk -F'|' 'NR>3 {gsub(/[^0-9]/,"",$4); sum+=$4} END{print sum+0}' P/context-log.md
    ```
 4. `usage_pct = (sum × 100) ÷ model_context_limit`
 5. If `≥ budget_critical_pct` → **HALT.** Do not spawn. Overrides `--auto` and `yolo`.

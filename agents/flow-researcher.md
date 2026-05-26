@@ -37,17 +37,33 @@ You have been given a research brief. Work through it completely before writing 
 
 Before reading source files for file/function discovery, check the repo-map first:
 1. Read the `repo-map.json` file path from your brief's `Repo-map:` field
-2. If it exists, use it as your PRIMARY discovery source:
-   - Function locations: check `files[path].functions` array
-   - Class locations: check `files[path].classes` array
-   - Include chains: check `files[path].includes` array
-   - File sizes: check `files[path].size_kb` before deciding to read
-   - Flagged strings: check `files[path].string_literals_flagged` for cross-file
-     hardcoded IDs matching Do Not Change / Known Technical Debt patterns
-3. Read source files ONLY for:
+2. If it exists, check `treesitter_health.repo_map_size_kb` first to choose read strategy:
+
+   **≤ 50 KB — load full map:**
+   Read the entire `repo-map.json`. Use `files[path].functions`, `files[path].classes`,
+   `files[path].includes` as your PRIMARY discovery source.
+
+   **> 50 KB — search-first:**
+   Do NOT load the full map. Instead, run a targeted search for symbols or
+   filenames relevant to your task:
+   ```bash
+   node [flow-tools-path] repo-map search --cwd . --query "your-file-or-symbol" --max-results 30
+   ```
+   Load full entries only for files confirmed relevant by the search results.
+
+3. In both strategies, also check:
+   - `files[path].size_kb` before deciding to read a source file
+   - `files[path].string_literals_flagged` for hardcoded IDs matching Do Not Change /
+     Known Technical Debt patterns
+   - `treesitter_health.lang_coverage` — if a language shows `extractor: "generic"`,
+     treat that language's functions/classes arrays as potentially incomplete and
+     supplement with grep
+
+4. Read source files ONLY for:
    - Verbatim anchor lines (exact code you need to reference in the plan)
    - Business logic understanding (how a function works, not whether it exists)
-4. If repo-map is absent or the field is not in your brief — proceed with
+
+5. If repo-map is absent or the field is not in your brief — proceed with
    existing grep/find-based discovery (no change to your existing protocol).
 
 This protocol shifts your work from "scan to discover" to "read confirmed targets."
@@ -72,15 +88,15 @@ entrypoint. If config.json or the signals object does not exist, treat entry_poi
 For each zone in the Module Zones table that overlaps with this phase's scope:
 
   1. Sample 3 files from the zone
-  2. Run one grep for the primary pattern PATTERNS.md claims for that zone
+  2. Run one `repo-map search` for the primary pattern PATTERNS.md claims for that zone
      (error handling style, naming convention, async pattern, etc.)
-  3. Compare the grep result to the PATTERNS.md claim
+  3. Compare the search result to the PATTERNS.md claim
 
   If the result contradicts PATTERNS.md:
     Note the contradiction in research.md under ## PATTERNS.md Staleness:
       Zone: [zone name]
       PATTERNS.md claims: [exact claim]
-      Observed: [what grep found]
+      Observed: [what repo-map search found]
       Sample files: [list the 3 files]
     Add to ## Return block:
       patterns_stale: ["[zone name] — [what PATTERNS.md says] vs [what was found]"]
@@ -101,10 +117,10 @@ matching behaviour:
   File Analysis table for all in-scope files.
 - **`comprehensive`** — full depth, no shortcuts. For every file that will be
   modified: locate the exact function or block, capture the verbatim surrounding
-  lines as the insertion/modification anchor, and run a grep to confirm the
-  pattern still exists. The File Analysis table is mandatory. Line numbers must
-  be grep-confirmed, not estimated. If a grep returns no results, investigate
-  why and note it explicitly rather than providing an approximate location.
+   lines as the insertion/modification anchor, and run a `repo-map search` to confirm the
+   pattern still exists. The File Analysis table is mandatory. Line numbers must
+   be search-confirmed, not estimated. If a search returns no results, investigate
+   why and note it explicitly rather than providing an approximate location.
 
 ## Rules
 
@@ -129,12 +145,12 @@ matching behaviour:
 
 | File | Line / Location | Finding | Confirmed by |
 |---|---|---|---|
-| `path/to/file.ext` | Line 42 | Function `doThing()` signature: `function doThing($x)` | `grep -n "function doThing" path/to/file.ext` |
+| `path/to/file.ext` | Line 42 | Function `doThing()` signature: `function doThing($x)` | `repo-map search --query "function doThing"` |
 | ... | ... | ... | ... |
 
 For modification tasks: the "Finding" column must include the verbatim surrounding
 lines that will serve as the insertion anchor, not a description of what the section
-does. The "Confirmed by" column must show the actual grep command run.
+does. The "Confirmed by" column must show the actual search command run.
 
 ## Dependencies
 [any new libraries or APIs needed, versions, compatibility notes]
@@ -149,14 +165,14 @@ does. The "Confirmed by" column must show the actual grep command run.
 
 | # | Locked Decision | File Path(s) | Key Finding | Verbatim Anchor |
 |---|----------------|-------------|-------------|-----------------|
-| 1 | [decision from CONTEXT.md] | [exact file path(s)] | [what was found — one line] | [exact line(s) from grep that confirm the finding] |
+| 1 | [decision from CONTEXT.md] | [exact file path(s)] | [what was found — one line] | [exact line(s) from repo-map search that confirm the finding] |
 | 2 | ... | ... | ... | ... |
 
 This table maps 1:1 to the locked decisions in the phase CONTEXT.md.
 Every locked decision MUST have a corresponding row.
 - File Path(s): exact paths confirmed by `ls` or `find`
 - Key Finding: one-line summary of the implementation approach for this decision
-- Verbatim Anchor: the exact code line(s) from `grep -n` that the planner will
+- Verbatim Anchor: the exact code line(s) from `repo-map search` that the planner will
   use as insertion/modification anchors. For new-file decisions, state
   "new file — no existing anchor".
 

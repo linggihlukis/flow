@@ -73,7 +73,7 @@ After the debugger completes, check whether the fix task or the lessons.md entry
 contains a `**Compression Signal:**` tag:
 
 ```bash
-grep -l "Compression Signal" .flow/memory/lessons.md 2>/dev/null
+node [flow-tools-path] lessons recent --query "Compression Signal" --count-only
 ```
 
 If found AND the most recent entry references the current debug session:

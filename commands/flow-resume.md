@@ -31,7 +31,7 @@ node [flow-tools-path] files check ".flow/codebase/patterns.md" "${M}requirement
 
 # Check PATTERNS.md non-empty and has headers
 if [ -s ".flow/codebase/patterns.md" ]; then
-  grep -qE "^## (Global: )?Do Not Change" .flow/codebase/patterns.md 2>/dev/null && echo "PATTERNS HEADERS OK" || echo "WARNING: PATTERNS.md headers missing — resuming anyway (file exists and is non-empty)"
+  node [flow-tools-path] patterns extract --section "Do Not Change" | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);console.log(j.sections.length>0?'PATTERNS HEADERS OK':'WARNING: PATTERNS.md headers missing — resuming anyway (file exists and is non-empty)')})"
 else
   echo "MISSING OR EMPTY: .flow/codebase/patterns.md"
 fi

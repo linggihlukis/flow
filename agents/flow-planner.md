@@ -90,7 +90,7 @@ You are a planning agent. You generate atomic task files for one phase. You do n
 Before writing any task file, verify the top 3 file references in your intended plan:
 
   ls [intended_file_path]                                       # confirm the file exists
-  grep -n "[expected_function]" [file_path] | head -5           # confirm the signature
+  flow-tools repo-map search --query "[expected_function]" --max-results 5   # confirm the signature
 
 For each reference:
 
@@ -114,7 +114,7 @@ Before writing a task whose primary action is creating a new file, run:
 
 ```bash
 # Find all files that will call or import the new file (by likely name or path)
-grep -rn "[new_filename_without_ext]\|[new_file_path]" . --include="*.php" --include="*.ts" --include="*.js" --include="*.py" | head -20
+flow-tools repo-map search --query "[new_filename_without_ext]" --max-results 20
 ```
 
 Use the results to determine:
@@ -133,10 +133,10 @@ For any task that MODIFIES an existing file (not creating a new file), the plann
 must also verify the exact insertion point — the specific line(s) the task will
 anchor against for the modification.
 
-Before writing the task, grep for the anchor line(s) in the target file:
+Before writing the task, search for the anchor line(s) in the target file:
 
 ```bash
-grep -n "[expected_anchor_line]" [file_path] | head -3
+flow-tools repo-map search --query "[expected_anchor_line]" --max-results 3
 ```
 
 - **If the anchor is found:** Include the exact line number and surrounding context
@@ -145,9 +145,9 @@ grep -n "[expected_anchor_line]" [file_path] | head -3
 
 - **If the anchor is NOT found (stale anchor):**
   1. Search for the closest matching content:
-     ```bash
-     grep -n "[key_substring_of_anchor]" [file_path] | head -5
-     ```
+      ```bash
+      flow-tools repo-map search --query "[key_substring_of_anchor]" --max-results 5
+      ```
   2. If a close match is found: adjust the task step to use the actual anchor.
      Note the discrepancy in `## Read First`:
      `"⚠️ Expected anchor '[original]' not found. Using '[actual]' at line [N] instead."`

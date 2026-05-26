@@ -374,10 +374,15 @@ function cmdLessonsRecent(args) {
   const n = nIdx >= 0 ? parseInt(args[nIdx + 1], 10) || 5 : 5;
   const typeIdx = args.indexOf('--type');
   const typeFilter = typeIdx >= 0 ? args[typeIdx + 1] : null;
+  const countOnly = args.includes('--count-only');
+  const queryIdx = args.indexOf('--query');
+  const query = queryIdx >= 0 ? args[queryIdx + 1] : null;
+  const bodyFilterIdx = args.indexOf('--body-filter');
+  const bodyFilter = bodyFilterIdx >= 0 ? args[bodyFilterIdx + 1] : null;
 
   const lessonsPath = path.join(cwd, '.flow', 'memory', 'lessons.md');
   if (!fs.existsSync(lessonsPath)) {
-    output({ results: [] });
+    output(countOnly ? { count: 0 } : { results: [] });
     return;
   }
 
@@ -395,7 +400,7 @@ function cmdLessonsRecent(args) {
   }
   if (current) entries.push(current);
 
-  // Filter by type if specified
+  // Filter by type/query if specified
   let filtered = entries;
   if (typeFilter) {
     const lowerType = typeFilter.toLowerCase();
@@ -403,6 +408,22 @@ function cmdLessonsRecent(args) {
       e.body.toLowerCase().includes(lowerType) ||
       e.header.toLowerCase().includes(lowerType)
     );
+  }
+  if (query) {
+    const lowerQuery = query.toLowerCase();
+    filtered = filtered.filter(e =>
+      e.body.toLowerCase().includes(lowerQuery) ||
+      e.header.toLowerCase().includes(lowerQuery)
+    );
+  }
+  if (bodyFilter) {
+    const lowerBody = bodyFilter.toLowerCase();
+    filtered = filtered.filter(e => e.body.toLowerCase().includes(lowerBody));
+  }
+
+  if (countOnly) {
+    output({ count: filtered.length });
+    return;
   }
 
   // Take last N
@@ -427,19 +448,70 @@ function extractField(body, fieldName) {
 // ─── Command: files check ─────────────────────────────────────────────────────
 function cmdFilesCheck(args) {
   const cwd = getCwd(args);
+  const lineCount = args.includes('--line-count');
+  const touch = args.includes('--touch');
+  const newerIdx = args.indexOf('--newer');
+  const newerRef = newerIdx >= 0 ? args[newerIdx + 1] : null;
+
   // Extract file paths: skip --flags that take a value
-  const knownValuedFlags = new Set(['--cwd']);
+  const knownValuedFlags = new Set(['--cwd', '--newer']);
   const paths = [];
   for (let i = 0; i < args.length; i++) {
     if (knownValuedFlags.has(args[i])) { i++; continue; }
     if (args[i].startsWith('--')) continue;
     paths.push(args[i]);
   }
-  if (paths.length === 0) {
-    output({ results: [] });
+
+  // Touch mode: create sentinel files
+  if (touch) {
+    const results = paths.map(p => {
+      const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
+      const existed = fs.existsSync(resolved);
+      if (!existed) {
+        try {
+          fs.mkdirSync(path.dirname(resolved), { recursive: true });
+          fs.writeFileSync(resolved, '');
+        } catch { /* creation failed */ }
+      }
+      const nowExists = fs.existsSync(resolved);
+      return { path: p, exists: nowExists, created: !existed && nowExists };
+    });
+    output({ results });
     return;
   }
 
+  // Newer mode: check files newer than reference
+  if (newerRef) {
+    const refResolved = path.isAbsolute(newerRef) ? newerRef : resolveSafePath(cwd, newerRef);
+    let refTime = 0;
+    try {
+      refTime = fs.statSync(refResolved).mtimeMs;
+    } catch {
+      output({ results: [] });
+      return;
+    }
+
+    const results = [];
+    for (const p of paths) {
+      const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
+      try {
+        const stat = fs.statSync(resolved);
+        if (stat.isDirectory()) {
+          // Recursively find files newer than reference
+          walkDir(resolved, refTime, results, cwd);
+        } else {
+          const isNewer = stat.mtimeMs > refTime;
+          results.push({ path: p, resolved, newer: isNewer });
+        }
+      } catch {
+        results.push({ path: p, resolved, newer: false, error: 'not found' });
+      }
+    }
+    output({ results });
+    return;
+  }
+
+  // Normal mode (with optional --line-count)
   const results = paths.map(p => {
     const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
     let exists = false;
@@ -453,10 +525,96 @@ function cmdFilesCheck(args) {
     } catch {
       readable = false;
     }
-    return { path: p, resolved, exists, readable };
+    const result = { path: p, resolved, exists, readable };
+    if (lineCount && exists) {
+      try {
+        const content = fs.readFileSync(resolved, 'utf8');
+        result.line_count = content.split('\n').length;
+      } catch {
+        result.line_count = null;
+      }
+    }
+    return result;
   });
 
   output({ results });
+}
+
+const WALK_SKIP_DIRS = new Set(['node_modules', '.git', 'vendor', '.next', 'dist', 'build', '.cache', '__pycache__']);
+
+function walkDir(dirPath, refTime, results, cwd) {
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (WALK_SKIP_DIRS.has(entry.name)) continue;
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        walkDir(fullPath, refTime, results, cwd);
+      } else if (entry.isFile()) {
+        try {
+          const stat = fs.statSync(fullPath);
+          const relativePath = path.relative(cwd, fullPath);
+          results.push({ path: relativePath, resolved: fullPath, newer: stat.mtimeMs > refTime });
+        } catch { /* skip */ }
+      }
+    }
+  } catch { /* skip unreadable dirs */ }
+}
+
+// ─── Command: context trace-avg ──────────────────────────────────────────────
+function cmdContextTraceAvg(args) {
+  const cwd = getCwd(args);
+  const fileIdx = args.indexOf('--file');
+  const filePath = fileIdx >= 0 ? args[fileIdx + 1] : null;
+
+  if (!filePath) exitErr(ERROR_CODES.PATH_NOT_FOUND, '--file is required for context trace-avg');
+
+  const resolved = resolveSafePath(cwd, filePath);
+  if (!fs.existsSync(resolved)) {
+    output({ avg_tokens: 0, total_entries: 0, total_tokens: 0 });
+    return;
+  }
+
+  const content = fs.readFileSync(resolved, 'utf8');
+  const lines = content.split('\n');
+
+  // Find the table: look for | separator line to detect start of table
+  let inTable = false;
+  const tokens = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Skip header separator rows (| --- | --- |)
+    if (/^\|[\s\-:]+\|[\s\-:]+\|/.test(trimmed)) {
+      inTable = true;
+      continue;
+    }
+    if (!inTable && trimmed.startsWith('|')) {
+      inTable = true;
+      continue;
+    }
+    if (inTable && trimmed.startsWith('|')) {
+      const cells = trimmed.split('|').map(c => c.trim());
+      // Est. Tokens is typically the 3rd or 4th column
+      // Try index 2 first (3rd column), then index 3 (4th column)
+      for (const idx of [2, 3]) {
+        if (idx < cells.length) {
+          const cell = cells[idx].replace(/,/g, '');
+          if (/^\d+$/.test(cell)) {
+            tokens.push(parseInt(cell, 10));
+            break;
+          }
+        }
+      }
+    } else if (inTable && !trimmed.startsWith('|')) {
+      // End of table
+      break;
+    }
+  }
+
+  const total = tokens.reduce((sum, t) => sum + t, 0);
+  const avg = tokens.length > 0 ? Math.round(total / tokens.length) : 0;
+
+  output({ avg_tokens: avg, total_entries: tokens.length, total_tokens: total });
 }
 
 // ─── Command: context estimate ─────────────────────────────────────────────────
@@ -699,10 +857,11 @@ function cmdKbSearch(args) {
   const zone = zoneIdx >= 0 ? args[zoneIdx + 1] : null;
   const nIdx = args.indexOf('--n');
   const n = nIdx >= 0 ? parseInt(args[nIdx + 1], 10) || 5 : 5;
+  const countOnly = args.includes('--count-only');
 
   const kbPath = path.join(cwd, '.flow', 'memory', 'knowledge-base.md');
   if (!fs.existsSync(kbPath)) {
-    output({ results: [] });
+    output(countOnly ? { count: 0 } : { results: [] });
     return;
   }
 
@@ -710,6 +869,22 @@ function cmdKbSearch(args) {
 
   // If no zone filter, return empty (zone is required for meaningful search)
   if (!zone) {
+    if (countOnly) {
+      // Count all entries when no zone given
+      const entries = [];
+      let current = null;
+      for (const line of content.split('\n')) {
+        if (line.startsWith('## ')) {
+          if (current) entries.push(current);
+          current = { header: line.slice(3).trim(), body: '' };
+        } else if (current) {
+          current.body += line + '\n';
+        }
+      }
+      if (current) entries.push(current);
+      output({ count: entries.length });
+      return;
+    }
     output({ results: [] });
     return;
   }
@@ -733,6 +908,11 @@ function cmdKbSearch(args) {
     e.header.toLowerCase().includes(lowerZone) ||
     e.body.toLowerCase().includes(lowerZone)
   );
+
+  if (countOnly) {
+    output({ count: matching.length });
+    return;
+  }
 
   const results = matching.slice(0, n).map(e => ({
     zone,
@@ -795,6 +975,8 @@ function cmdPatternsExtract(args) {
   const patternsPath = patternsIdx >= 0
     ? (path.isAbsolute(args[patternsIdx + 1]) ? args[patternsIdx + 1] : path.join(cwd, args[patternsIdx + 1]))
     : path.join(cwd, '.flow', 'codebase', 'patterns.md');
+  const queryIdx = args.indexOf('--query');
+  const query = queryIdx >= 0 ? args[queryIdx + 1] : null;
 
   if (!fs.existsSync(patternsPath)) {
     output({ sections: [] });
@@ -821,6 +1003,13 @@ function cmdPatternsExtract(args) {
   if (sectionFilter) {
     const lowerFilter = sectionFilter.toLowerCase();
     filtered = sections.filter(s => s.header.toLowerCase().includes(lowerFilter));
+  }
+  // Filter by body content if --query specified
+  if (query) {
+    const lowerQuery = query.toLowerCase();
+    filtered = filtered.filter(s =>
+      s.lines.some(l => l.toLowerCase().includes(lowerQuery))
+    );
   }
 
   // Parse each section: classify as table or bullet, extract rows
@@ -991,6 +1180,68 @@ function cmdAuditOpen(args) {
   output({ valid: drift.length === 0, drift });
 }
 
+// ─── Command: repo-map search ─────────────────────────────────────────────────
+function cmdRepoMapSearch(args) {
+  const cwd = getCwd(args);
+  const queryIdx = args.indexOf('--query');
+  const query = queryIdx >= 0 ? args[queryIdx + 1] : null;
+  const maxResultsIdx = args.indexOf('--max-results');
+  const maxResults = maxResultsIdx >= 0 ? parseInt(args[maxResultsIdx + 1], 10) || 30 : 30;
+  const mapPathIdx = args.indexOf('--path');
+  const repoMapPath = mapPathIdx >= 0
+    ? resolveSafePath(cwd, args[mapPathIdx + 1])
+    : path.join(cwd, '.flow', 'codebase', 'repo-map.json');
+
+  if (!fs.existsSync(repoMapPath)) {
+    output({ error: true, code: 'REPO_MAP_NOT_FOUND', message: `repo-map not found: ${repoMapPath}` });
+    return;
+  }
+
+  const raw = fs.readFileSync(repoMapPath, 'utf8');
+  let repoMap;
+  try { repoMap = JSON.parse(raw); }
+  catch (e) {
+    output({ error: true, code: 'REPO_MAP_PARSE_ERROR', message: `Failed to parse repo-map JSON: ${e.message}` });
+    return;
+  }
+
+  if (!query || query.trim() === '') {
+    output({ error: true, code: 'QUERY_REQUIRED', message: '--query is required' });
+    return;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  const matches = [];
+
+  for (const [filePath, entry] of Object.entries(repoMap.files || {})) {
+    if (matches.length >= maxResults) break;
+
+    const fileHit = filePath.toLowerCase().includes(lowerQuery);
+    const funcHits = (entry.functions || []).filter(f => f.toLowerCase().includes(lowerQuery));
+    const classHits = (entry.classes || []).filter(c => c.toLowerCase().includes(lowerQuery));
+    const includeHits = (entry.includes || []).filter(i => i.toLowerCase().includes(lowerQuery));
+
+    if (fileHit || funcHits.length || classHits.length || includeHits.length) {
+      matches.push({
+        path: filePath,
+        language: entry.language || null,
+        matched_path: fileHit,
+        matched_functions: funcHits,
+        matched_classes: classHits,
+        matched_includes: includeHits,
+      });
+    }
+  }
+
+  output({
+    query,
+    max_results: maxResults,
+    total_matches: matches.length,
+    repo_map_size_kb: repoMap.treesitter_health?.repo_map_size_kb || null,
+    matches,
+  });
+}
+
 // ─── Command: index ───────────────────────────────────────────────────────────
 let Parser;
 try {
@@ -1024,7 +1275,7 @@ function cmdIndex(args) {
   // Check WASM availability
   const wasmDir = findWasmDir();
   if (!wasmDir || !Parser) {
-    output({ files_parsed: 0, ast_yield_rate: 0, output_path: null, skipped_reason: 'WASM_NOT_FOUND' });
+    output({ files_parsed: 0, lang_coverage: {}, repo_map_size_kb: 0, total_symbols: 0, output_path: null, skipped_reason: 'WASM_NOT_FOUND' });
     return;
   }
 
@@ -1122,7 +1373,7 @@ function cmdIndex(args) {
   const sourceFiles = findSourceFiles(scanDirs);
 
   if (sourceFiles.length === 0) {
-    output({ files_parsed: 0, ast_yield_rate: 0, output_path: outputPath, skipped_reason: 'NO_SOURCE_FILES' });
+    output({ files_parsed: 0, lang_coverage: {}, repo_map_size_kb: 0, total_symbols: 0, output_path: outputPath, skipped_reason: 'NO_SOURCE_FILES' });
     return;
   }
 
@@ -1163,9 +1414,13 @@ function cmdIndex(args) {
       files: {},
     };
 
+    const langStats = {};  // lang → { files: 0, yielded: 0 }
+
     for (const filePath of sourceFiles) {
       const ext = path.extname(filePath);
       const lang = EXT_TO_LANG[ext];
+      if (!langStats[lang]) langStats[lang] = { files: 0, yielded: 0 };
+      langStats[lang].files++;
       const langParser = parsers[lang];
 
       if (!langParser) {
@@ -1181,7 +1436,10 @@ function cmdIndex(args) {
         const tree = langParser.parse(source);
         if (tree.rootNode.hasError()) parseErrors++;
         const result = extractFromFile(flaggedPatterns, source, tree, lang);
-        if (result.functions.length > 0 || result.classes.length > 0 || result.includes.length > 0) astYieldCount++;
+        if (result.functions.length > 0 || result.classes.length > 0 || result.includes.length > 0) {
+          langStats[lang].yielded++;
+          astYieldCount++;
+        }
         totalIncludes += result.includes.length;
         const normalizedPath = filePath.split(path.sep).join('/');
         repoMap.files[normalizedPath] = result;
@@ -1191,20 +1449,34 @@ function cmdIndex(args) {
       }
     }
 
-    const totalFiles = processedCount + errorCount;
-    const astYieldRate = totalFiles > 0 ? Math.round((astYieldCount / totalFiles) * 100) / 100 : 0;
+    const lang_coverage = {};
+    for (const [lang, stats] of Object.entries(langStats)) {
+      const dedicated = ['php','javascript','typescript','python','ruby','go','java','rust'];
+      lang_coverage[lang] = {
+        files: stats.files,
+        yielded: stats.yielded,
+        yield_rate: stats.files > 0 ? Math.round((stats.yielded / stats.files) * 100) / 100 : 0,
+        extractor: dedicated.includes(lang) ? 'dedicated' : 'generic',
+      };
+    }
 
     const wasmLanguages = Object.entries(wasmStatus).filter(([, ok]) => ok).map(([lang]) => lang);
+
+    const total_symbols = Object.values(repoMap.files).reduce(
+      (sum, f) => sum + f.functions.length + f.classes.length, 0
+    );
+
     const treesitterHealth = {
       wasm_loaded: wasmLoaded,
       wasm_languages: wasmLanguages,
       files_parsed: processedCount,
       minified_skipped: minifiedSkipped,
       parse_errors: parseErrors,
-      ast_yield_rate: astYieldRate,
+      lang_coverage,
+      total_symbols,
       includes_extracted: totalIncludes,
     };
-    // Legacy shims for backward compatibility with existing command files
+    // Legacy shims — keep for backward compat with existing command files until P-1/P-2 ship
     treesitterHealth.wasm_php = wasmStatus.php || false;
     treesitterHealth.wasm_javascript = wasmStatus.javascript || false;
 
@@ -1215,11 +1487,17 @@ function cmdIndex(args) {
       files: repoMap.files,
     };
 
+    let repoMapJson = JSON.stringify(repoMapOrdered, null, 2);
+    const repo_map_size_kb = Math.round(Buffer.byteLength(repoMapJson) / 1024 * 10) / 10;
+    treesitterHealth.repo_map_size_kb = repo_map_size_kb;
+    repoMapOrdered.treesitter_health = treesitterHealth;
+    repoMapJson = JSON.stringify(repoMapOrdered, null, 2);
+
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
-    fs.writeFileSync(outputPath, JSON.stringify(repoMapOrdered, null, 2));
+    fs.writeFileSync(outputPath, repoMapJson);
 
-    output({ files_parsed: processedCount, ast_yield_rate: astYieldRate, output_path: outputPath, parse_errors: parseErrors });
+    output({ files_parsed: processedCount, lang_coverage, repo_map_size_kb, total_symbols, output_path: outputPath, parse_errors: parseErrors });
   }
 
   runIndex().catch(err => {
@@ -1265,9 +1543,15 @@ function extractFromFile(flaggedPatterns, source, tree, lang) {
   if (!tree) return result;
 
   switch (lang) {
-    case 'php': extractPHP(tree.rootNode, result, flaggedPatterns); break;
-    case 'javascript': extractJS(tree.rootNode, result, flaggedPatterns); break;
-    default: extractGeneric(tree.rootNode, result, flaggedPatterns); break;
+    case 'php':        extractPHP(tree.rootNode, result, flaggedPatterns);    break;
+    case 'javascript': extractJS(tree.rootNode, result, flaggedPatterns);     break;
+    case 'typescript': extractTS(tree.rootNode, result, flaggedPatterns);     break;
+    case 'python':     extractPython(tree.rootNode, result, flaggedPatterns); break;
+    case 'ruby':       extractRuby(tree.rootNode, result, flaggedPatterns);   break;
+    case 'go':         extractGo(tree.rootNode, result, flaggedPatterns);     break;
+    case 'java':       extractJava(tree.rootNode, result, flaggedPatterns);   break;
+    case 'rust':       extractRust(tree.rootNode, result, flaggedPatterns);   break;
+    default:           extractGeneric(tree.rootNode, result, flaggedPatterns);
   }
 
   result.string_literals_flagged = [...new Set(result.string_literals_flagged)];
@@ -1279,6 +1563,13 @@ function extractPHP(rootNode, result, flaggedPatterns) {
     if (depth > MAX_AST_DEPTH) return;
     const type = node.type;
     if (type === 'class_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push(n.text); }
+    if (type === 'trait_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('trait:' + n.text); }
+    if (type === 'interface_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('interface:' + n.text); }
+    if (type === 'enum_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('enum:' + n.text); }
+    if (type === 'namespace_use_declaration') {
+      const qn = node.children.find(c => c.type === 'qualified_name' || c.type === 'name');
+      if (qn) result.includes.push(qn.text.replace(/^\\/, ''));
+    }
     if (type === 'function_definition' || type === 'method_declaration') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
     if (type === 'include_expression' || type === 'include_once_expression' || type === 'require_expression' || type === 'require_once_expression') {
       const arg = node.children.find(c => c.type === 'string' || c.type === 'encapsed_string');
@@ -1319,6 +1610,180 @@ function extractJS(rootNode, result, flaggedPatterns) {
     }
     if (flaggedPatterns.length > 0 && (type === 'string' || type === 'template_string')) {
       const text = node.text.replace(/^['"`]|['"`]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
+function extractTS(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+    if (type === 'class_declaration' || type === 'abstract_class_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push(n.text); }
+    if (type === 'interface_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('interface:' + n.text); }
+    if (type === 'enum_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('enum:' + n.text); }
+    if (type === 'type_alias_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('type:' + n.text); }
+    if (type === 'function_declaration') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'method_definition') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'lexical_declaration') {
+      for (const child of node.children) {
+        if (child.type === 'variable_declarator') {
+          const nameNode = child.childForFieldName('name');
+          const valueNode = child.childForFieldName('value');
+          if (nameNode && valueNode && (valueNode.type === 'arrow_function' || valueNode.type === 'function')) {
+            result.functions.push(nameNode.text);
+          }
+        }
+      }
+    }
+    if (type === 'import_statement') {
+      const src = node.childForFieldName('source');
+      if (src) result.includes.push(src.text.replace(/^['"`]|['"`]$/g, ''));
+    }
+    if (flaggedPatterns.length > 0 && (type === 'string' || type === 'template_string')) {
+      const text = node.text.replace(/^['"`]|['"`]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
+function extractPython(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+    if (type === 'class_definition') { const n = node.childForFieldName('name'); if (n) result.classes.push(n.text); }
+    if (type === 'function_definition') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'decorated_definition') {
+      for (const child of node.children) {
+        if (child.type === 'function_definition' || child.type === 'class_definition') {
+          const n = child.childForFieldName('name');
+          if (n) {
+            if (child.type === 'class_definition') result.classes.push(n.text);
+            else result.functions.push(n.text);
+          }
+        }
+      }
+    }
+    if (type === 'import_statement') {
+      const dotted = node.children.find(c => c.type === 'dotted_name' || c.type === 'name');
+      if (dotted) result.includes.push(dotted.text);
+    }
+    if (type === 'import_from_statement') {
+      const dotted = node.children.find(c => c.type === 'dotted_name');
+      if (dotted) result.includes.push(dotted.text);
+    }
+    if (flaggedPatterns.length > 0 && type === 'string') {
+      const text = node.text.replace(/^['"`]|['"`]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
+function extractRuby(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+    if (type === 'class') { const n = node.childForFieldName('name'); if (n) result.classes.push(n.text); }
+    if (type === 'module') { const n = node.childForFieldName('name'); if (n) result.classes.push('module:' + n.text); }
+    if (type === 'method') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'singleton_method') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'call') {
+      const fnNode = node.childForFieldName('method') || node.childForFieldName('function') || node.namedChildren[0];
+      if (fnNode && (fnNode.text === 'require' || fnNode.text === 'require_relative')) {
+        const argsNode = node.childForFieldName('arguments');
+        if (argsNode) {
+          const arg = argsNode.children.find(c => c.type === 'string' || c.type === 'string_literal');
+          if (arg) result.includes.push(arg.text.replace(/^['"]|['"]$/g, ''));
+        }
+      }
+    }
+    if (flaggedPatterns.length > 0 && type === 'string') {
+      const text = node.text.replace(/^['"]|['"]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
+function extractGo(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+    if (type === 'function_declaration') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'method_declaration') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'type_spec') {
+      const nameNode = node.childForFieldName('name');
+      const typeChild = node.childForFieldName('type');
+      if (nameNode && typeChild) {
+        if (typeChild.type === 'struct_type') result.classes.push('struct:' + nameNode.text);
+        if (typeChild.type === 'interface_type') result.classes.push('interface:' + nameNode.text);
+      }
+    }
+    if (type === 'import_declaration') {
+      for (const child of node.children) {
+        if (child.type === 'import_spec') {
+          const pathNode = child.children.find(c => c.type === 'interpreted_string_literal' || c.type === 'raw_string_literal');
+          if (pathNode) result.includes.push(pathNode.text.replace(/^['"`]|['"`]$/g, ''));
+        }
+      }
+    }
+    if (flaggedPatterns.length > 0 && (type === 'interpreted_string_literal' || type === 'raw_string_literal')) {
+      const text = node.text.replace(/^['"`]|['"`]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
+function extractJava(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+    if (type === 'class_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push(n.text); }
+    if (type === 'interface_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('interface:' + n.text); }
+    if (type === 'enum_declaration') { const n = node.childForFieldName('name'); if (n) result.classes.push('enum:' + n.text); }
+    if (type === 'method_declaration') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'constructor_declaration') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'import_declaration') {
+      const qn = node.childForFieldName('name') || node.children.find(c => c.type === 'qualified_name' || c.type === 'identifier');
+      if (qn) result.includes.push(qn.text);
+    }
+    if (flaggedPatterns.length > 0 && type === 'string_literal') {
+      const text = node.text.replace(/^['"]|['"]$/g, '');
+      for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
+    }
+    for (const child of node.children) walk(child, depth + 1);
+  }
+  walk(rootNode, 0);
+}
+
+function extractRust(rootNode, result, flaggedPatterns) {
+  function walk(node, depth) {
+    if (depth > MAX_AST_DEPTH) return;
+    const type = node.type;
+    if (type === 'function_item') { const n = node.childForFieldName('name'); if (n) result.functions.push(n.text); }
+    if (type === 'struct_item') { const n = node.childForFieldName('name'); if (n) result.classes.push('struct:' + n.text); }
+    if (type === 'enum_item') { const n = node.childForFieldName('name'); if (n) result.classes.push('enum:' + n.text); }
+    if (type === 'trait_item') { const n = node.childForFieldName('name'); if (n) result.classes.push('trait:' + n.text); }
+    if (type === 'type_item') { const n = node.childForFieldName('name'); if (n) result.classes.push('type:' + n.text); }
+    if (type === 'impl_item') {
+      const typeNode = node.children.find(c => c.type === 'type_identifier');
+      if (typeNode) result.classes.push('impl:' + typeNode.text);
+    }
+    if (type === 'use_declaration') {
+      const pathNode = node.children.find(c => c.type === 'scoped_use_list' || c.type === 'use_wildcard' || c.type === 'identifier' || c.type === 'scoped_identifier');
+      if (pathNode) result.includes.push(pathNode.text);
+    }
+    if (flaggedPatterns.length > 0 && type === 'string_literal') {
+      const text = node.text.replace(/^['"]|['"]$/g, '');
       for (const p of flaggedPatterns) { if (text.includes(p)) result.string_literals_flagged.push(p); }
     }
     for (const child of node.children) walk(child, depth + 1);
@@ -1372,11 +1837,223 @@ function extractGeneric(rootNode, result, flaggedPatterns) {
   walk(rootNode, 0);
 }
 
+// ─── Command: extract field ──────────────────────────────────────────────────
+function cmdExtractField(args) {
+  const cwd = getCwd(args);
+  const fileIdx = args.indexOf('--file');
+  const filePath = fileIdx >= 0 ? args[fileIdx + 1] : null;
+  const fieldIdx = args.indexOf('--field');
+  const fieldName = fieldIdx >= 0 ? args[fieldIdx + 1] : null;
+
+  if (!filePath) exitErr(ERROR_CODES.PATH_NOT_FOUND, '--file is required');
+  if (!fieldName) exitErr(ERROR_CODES.UNKNOWN_COMMAND, '--field is required');
+
+  const resolved = resolveSafePath(cwd, filePath);
+  if (!fs.existsSync(resolved)) {
+    output({ values: [] });
+    return;
+  }
+
+  const content = fs.readFileSync(resolved, 'utf8');
+
+  // Split file by ## entries
+  const entries = [];
+  let current = null;
+  for (const line of content.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (current) entries.push(current);
+      current = { header: line.slice(3).trim(), body: '' };
+    } else if (current) {
+      current.body += line + '\n';
+    }
+  }
+  if (current) entries.push(current);
+
+  // If no ## sections, treat entire file as one entry
+  const bodies = entries.length > 0 ? entries.map(e => e.body) : [content];
+
+  // Collect all field values across all entries
+  const values = [];
+  for (const body of bodies) {
+    const val = extractField(body, fieldName);
+    if (val !== null && !values.includes(val)) {
+      values.push(val);
+    }
+  }
+
+  output({ values });
+}
+
+// ─── Command: task validate ──────────────────────────────────────────────────
+function cmdTaskValidate(args) {
+  const cwd = getCwd(args);
+  const fileIdx = args.indexOf('--file');
+  const singleFile = fileIdx >= 0 ? args[fileIdx + 1] : null;
+  const phaseIdx = args.indexOf('--phase');
+  const phaseNum = phaseIdx >= 0 ? args[phaseIdx + 1] : null;
+
+  if (singleFile && phaseNum) {
+    exitErr(ERROR_CODES.UNKNOWN_COMMAND, 'Provide either --file or --phase, not both');
+  }
+
+  if (!singleFile && !phaseNum) {
+    exitErr(ERROR_CODES.UNKNOWN_COMMAND, 'Either --file or --phase is required');
+  }
+
+  // Validate a single file
+  function validateFile(filePath) {
+    const resolved = resolveSafePath(cwd, filePath);
+    if (!fs.existsSync(resolved)) {
+      return { valid: false, file: path.basename(filePath), errors: [`${path.basename(filePath)}: file not found`] };
+    }
+    const content = fs.readFileSync(resolved, 'utf8');
+    const lines = content.split('\n');
+    const basename = path.basename(filePath);
+    const errors = [];
+
+    // Check 1: ## Context header present
+    if (!lines.some(l => /^## Context\b/.test(l))) {
+      errors.push(`${basename}: missing ## Context`);
+    }
+
+    // Check 2: ## Read First header present
+    if (!lines.some(l => /^## Read First\b/.test(l))) {
+      errors.push(`${basename}: missing ## Read First`);
+    }
+
+    // Check 3: ## Implementation Steps header present
+    if (!lines.some(l => /^## Implementation Steps\b/.test(l))) {
+      errors.push(`${basename}: missing ## Implementation Steps`);
+    }
+
+    // Check 4: ## Files header present
+    if (!lines.some(l => /^## Files\b/.test(l))) {
+      errors.push(`${basename}: missing ## Files`);
+    }
+
+    // Check 5: ## Verify header present (exact)
+    if (!lines.some(l => /^## Verify$/.test(l))) {
+      errors.push(`${basename}: missing exact ## Verify`);
+    }
+
+    // Check 6: ## Done Condition header present
+    if (!lines.some(l => /^## Done Condition\b/.test(l))) {
+      errors.push(`${basename}: missing ## Done Condition`);
+    }
+
+    // Check 7: **Depends on:** field present
+    if (!lines.some(l => /^\*\*Depends on:\*\*/.test(l))) {
+      errors.push(`${basename}: missing **Depends on:**`);
+    }
+
+    // Check 8: Depends-on value is none or task-NN
+    const depLine = lines.find(l => /^\*\*Depends on:\*\*/.test(l));
+    if (depLine) {
+      const depVal = depLine.replace(/^\*\*Depends on:\*\*\s*/, '').trim();
+      if (!/^(none|task-\d+)$/i.test(depVal)) {
+        errors.push(`${basename}: **Depends on:** value '${depVal}' is not 'none' or 'task-NN'`);
+      }
+    }
+
+    // Check 9: ## Verify starts with shell token
+    const verifyIdx = lines.findIndex(l => /^## Verify$/.test(l));
+    if (verifyIdx >= 0) {
+      // Find first non-empty line after ## Verify (skip blank lines and prose/notes)
+      const verifyLines = lines.slice(verifyIdx + 1);
+      const firstContent = verifyLines.find(l => l.trim() && !l.trim().startsWith('>') && !l.trim().startsWith('_'));
+      if (firstContent) {
+        const trimmed = firstContent.trim();
+        if (!trimmed.startsWith('`') && !trimmed.startsWith('```') && !trimmed.startsWith('node ') && !trimmed.startsWith('flow-tools ')) {
+          errors.push(`${basename}: ## Verify first content line does not start with a shell token`);
+        }
+      } else {
+        errors.push(`${basename}: ## Verify has no content`);
+      }
+    }
+
+    // Check 10: ## Verify has no prose masquerading
+    // (Verify section should not contain long prose paragraphs that mimic verification)
+    if (verifyIdx >= 0) {
+      const verifyLines = lines.slice(verifyIdx + 1);
+      const proseLines = verifyLines.filter(l => {
+        const t = l.trim();
+        return t.length > 0 && !t.startsWith('`') && !t.startsWith('>') && !t.startsWith('_') && !t.startsWith('-') && !t.startsWith('#');
+      });
+      const longProse = proseLines.filter(l => l.trim().length > 100);
+      if (longProse.length > 0) {
+        errors.push(`${basename}: ## Verify contains prose (${longProse.length} long non-shell lines) — verify commands must use shell tokens`);
+      }
+    }
+
+    // Check 11: ## Files has at least one path
+    const filesIdx = lines.findIndex(l => /^## Files\b/.test(l));
+    if (filesIdx >= 0) {
+      const filePaths = lines.slice(filesIdx + 1)
+        .filter(l => /^\s*[-*]\s+\S+/.test(l) || /^\s*\S+/.test(l))
+        .map(l => l.replace(/^\s*[-*]\s+/, '').trim())
+        .filter(p => p && !p.startsWith('##'));
+      if (filePaths.length === 0) {
+        errors.push(`${basename}: ## Files has no file paths listed`);
+      }
+    }
+
+    // Check 12: Filename number in title line
+    const titleMatch = content.match(/^#\s+(.+)$/m);
+    const numFromTitle = basename.match(/task-(\d+)/)?.[1];
+    if (titleMatch && numFromTitle) {
+      // Title should contain the task number in some form
+      if (!titleMatch[1].includes(numFromTitle)) {
+        errors.push(`${basename}: title '${titleMatch[1]}' does not reference task number ${numFromTitle}`);
+      }
+    }
+
+    // Check 13: ## Implementation Steps has ≥2 steps
+    const implIdx = lines.findIndex(l => /^## Implementation Steps\b/.test(l));
+    if (implIdx >= 0) {
+      const steps = lines.slice(implIdx + 1).filter(l => /^\s*\d+\.\s/.test(l));
+      if (steps.length < 2) {
+        errors.push(`${basename}: ## Implementation Steps has ${steps.length} step(s) — minimum 2 required`);
+      }
+    }
+
+    return { valid: errors.length === 0, file: basename, errors };
+  }
+
+  if (singleFile) {
+    const result = validateFile(singleFile);
+    output(result);
+    return;
+  }
+
+  // --phase mode: validate all task files in the phase
+  const { fm } = readStateFile(cwd);
+  const mName = fm.active_milestone || 'milestone-01';
+  const padded = String(phaseNum).padStart(2, '0');
+  const tasksDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`, 'tasks');
+
+  if (!fs.existsSync(tasksDir)) {
+    output({ valid: false, file: null, errors: [`Phase ${phaseNum} tasks directory not found`] });
+    return;
+  }
+
+  const files = fs.readdirSync(tasksDir).filter(f => /\.md$/.test(f));
+  if (files.length === 0) {
+    output({ valid: false, file: null, errors: [`No task files found in phase ${phaseNum}`] });
+    return;
+  }
+
+  const allResults = files.map(f => validateFile(path.join(tasksDir, f)));
+  const valid = allResults.every(r => r.valid);
+  const allErrors = allResults.filter(r => !r.valid).flatMap(r => r.errors);
+
+  output({ valid, file: allErrors.length > 0 ? allResults.filter(r => !r.valid).map(r => r.file).join(', ') : null, errors: allErrors });
+}
+
 // ─── Help ─────────────────────────────────────────────────────────────────────
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.1.6',
+    version: '0.2.0',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
@@ -1386,16 +2063,20 @@ function showHelp() {
       'config get': '[key] --cwd path',
       'frontmatter get': 'path/to/file [--field field1 field2] --cwd path',
       'frontmatter set': 'path/to/file --set key=value [--set k2=v2] [--dry-run] --cwd path',
-      'lessons recent': '--cwd path --n 5 --type phase-type',
-      'files check': 'path1 path2 ...',
+      'lessons recent': '--cwd path --n 5 --type phase-type [--count-only] [--query str] [--body-filter str]',
+      'files check': 'path1 path2 ... [--line-count] [--touch] [--newer ref]',
       'context estimate': 'path1 path2 ... --cwd path',
+      'context trace-avg': '--file path/to/context-log.md --cwd path',
       'phase list': '--cwd path --phase N',
       'wave resolve': '--cwd path --phase N',
-      'kb search': '--cwd path --zone zoneName --n 5',
+      'kb search': '--cwd path --zone zoneName --n 5 [--count-only]',
       'history digest': '--cwd path --n 5',
-      'patterns extract': '--cwd path --section name --patterns path',
+      'patterns extract': '--cwd path --section name --patterns path [--query str]',
       'statusline show': '--cwd path --phase N',
       'audit open': '--cwd path',
+      'repo-map search': '--cwd path --query "pattern" [--max-results N] [--path path]',
+      'extract field': '--file path --field "Field Name"',
+      'task validate': '--file path | --phase N --cwd path',
     },
     error_codes: ERROR_CODES,
   });
@@ -1458,6 +2139,7 @@ function main() {
     const sub = args[1];
     const subArgs = args.slice(2);
     if (sub === 'estimate') cmdContextEstimate(subArgs);
+    else if (sub === 'trace-avg') cmdContextTraceAvg(subArgs);
     else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown context subcommand: ${sub}`);
     return;
   }
@@ -1515,6 +2197,30 @@ function main() {
     const subArgs = args.slice(2);
     if (sub === 'open') cmdAuditOpen(subArgs);
     else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown audit subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'task') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'validate') cmdTaskValidate(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown task subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'extract') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'field') cmdExtractField(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown extract subcommand: ${sub}`);
+    return;
+  }
+
+  if (cmd === 'repo-map') {
+    const sub = args[1];
+    const subArgs = args.slice(2);
+    if (sub === 'search') cmdRepoMapSearch(subArgs);
+    else exitErr(ERROR_CODES.UNKNOWN_COMMAND, `Unknown repo-map subcommand: ${sub}`);
     return;
   }
 

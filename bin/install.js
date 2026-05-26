@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const readline = require("readline");
+const { execSync } = require("child_process");
 
 // ─── Environment Variables Consumed ─────────────────────────────────────────
 // USERPROFILE       — Windows user home directory (fallback for os.homedir())
@@ -214,7 +215,45 @@ function installFlowHome() {
 
   copyFile(src, dest);
   ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
+  installNodeDeps(toolsDir);
   return true;
+}
+
+function installNodeDeps(toolsDir) {
+  const pkgJsonPath = path.join(toolsDir, "package.json");
+  if (!fs.existsSync(pkgJsonPath)) {
+    fs.writeFileSync(pkgJsonPath, JSON.stringify({
+      name: "flow-tools",
+      version: "1.0.0",
+      private: true,
+    }, null, 2) + "\n");
+  }
+
+  const deps = ["js-yaml", "web-tree-sitter@0.20.8", "tree-sitter-wasms"];
+  const missing = deps.filter(dep => {
+    const depName = dep.split("@")[0];
+    return !fs.existsSync(path.join(toolsDir, "node_modules", depName));
+  });
+
+  if (missing.length === 0) {
+    ok(`flow-tools deps already installed ${dim("(js-yaml, web-tree-sitter, tree-sitter-wasms)")}`);
+    return true;
+  }
+
+  info(`Installing flow-tools deps: ${missing.join(", ")}`);
+  try {
+    execSync(
+      `npm install --prefix "${toolsDir}" --save ${missing.join(" ")}`,
+      { stdio: "pipe", timeout: 60_000 }
+    );
+    ok(`flow-tools deps installed ${dim(`→ ${toolsDir}/node_modules`)}`);
+    return true;
+  } catch (e) {
+    warn(`flow-tools dep install failed: ${e.message}`);
+    warn("Repo-map generation will be unavailable until deps are installed manually.");
+    warn(` cd "${toolsDir}" && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms`);
+    return false;
+  }
 }
 
 function installWasm() {

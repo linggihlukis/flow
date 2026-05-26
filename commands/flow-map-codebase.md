@@ -13,6 +13,13 @@ Read AGENTS.md §2 (File Locations), §7 (Destructive Tiers), §12 (State Write)
   Codex:       ~/.codex/flow/flow-tools.cmd
   Windows:     use flow-tools.cmd extension, not .js
 
+`[flow-tools-dir]` (directory containing flow-tools, for npm install):
+  OpenCode:    ~/.config/opencode/flow/
+  Claude Code: ~/.claude/flow/
+  Antigravity: ~/.gemini/antigravity/flow/
+  Codex:       ~/.codex/flow/
+  Windows:     %USERPROFILE%\.codex\flow\
+
 # /flow-map-codebase
 
 Run this before `/flow-new-project` when adding FLOW to an existing codebase.
@@ -380,7 +387,8 @@ In both cases, if successful:
 - Print:
   ```
   ✓ Repo-map: [N] files indexed
-    treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  ast_yield=[N]
+    treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  symbols=[N]  size=[N]kb
+      coverage: [lang]=[yield_rate]/[extractor] ...
   ```
 
 If the tool/script fails:
@@ -413,9 +421,58 @@ If it has entries:
 
 ---
 
-## Pre-Stage: Repo-Map Generation (optional)
+## Pre-Stage: Repo-Map Generation
 
 Run this immediately before spawning the Stage 1 agents.
+
+**Dependency location:** Flow tools and their npm dependencies are installed by the
+Flow installer into `~/.flow/tools/` (Windows: `%USERPROFILE%\.flow\tools\`). This is
+where `flow-tools.js` runs from at runtime — not `[flow-tools-dir]`, which is a symlink
+or shim pointing here. Run all dep checks against `~/.flow/tools/`.
+
+The Flow installer (`bin/install.js`) now auto-installs these packages during
+`installFlowHome()` — if you ran `--update` or a fresh install after this change was
+deployed, deps should already be present. Regardless, verify before proceeding.
+
+**Required npm dependencies for tree-sitter parsing:**
+
+| Package | Pinned version | Notes |
+|---------|---------------|-------|
+| `js-yaml` | any recent | YAML parsing — required at module load; missing = immediate crash |
+| `web-tree-sitter` | **0.20.8** | v0.21+ uses different API; newer versions break silently |
+| `tree-sitter-wasms` | matching | Prebuilt `.wasm` binaries for 33 languages |
+
+**Step 1 — Verify deps:**
+```bash
+node -e "require('js-yaml'); require('web-tree-sitter'); require('tree-sitter-wasms'); console.log('OK')" \
+  --require module-alias/register 2>/dev/null || \
+ls ~/.flow/tools/node_modules/js-yaml \
+  ~/.flow/tools/node_modules/web-tree-sitter \
+  ~/.flow/tools/node_modules/tree-sitter-wasms 2>&1
+```
+If all three directories exist: proceed to Step 3.
+If any are missing: proceed to Step 2.
+
+**Step 2 — Install missing deps (run once; ~5 seconds):**
+```bash
+cd ~/.flow/tools && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms
+```
+Windows:
+```cmd
+cd %USERPROFILE%\.flow\tools && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms
+```
+After install, re-run the verify check from Step 1. If deps are still missing after
+install: ⛔ STOP. Print:
+```
+⛔ flow-tools dependencies could not be installed. Repo-map generation is unavailable.
+Run manually:
+  cd ~/.flow/tools && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms
+Then re-run /flow-map-codebase.
+```
+Do not continue to the indexer step. Proceed directly to Stage 1 without repo-map.
+Agent 2 will use manual file walks.
+
+**Step 3 — Run the indexer:**
 
 Check if `[flow-tools-path]` exists:
 
@@ -435,18 +492,41 @@ If successful (either path):
 - Read `treesitter_health` from the written file and print:
   ```
   ✓ Repo-map: [N] files indexed
-    treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  ast_yield=[N]
+    treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  symbols=[N]  size=[N]kb
+      coverage: [lang]=[yield_rate]/[extractor] ...
   ```
 - Stage 1 Agent 2 (Architecture & Structure) can use the repo-map for structural
   analysis instead of manual file walks
 
 If the tool/script does not exist or fails:
-- Print:
-  ```
-  ⚠️  Repo-map generation failed: [error message] — Stage 1 will proceed without it
-  ```
-- Stage 1 proceeds with its existing analysis protocol.
-- This stage is purely additive — nothing depends on it existing.
+
+1. **Inspect the error message.** Common causes:
+   - `"Warning: web-tree-sitter not available"` or `WASM_NOT_FOUND`
+     → `web-tree-sitter` missing or wrong version.
+       Run: `cd ~/.flow/tools && npm install web-tree-sitter@0.20.8`
+   - `"Cannot find module 'js-yaml'"`
+     → `js-yaml` missing.
+       Run: `cd ~/.flow/tools && npm install js-yaml`
+   - `"Cannot find module 'tree-sitter-wasms'"`
+     → `tree-sitter-wasms` missing.
+       Run: `cd ~/.flow/tools && npm install tree-sitter-wasms`
+   - `"Parser.init is not a function"`
+     → `web-tree-sitter` is wrong version (needs 0.20.8, got v0.21+).
+       Run: `cd ~/.flow/tools && npm install web-tree-sitter@0.20.8`
+   - `"command not found: node"`
+     → Node.js not in PATH or not installed.
+       Install Node.js >= 18 from https://nodejs.org
+
+2. **Attempt one retry** after fixing the dependency. Re-run the index command.
+
+3. **If retry also fails**, print:
+   ```
+   ⚠️  Repo-map generation failed after retry: [error message]
+       Diagnosis: [cause identified above, or "unknown — inspect error output"]
+       Stage 1 will proceed without repo-map. Agent 2 will use manual file walks.
+   ```
+
+4. Stage 1 proceeds with its existing analysis protocol — nothing downstream hard-depends on repo-map.
 
 ---
 
@@ -465,6 +545,9 @@ Spawn 4 parallel `@flow-researcher` agents with the following briefs:
 
 **Agent 2 — Architecture & Structure**
 - Repo-map: .flow/codebase/repo-map.json (if exists — use for structural analysis)
+  If repo-map.json does not exist, the Pre-Stage dependency setup may have failed
+  (check `[flow-tools-dir]` for missing npm packages).
+  Fall back to manual directory walks for structural analysis.
 - Map the project directory structure
 - Identify architectural pattern (MVC, layered, feature-based, etc.)
 - Find entry points, routing, middleware patterns
@@ -548,12 +631,28 @@ git log --since="12 months ago" --name-only --pretty=format: 2>/dev/null | sort 
 Record every flagged item. These are your Unknown Unknowns findings.
 Do not skip checks because the codebase appears clean — the absence of findings IS data.
 
-Wait for all 4 researchers to complete. Consolidate findings into `.flow/codebase/analysis.md`
-(persistent docs directory, not the ephemeral phases/ context).
+### Consolidate findings into analysis.md — MANDATORY DELIVERABLE
+
+YOU MUST write `.flow/codebase/analysis.md` immediately after all 4 researchers complete.
+Do this before running the test baseline capture below. Do not treat agent findings as
+ephemeral in-context data — they must be materialized to disk.
+
+The file must contain:
+- All 4 agents' findings (Agent 1–4), organized by agent
+- Unknown Unknowns findings — full detail (check triggered, file path, raw finding)
+- Any cross-agent observations or contradictions
 
 **Unknown Unknowns findings must be written to two places:**
 1. `.flow/codebase/analysis.md` — full detail (check triggered, file path, raw finding)
 2. `.flow/codebase/patterns.md` `## Unknown Unknowns` section — one-line summary per item (written in Stage 2)
+
+Write the file now. Then verify it exists:
+
+```bash
+test -f .flow/codebase/analysis.md && echo "✓ analysis.md written" || echo "✗ analysis.md MISSING — STOP"
+```
+
+If the verification prints "MISSING", stop and write the file before proceeding.
 
 **Test baseline capture — run after consolidation:**
 
@@ -613,7 +712,9 @@ The executor will not run a test suite health check — no baseline exists to ch
 
 ## Stage 2: Write PATTERNS.md
 
-Using the analysis findings, write `.flow/codebase/patterns.md`.
+Using the analysis findings in `.flow/codebase/analysis.md`, write `.flow/codebase/patterns.md`.
+If `.flow/codebase/analysis.md` does not exist, STOP — the consolidation step was skipped.
+Go back and complete it before proceeding to Stage 2.
 
 **Important:** This codebase may be inconsistent. Do not average patterns into false uniformity.
 Every entry must reflect what the code *actually does*, not what it *should* do.

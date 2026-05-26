@@ -53,10 +53,7 @@ Check for evidence of implementation across the codebase:
 - Spot-check files and directories listed in the tasks using exact searches or `ls`.
 - For each must-deliver item, verify its code artifact exists:
   ```bash
-  # Linux/macOS:
-  grep -rn "class|function [name]" [expected-path] | head -5
-  # Windows PowerShell:
-  # Select-String -Path "[expected-path]\*" -Pattern "class |function [name]" | Select-Object -First 5
+  node [flow-tools-path] repo-map search --query "[name]" --max-results 5
   ```
 - If task verify commands are pure read operations (e.g. testing an endpoint, calling a query without mutating data), run them now to collect proof.
 
@@ -130,10 +127,7 @@ If found, remove it or set to 0 (reset for this verification session).
 If not found — skip (counter was never written or already clean).
 
 ```bash
-# Remove or reset fix_cycles in state.md prose
-# Using sed/awk — examples for POSIX and Windows:
-# Linux/macOS: sed -i '/^fix_cycles:/d' .flow/state.md
-# Windows (PowerShell): (Get-Content .flow/state.md) -notmatch '^fix_cycles:' | Set-Content .flow/state.md
+node [flow-tools-path] state patch --set fix_cycles=null
 ```
 
 Note: This reset runs BEFORE Stage 1. The Completion — All Pass section still retains its
@@ -194,7 +188,7 @@ Record precisely — do not debug inline. Continue to next deliverable.
 
 **Budget check:** Before spawning, check context budget per AGENTS.md §22.
 Read `config.json` → `context` block. If absent → skip.
-If present → sum Est. Tokens from context-log.md (awk extraction — do not load full file).
+If present → sum Est. Tokens from context-log.md (use `context trace-avg` for cross-platform extraction — do not load full file).
 Calculate `usage_pct`. If ≥ critical → HALT (overrides --auto/yolo).
 If ≥ low → apply §16 Context Discipline, then proceed.
 
