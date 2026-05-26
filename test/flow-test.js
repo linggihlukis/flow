@@ -1622,16 +1622,20 @@ const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
 // 15m: files line-count
 (function () {
   const { execSync } = require("child_process");
+  const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15m.txt");
+  fs.writeFileSync(testFile, "line1\nline2\nline3", "utf8");
   try {
-    const raw = execSync("node " + FLOW_TOOLS + " files check .flow/state.md --line-count").toString();
+    const raw = execSync("node " + FLOW_TOOLS + " files check " + testFile + " --line-count").toString();
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed.results) && parsed.results.length > 0 && typeof parsed.results[0].line_count === "number") {
-      pass("15m: files check --line-count returns line_count field");
+    if (Array.isArray(parsed.results) && parsed.results[0].line_count === 3) {
+      pass("15m: files check --line-count returns correct line_count");
     } else {
       fail("15m: files check --line-count unexpected — " + raw.slice(0, 100));
     }
   } catch (e) {
     fail("15m: files check --line-count failed — " + e.message);
+  } finally {
+    try { fs.unlinkSync(testFile); } catch {}
   }
 })();
 
