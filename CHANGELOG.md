@@ -3,6 +3,16 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.2] - 2026-05-28
+
+### Fixed
+- `getCwd()` path guard now correctly accepts absolute `--cwd` paths from cross-tree invocations
+  (e.g. tool installed in `~/.flow/tools/` indexing a project elsewhere on disk). Previously,
+  `path.relative()` between two unrelated absolute paths on Windows always produced a `..`-leading
+  string, triggering the traversal guard and killing the process before `runIndex()` could run.
+  This caused `repo-map.json` to never be written with no visible error. Relative `--cwd` paths
+  are still validated against `process.cwd()` to prevent `../` traversal exploits.
+
 ## [0.2.1] - 2026-XX-XX
 
 ### Added

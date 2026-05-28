@@ -43,12 +43,14 @@ function output(data) {
 function getCwd(args) {
   const idx = args.indexOf('--cwd');
   if (idx >= 0 && idx + 1 < args.length) {
-    const resolved = path.resolve(args[idx + 1]);
-    // Prevent path traversal outside workspace root
-    const cwdDir = process.cwd();
-    const relative = path.relative(cwdDir, resolved);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
-      exitErr(ERROR_CODES.PATH_NOT_FOUND, `--cwd path '${resolved}' is outside the working directory`);
+    const raw = args[idx + 1];
+    const resolved = path.resolve(raw);
+    if (!path.isAbsolute(raw)) {
+      const cwdDir = process.cwd();
+      const relative = path.relative(cwdDir, resolved);
+      if (relative.startsWith('..')) {
+        exitErr(ERROR_CODES.PATH_NOT_FOUND, `--cwd path '${resolved}' is outside the working directory`);
+      }
     }
     return resolved;
   }
@@ -2198,7 +2200,7 @@ function cmdTaskValidate(args) {
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.2.1',
+    version: '0.2.2',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
