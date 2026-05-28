@@ -390,6 +390,10 @@ In both cases, if successful:
     treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  symbols=[N]  size=[N]kb
       coverage: [lang]=[yield_rate]/[extractor] ...
   ```
+- If `treesitter_health.php_parser_status` is present and not `"disabled"`, print:
+  ```
+    php_parser: [status]    ← "active" or "fallback"
+  ```
 
 If the tool/script fails:
 - Print:
@@ -494,6 +498,10 @@ If successful (either path):
   ✓ Repo-map: [N] files indexed
     treesitter: wasm=[true/false]  parsed=[N]  errors=[N]  includes=[N]  symbols=[N]  size=[N]kb
       coverage: [lang]=[yield_rate]/[extractor] ...
+  ```
+- If `treesitter_health.php_parser_status` is present and not `"disabled"`, print:
+  ```
+    php_parser: [status]    ← "active" or "fallback"
   ```
 - Stage 1 Agent 2 (Architecture & Structure) can use the repo-map for structural
   analysis instead of manual file walks

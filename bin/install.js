@@ -215,6 +215,15 @@ function installFlowHome() {
 
   copyFile(src, dest);
   ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
+
+  // Copy PHP parser script (source file, used by compose require at runtime)
+  const phpSrc = path.join(REPO_ROOT, "bin", "flow-php-parser.php");
+  const phpDest = path.join(toolsDir, "flow-php-parser.php");
+  if (fs.existsSync(phpSrc)) {
+    copyFile(phpSrc, phpDest);
+    ok(`flow-php-parser.php ${dim(`→ ${phpDest}`)}`);
+  }
+
   installNodeDeps(toolsDir);
   return true;
 }
@@ -276,6 +285,73 @@ function installWasm() {
 
   if (copied > 0) ok(`${copied} WASM file(s) ${dim(`→ ${wasmDir}`)}`);
   return copied > 0;
+}
+
+function installPhpParserDep(cwd) {
+  // Check if project config has php_parser: "php-parser"
+  const configPath = path.join(cwd, ".flow", "config.json");
+  if (!fs.existsSync(configPath)) return;
+
+  let projectConfig;
+  try {
+    projectConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch {
+    return;
+  }
+
+  if (projectConfig.php_parser !== "php-parser") return;
+
+  info("php_parser: \"php-parser\" detected — installing nikic/php-parser...");
+
+  // Check php availability
+  try {
+    execSync("php -v", { stdio: "pipe", timeout: 5_000 });
+  } catch {
+    warn("php not found in PATH — PHP-Parser cannot be installed automatically.");
+    warn("Set php_parser back to \"treesitter\" or install php and re-run --update.");
+    return;
+  }
+
+  // Check composer availability
+  try {
+    execSync("composer -V", { stdio: "pipe", timeout: 10_000 });
+  } catch {
+    warn("composer not found in PATH — PHP-Parser cannot be installed automatically.");
+    warn("Install composer, then run: cd ~/.flow/tools && composer require nikic/php-parser");
+    return;
+  }
+
+  const toolsDir = getFlowHomeDir();
+  const autoloader = path.join(toolsDir, "vendor", "autoload.php");
+
+  if (fs.existsSync(autoloader)) {
+    ok("nikic/php-parser already installed");
+    return;
+  }
+
+  // Ensure composer.json exists in toolsDir
+  const composerJson = path.join(toolsDir, "composer.json");
+  if (!fs.existsSync(composerJson)) {
+    fs.writeFileSync(composerJson, JSON.stringify({
+      name: "flow/php-parser",
+      description: "Flow PHP-Parser dependencies",
+      require: {},
+    }, null, 2) + "\n");
+  }
+
+  try {
+    info("Running composer require nikic/php-parser...");
+    execSync("composer require nikic/php-parser", {
+      cwd: toolsDir,
+      stdio: "pipe",
+      timeout: 120_000,
+    });
+    ok("nikic/php-parser installed");
+  } catch (e) {
+    warn(`composer require failed: ${e.message}`);
+    warn("PHP-Parser will not be available — flow-tools will fall back to Treesitter.");
+    warn(`Manual: cd "${toolsDir}" && composer require nikic/php-parser`);
+  }
 }
 
 function createRuntimeBridge(runtimeFlowDir) {
@@ -1422,7 +1498,15 @@ async function runUpdate() {
     err(`Step 2b — installWasm failed: ${e.message}`);
     warn("WASM files update skipped — optional feature.");
   }
-  // ── Step 2c: Recreate runtime bridges ──────────────────────────────────────
+
+  // ── Step 2c: Auto-install PHP-Parser if php_parser: "php-parser" is set ────
+  try {
+    installPhpParserDep(cwd);
+  } catch (e) {
+    warn(`PHP-Parser install skipped: ${e.message}`);
+  }
+
+  // ── Step 2d: Recreate runtime bridges ──────────────────────────────────────
   log("");
   log(bold("Step 2c — Recreating runtime bridges..."));
   log("");

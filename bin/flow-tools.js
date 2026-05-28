@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { execSync } = require('child_process');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ERROR_CODES = {
@@ -1263,10 +1264,102 @@ function findWasmDir() {
   return null;
 }
 
+function phpParserAvailable() {
+  const available = { available: false, reason: null };
+  try {
+    execSync('php -v', { stdio: 'pipe', timeout: 5_000 });
+  } catch {
+    available.available = false;
+    available.reason = 'php not found in PATH';
+    return available;
+  }
+  const toolsDir = path.join(__dirname, '..');
+  const cwdDir = process.cwd();
+  const autoloaderCandidates = [
+    path.join(toolsDir, 'vendor', 'autoload.php'),
+    path.join(path.dirname(toolsDir), 'vendor', 'autoload.php'),
+    path.join(__dirname, 'vendor', 'autoload.php'),
+  ];
+  // Also check ~/.flow/tools/vendor
+  const homeDir = require('os').homedir();
+  const homeCandidates = [
+    path.join(homeDir, '.flow', 'tools', 'vendor', 'autoload.php'),
+    path.join(homeDir, '.flow', 'tools', 'flow-php-parser', 'vendor', 'autoload.php'),
+  ];
+
+  let foundAutoloader = false;
+  for (const candidate of [...autoloaderCandidates, ...homeCandidates]) {
+    if (fs.existsSync(candidate)) {
+      foundAutoloader = true;
+      break;
+    }
+  }
+
+  if (!foundAutoloader) {
+    available.available = false;
+    available.reason = 'PHP-Parser not installed (run: composer require nikic/php-parser)';
+    return available;
+  }
+
+  available.available = true;
+  return available;
+}
+
+function extractPhpViaParser(filePath) {
+  const result = {
+    language: 'php',
+    functions: [],
+    classes: [],
+    includes: [],
+    string_literals_flagged: [],
+    line_count: 0,
+    size_kb: 0,
+    parse_error: false,
+  };
+
+  let phpScriptPath;
+  const candidates = [
+    path.join(__dirname, 'flow-php-parser.php'),
+    path.join(path.dirname(__dirname), 'bin', 'flow-php-parser.php'),
+  ];
+  const homeDir = require('os').homedir();
+  candidates.push(path.join(homeDir, '.flow', 'tools', 'flow-php-parser.php'));
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      phpScriptPath = c;
+      break;
+    }
+  }
+
+  if (!phpScriptPath) {
+    return null;
+  }
+
+  try {
+    const raw = execSync(
+      `php "${phpScriptPath}" "${filePath}"`,
+      { stdio: 'pipe', timeout: 15_000, encoding: 'utf8', maxBuffer: 1024 * 1024 }
+    );
+    const parsed = JSON.parse(raw.trim());
+    if (parsed.error) return null;
+    result.functions = parsed.functions || [];
+    result.classes = parsed.classes || [];
+    result.includes = parsed.includes || [];
+    result.string_literals_flagged = parsed.string_literals_flagged || [];
+    result.line_count = parsed.line_count || 0;
+    result.size_kb = parsed.size_kb || 0;
+    result.parse_error = parsed.parse_error || false;
+  } catch {
+    return null;
+  }
+
+  return result;
+}
+
 function cmdIndex(args) {
   const cwd = getCwd(args);
   const scopeDirs = collectFlagValues(args, '--scope');
-  const excludeDirs = collectFlagValues(args, '--exclude');
   const phaseIdx = args.indexOf('--phase');
   const phaseNum = phaseIdx >= 0 ? args[phaseIdx + 1] : null;
   const patternsIdx = args.indexOf('--patterns');
@@ -1289,19 +1382,32 @@ function cmdIndex(args) {
     outputPath = path.join(cwd, '.flow', 'codebase', 'repo-map.json');
   }
 
-  // Skip dirs
-  const SKIP_EXACT = new Set([
-    'node_modules', '.git', '.flow', 'vendor', '.backup', 'Archives',
-    'classes', 'phpmailer', 'libs', 'library', 'packages', 'storage', 'cache', 'tmp',
-  ]);
-  excludeDirs.forEach(d => SKIP_EXACT.add(d));
+  // Skip dirs — always-skipped + user-defined skip_mapping
+  const SKIP_ALWAYS_DIRS = new Set(['node_modules', '.git', '.flow', 'vendor']);
 
-  const SKIP_PREFIXES = ['fontawesome', 'font-awesome', 'telerik', 'kendo', 'bootstrap'];
-  excludeDirs.forEach(d => SKIP_PREFIXES.push(d));
+  const rawSkipMapping = getConfigValue(cwd, 'skip_mapping', []);
+  const skipDirs = new Set();
+  const skipFiles = new Set();
+
+  for (const entry of rawSkipMapping) {
+    if (typeof entry !== 'string') continue;
+    if (entry.includes('..') || entry.includes('/') || entry.includes('\\')) continue;
+    if (entry.includes('*') || entry === '') continue;
+    if (entry.endsWith('/')) {
+      const name = entry.slice(0, -1);
+      if (name) skipDirs.add(name);
+    } else {
+      skipFiles.add(entry);
+    }
+  }
 
   function shouldSkipDir(name) {
-    if (SKIP_EXACT.has(name)) return true;
-    return SKIP_PREFIXES.some(p => name.toLowerCase().startsWith(p));
+    if (SKIP_ALWAYS_DIRS.has(name)) return true;
+    return skipDirs.has(name);
+  }
+
+  function shouldSkipFile(name) {
+    return skipFiles.has(name);
   }
 
   // Language → extension mapping
@@ -1359,9 +1465,9 @@ function cmdIndex(args) {
       if (stats.isDirectory()) {
         for (const entry of fs.readdirSync(itemPath, { withFileTypes: true })) {
           if (entry.isDirectory()) { if (shouldSkipDir(entry.name)) continue; walk(path.join(itemPath, entry.name)); }
-          else if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name))) files.push(path.join(itemPath, entry.name));
+          else if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name)) && !shouldSkipFile(entry.name)) files.push(path.join(itemPath, entry.name));
         }
-      } else if (SUPPORTED_EXTENSIONS.has(path.extname(itemPath))) {
+      } else if (SUPPORTED_EXTENSIONS.has(path.extname(itemPath)) && !shouldSkipFile(path.basename(itemPath))) {
         files.push(itemPath);
       }
     }
@@ -1414,6 +1520,20 @@ function cmdIndex(args) {
       files: {},
     };
 
+    // Check php_parser config
+    const phpParserMode = getConfigValue(cwd, 'php_parser', 'treesitter');
+    const phpParserScript = path.join(__dirname, 'flow-php-parser.php');
+    let phpParserStatus = 'disabled';
+
+    if (phpParserMode === 'php-parser') {
+      const phpCheck = phpParserAvailable();
+      if (phpCheck.available && fs.existsSync(phpParserScript)) {
+        phpParserStatus = 'active';
+      } else {
+        phpParserStatus = 'fallback';
+      }
+    }
+
     const langStats = {};  // lang → { files: 0, yielded: 0 }
 
     for (const filePath of sourceFiles) {
@@ -1422,6 +1542,29 @@ function cmdIndex(args) {
       if (!langStats[lang]) langStats[lang] = { files: 0, yielded: 0 };
       langStats[lang].files++;
       const langParser = parsers[lang];
+
+      // PHP-Parser override for PHP files when php_parser is active
+      if (lang === 'php' && phpParserStatus === 'active') {
+        try {
+          const phpResult = extractPhpViaParser(filePath);
+          if (phpResult !== null) {
+            if (phpResult.functions.length > 0 || phpResult.classes.length > 0 || phpResult.includes.length > 0) {
+              langStats[lang].yielded++;
+              astYieldCount++;
+            }
+            if (phpResult.parse_error) parseErrors++;
+            totalIncludes += phpResult.includes.length;
+            const normalizedPath = filePath.split(path.sep).join('/');
+            repoMap.files[normalizedPath] = phpResult;
+            processedCount++;
+            continue;
+          }
+        } catch {
+          errorCount++;
+          processedCount++;
+          continue;
+        }
+      }
 
       if (!langParser) {
         const normalizedPath = filePath.split(path.sep).join('/');
@@ -1475,6 +1618,8 @@ function cmdIndex(args) {
       lang_coverage,
       total_symbols,
       includes_extracted: totalIncludes,
+      php_parser: phpParserMode,
+      php_parser_status: phpParserStatus,
     };
     // Legacy shims — keep for backward compat with existing command files until P-1/P-2 ship
     treesitterHealth.wasm_php = wasmStatus.php || false;
@@ -2053,7 +2198,7 @@ function cmdTaskValidate(args) {
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.2.0',
+    version: '0.2.1',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',

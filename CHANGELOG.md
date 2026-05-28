@@ -3,6 +3,43 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] - 2026-XX-XX
+
+### Added
+- `skip_mapping` config field — user-defined list of directories and files to exclude from
+  tree-sitter indexing, using `.gitignore`-style syntax: `"folder/"` skips a directory by exact
+  name, `"file.ext"` skips a file by exact name. Matching is case-sensitive and exact
+  (no wildcards, no path traversal). Replaces the hardcoded skip list entirely.
+- `php_parser` config field — opt-in PHP indexing via nikic/PHP-Parser instead of Treesitter.
+  Set `"php_parser": "php-parser"` in `.flow/config.json` to enable. Captures procedural
+  functions, global constants (`define()`, `const`), and concatenated include paths
+  (`require __DIR__ . '/file.php'`) that Treesitter cannot resolve.
+- `bin/flow-php-parser.php` — PHP-Parser extractor script called by `cmdIndex` when
+  `php_parser: "php-parser"` is active. Output shape is identical to Treesitter entries.
+- Auto-install of `nikic/php-parser` via Composer during `--update` when
+  `php_parser: "php-parser"` is set in `config.json`. Requires `php` and `composer` in PATH.
+  Falls back gracefully with a warning if either is missing.
+- `treesitter_health` in `repo-map.json` now includes `php_parser` and `php_parser_status`
+  fields (`"disabled"`, `"active"`, or `"fallback"`).
+
+### Changed
+- `cmdIndex` skip logic replaced: hardcoded `SKIP_EXACT` (14 entries) and `SKIP_PREFIXES`
+  (5 prefixes) removed. Replaced by `SKIP_ALWAYS_DIRS` (4 entries: `node_modules`, `.git`,
+  `.flow`, `vendor`) plus user-configurable `skip_mapping`. Previously excluded directories
+  (`classes`, `libs`, `library`, `packages`, `storage`, `cache`, `tmp`, `.backup`, `Archives`,
+  and prefix-matched `fontawesome`, `bootstrap`, `telerik`, `kendo`) are no longer skipped
+  by default — add them to `skip_mapping` in your project's `config.json` if needed.
+- `--exclude` CLI flag removed from `cmdIndex` (was internal only; no documented usage).
+- `scaffold/.flow/config.json` updated with `skip_mapping: []` and `php_parser: "treesitter"`
+  defaults. Both keys are added to existing projects on `--update` without overwriting user values.
+- `flow-map-codebase.md` health printout now includes `php_parser: [status]` line when
+  `php_parser_status` is present in `treesitter_health`.
+
+### Migration note
+If your project relied on the previously hardcoded skip list (e.g. `classes/`, `libs/`,
+`bootstrap`-prefixed dirs), add them to `skip_mapping` in `.flow/config.json` after updating.
+The new default skips only `node_modules`, `.git`, `.flow`, and `vendor`.
+
 ## [0.2.0] - 2026-05-26
 
 ### Added
