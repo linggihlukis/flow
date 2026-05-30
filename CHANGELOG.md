@@ -3,6 +3,37 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.3] - 2026-05-29
+
+### Fixed
+- `skip_mapping` entries containing `/` were silently rejected by the path-traversal guard,
+  making all path-scoped exclusions (e.g. `Gaia/ajax/`, `Uranus/classes/`) dead config. The
+  guard now only rejects `..` (traversal) and `*` (wildcards). Entries are parsed into four
+  sets: `skipDirBasenames`, `skipFileBasenames`, `skipDirRelPaths`, `skipFileRelPaths`.
+- `shouldSkipDir` / `shouldSkipFile` previously matched only the entry basename, so
+  `Uranus/classes/` would erroneously skip *any* directory named `classes/` anywhere in the
+  tree. Both functions now accept `absPath` and resolve it to a relative path for exact
+  match against path-scoped sets. A `getRelativePath()` helper normalises Windows `\` to `/`
+  for cross-platform correctness.
+- `findSourceFiles` now computes `entryPath` once per entry and passes it to both skip
+  functions, eliminating the double `path.join` call in the hot walk loop.
+
+### Changed
+- PHP indexing via `php_parser: "php-parser"` now uses **batch mode**: all PHP files are
+  collected upfront and passed to a single `php flow-php-parser.php --batch <listfile>` call
+  instead of one PHP process per file. PHP startup cost (50–150 ms) is paid once regardless
+  of file count. At ~3 ms/file parse time, ~1 500 PHP files complete in under 10 seconds
+  versus 6–18 minutes previously. Single-file mode (`php flow-php-parser.php <file>`) is
+  retained as a backward-compatible fallback.
+- `extractPhpViaParser()` replaced by `findPhpParserScript()` (path resolution) and
+  `extractPhpViaBatch()` (batch executor returning `Map<path, result>`). The per-file loop
+  in `runIndex` now does a Map lookup instead of spawning a process.
+- Batch call uses a 90 s timeout (up from 15 s per file) and a 64 MB `maxBuffer` to
+  accommodate large codebases. Falls back to tree-sitter automatically if the batch call
+  returns an empty result set.
+- Temp file for the batch file list is written to `os.tmpdir()` and cleaned up in a
+  `finally` block regardless of success or failure.
+
 ## [0.2.2] - 2026-05-28
 
 ### Fixed

@@ -14,11 +14,26 @@ if ($argc < 2) {
     exit(1);
 }
 
-$filePath = $argv[1];
+$batchMode = ($argv[1] === '--batch');
 
-if (!file_exists($filePath) || !is_readable($filePath)) {
-    echo json_encode(['error' => "File not found or not readable: $filePath"]) . "\n";
-    exit(1);
+if ($batchMode) {
+    // Batch mode: argv[2] is path to a file containing newline-delimited PHP file paths
+    if ($argc < 3) {
+        echo json_encode(['error' => 'No batch file provided']) . "\n";
+        exit(1);
+    }
+    $listFile = $argv[2];
+    if (!file_exists($listFile) || !is_readable($listFile)) {
+        echo json_encode(['error' => "Batch list file not found: $listFile"]) . "\n";
+        exit(1);
+    }
+} else {
+    // Single-file mode (backward compat)
+    $filePath = $argv[1];
+    if (!file_exists($filePath) || !is_readable($filePath)) {
+        echo json_encode(['error' => "File not found or not readable: $filePath"]) . "\n";
+        exit(1);
+    }
 }
 
 // Locate autoloader from same directory as this script
@@ -182,44 +197,63 @@ class FlowVisitor extends NodeVisitorAbstract
     }
 }
 
-// Read source
-$source = file_get_contents($filePath);
-$lineCount = count(explode("\n", $source));
-$sizeKb = round(strlen($source) / 1024, 1);
+/**
+ * Parse a single PHP file and return a result array.
+ */
+function parseFile(string $filePath, ParserFactory $parserFactory): array
+{
+    $source = file_get_contents($filePath);
+    $lineCount = count(explode("\n", $source));
+    $sizeKb = round(strlen($source) / 1024, 1);
 
-// Create parser
-$parser = (new ParserFactory)->createForNewestSupportedVersion();
+    $parser = $parserFactory->createForNewestSupportedVersion();
 
-try {
-    $ast = $parser->parse($source);
+    try {
+        $ast = $parser->parse($source);
 
-    $traverser = new NodeTraverser();
-    $visitor = new FlowVisitor();
-    $traverser->addVisitor($visitor);
-    $traverser->traverse($ast);
+        $traverser = new NodeTraverser();
+        $visitor = new FlowVisitor();
+        $traverser->addVisitor($visitor);
+        $traverser->traverse($ast);
 
-    $result = [
-        'language' => 'php',
-        'functions' => array_values(array_unique($visitor->functions)),
-        'classes' => array_values(array_unique($visitor->classes)),
-        'includes' => array_values(array_unique($visitor->includes)),
-        'string_literals_flagged' => [],
-        'line_count' => $lineCount,
-        'size_kb' => $sizeKb,
-        'parse_error' => false,
-    ];
-} catch (Error $e) {
-    // Parse error — return what we can with error flag
-    $result = [
-        'language' => 'php',
-        'functions' => [],
-        'classes' => [],
-        'includes' => [],
-        'string_literals_flagged' => [],
-        'line_count' => $lineCount,
-        'size_kb' => $sizeKb,
-        'parse_error' => true,
-    ];
+        return [
+            'language'               => 'php',
+            'functions'              => array_values(array_unique($visitor->functions)),
+            'classes'                => array_values(array_unique($visitor->classes)),
+            'includes'               => array_values(array_unique($visitor->includes)),
+            'string_literals_flagged'=> [],
+            'line_count'             => $lineCount,
+            'size_kb'                => $sizeKb,
+            'parse_error'            => false,
+        ];
+    } catch (Error $e) {
+        return [
+            'language'               => 'php',
+            'functions'              => [],
+            'classes'                => [],
+            'includes'               => [],
+            'string_literals_flagged'=> [],
+            'line_count'             => $lineCount,
+            'size_kb'                => $sizeKb,
+            'parse_error'            => true,
+        ];
+    }
 }
 
-echo json_encode($result) . "\n";
+$factory = new ParserFactory();
+
+if ($batchMode) {
+    // Read file list, parse each, emit JSON object keyed by absolute path
+    $paths = array_filter(
+        array_map('trim', file($listFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES))
+    );
+    $results = [];
+    foreach ($paths as $fp) {
+        $fp = str_replace('\\', '/', $fp);  // normalise Windows separators
+        $results[$fp] = parseFile($fp, $factory);
+    }
+    echo json_encode($results) . "\n";
+} else {
+    // Single-file mode (backward compat)
+    echo json_encode(parseFile($filePath, $factory)) . "\n";
+}

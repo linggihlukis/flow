@@ -1307,56 +1307,53 @@ function phpParserAvailable() {
   return available;
 }
 
-function extractPhpViaParser(filePath) {
-  const result = {
-    language: 'php',
-    functions: [],
-    classes: [],
-    includes: [],
-    string_literals_flagged: [],
-    line_count: 0,
-    size_kb: 0,
-    parse_error: false,
-  };
-
-  let phpScriptPath;
+function findPhpParserScript() {
+  const homeDir = require('os').homedir();
   const candidates = [
     path.join(__dirname, 'flow-php-parser.php'),
     path.join(path.dirname(__dirname), 'bin', 'flow-php-parser.php'),
+    path.join(homeDir, '.flow', 'tools', 'flow-php-parser.php'),
   ];
-  const homeDir = require('os').homedir();
-  candidates.push(path.join(homeDir, '.flow', 'tools', 'flow-php-parser.php'));
-
   for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      phpScriptPath = c;
-      break;
-    }
+    if (fs.existsSync(c)) return c;
   }
+  return null;
+}
 
-  if (!phpScriptPath) {
-    return null;
-  }
+/**
+ * Batch-parse an array of PHP file paths using a single PHP process.
+ * Returns a Map<absPath, resultObject>. Paths that fail are omitted.
+ */
+function extractPhpViaBatch(filePaths, phpScriptPath) {
+  const os = require('os');
+  const tmpList = path.join(os.tmpdir(), `flow-php-batch-${process.pid}.txt`);
+  // Write forward-slash paths (PHP handles them on Windows too)
+  const normalized = filePaths.map(p => p.replace(/\\/g, '/'));
+  fs.writeFileSync(tmpList, normalized.join('\n'), 'utf8');
 
+  const results = new Map();
   try {
     const raw = execSync(
-      `php "${phpScriptPath}" "${filePath}"`,
-      { stdio: 'pipe', timeout: 15_000, encoding: 'utf8', maxBuffer: 1024 * 1024 }
+      `php "${phpScriptPath}" --batch "${tmpList}"`,
+      {
+        stdio: 'pipe',
+        // Generous timeout: 90s covers ~1500 files at 3ms each with headroom
+        timeout: 90_000,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,  // 64 MB — batch output can be large
+      }
     );
     const parsed = JSON.parse(raw.trim());
-    if (parsed.error) return null;
-    result.functions = parsed.functions || [];
-    result.classes = parsed.classes || [];
-    result.includes = parsed.includes || [];
-    result.string_literals_flagged = parsed.string_literals_flagged || [];
-    result.line_count = parsed.line_count || 0;
-    result.size_kb = parsed.size_kb || 0;
-    result.parse_error = parsed.parse_error || false;
+    if (parsed.error) return results;  // top-level error (e.g. bad list file)
+    for (const [fp, entry] of Object.entries(parsed)) {
+      if (!entry.error) results.set(fp, entry);
+    }
   } catch {
-    return null;
+    // batch call failed — caller falls back to tree-sitter for PHP files
+  } finally {
+    try { fs.unlinkSync(tmpList); } catch { /* ignore */ }
   }
-
-  return result;
+  return results;
 }
 
 function cmdIndex(args) {
@@ -1388,28 +1385,48 @@ function cmdIndex(args) {
   const SKIP_ALWAYS_DIRS = new Set(['node_modules', '.git', '.flow', 'vendor']);
 
   const rawSkipMapping = getConfigValue(cwd, 'skip_mapping', []);
-  const skipDirs = new Set();
-  const skipFiles = new Set();
+  const skipDirBasenames  = new Set();
+  const skipFileBasenames = new Set();
+  const skipDirRelPaths   = new Set();  // e.g. 'Gaia/ajax'
+  const skipFileRelPaths  = new Set();  // e.g. 'Gaia/connectdb.php'
 
   for (const entry of rawSkipMapping) {
     if (typeof entry !== 'string') continue;
-    if (entry.includes('..') || entry.includes('/') || entry.includes('\\')) continue;
-    if (entry.includes('*') || entry === '') continue;
-    if (entry.endsWith('/')) {
-      const name = entry.slice(0, -1);
-      if (name) skipDirs.add(name);
+    if (entry.includes('..') || entry.includes('*') || entry === '') continue;
+    const normalized = entry.replace(/\\/g, '/');  // normalise Windows separators
+    const isDir = normalized.endsWith('/');
+    const namePart = isDir ? normalized.slice(0, -1) : normalized;
+    const isPathBased = namePart.includes('/');
+    if (isDir) {
+      if (isPathBased) skipDirRelPaths.add(namePart);
+      else             skipDirBasenames.add(namePart);
     } else {
-      skipFiles.add(entry);
+      if (isPathBased) skipFileRelPaths.add(namePart);
+      else             skipFileBasenames.add(namePart);
     }
   }
 
-  function shouldSkipDir(name) {
-    if (SKIP_ALWAYS_DIRS.has(name)) return true;
-    return skipDirs.has(name);
+  function getRelativePath(absPath) {
+    return path.relative(cwd, absPath).replace(/\\/g, '/');
   }
 
-  function shouldSkipFile(name) {
-    return skipFiles.has(name);
+  function shouldSkipDir(name, absPath) {
+    if (SKIP_ALWAYS_DIRS.has(name)) return true;
+    if (skipDirBasenames.has(name)) return true;
+    if (absPath) {
+      const rel = getRelativePath(absPath);
+      if (skipDirRelPaths.has(rel)) return true;
+    }
+    return false;
+  }
+
+  function shouldSkipFile(name, absPath) {
+    if (skipFileBasenames.has(name)) return true;
+    if (absPath) {
+      const rel = getRelativePath(absPath);
+      if (skipFileRelPaths.has(rel)) return true;
+    }
+    return false;
   }
 
   // Language → extension mapping
@@ -1466,10 +1483,11 @@ function cmdIndex(args) {
       const stats = fs.statSync(itemPath);
       if (stats.isDirectory()) {
         for (const entry of fs.readdirSync(itemPath, { withFileTypes: true })) {
-          if (entry.isDirectory()) { if (shouldSkipDir(entry.name)) continue; walk(path.join(itemPath, entry.name)); }
-          else if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name)) && !shouldSkipFile(entry.name)) files.push(path.join(itemPath, entry.name));
+          const entryPath = path.join(itemPath, entry.name);
+          if (entry.isDirectory()) { if (shouldSkipDir(entry.name, entryPath)) continue; walk(entryPath); }
+          else if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name)) && !shouldSkipFile(entry.name, entryPath)) files.push(entryPath);
         }
-      } else if (SUPPORTED_EXTENSIONS.has(path.extname(itemPath)) && !shouldSkipFile(path.basename(itemPath))) {
+      } else if (SUPPORTED_EXTENSIONS.has(path.extname(itemPath)) && !shouldSkipFile(path.basename(itemPath), itemPath)) {
         files.push(itemPath);
       }
     }
@@ -1524,15 +1542,26 @@ function cmdIndex(args) {
 
     // Check php_parser config
     const phpParserMode = getConfigValue(cwd, 'php_parser', 'treesitter');
-    const phpParserScript = path.join(__dirname, 'flow-php-parser.php');
+    const phpParserScript = findPhpParserScript();
     let phpParserStatus = 'disabled';
 
     if (phpParserMode === 'php-parser') {
       const phpCheck = phpParserAvailable();
-      if (phpCheck.available && fs.existsSync(phpParserScript)) {
+      if (phpCheck.available && phpParserScript) {
         phpParserStatus = 'active';
       } else {
         phpParserStatus = 'fallback';
+      }
+    }
+
+    // Pre-parse all PHP files in one batch call when php-parser is active
+    let phpBatchResults = new Map();
+    if (phpParserStatus === 'active') {
+      const phpFiles = sourceFiles.filter(f => path.extname(f) === '.php');
+      if (phpFiles.length > 0) {
+        phpBatchResults = extractPhpViaBatch(phpFiles, phpParserScript);
+        // If batch returned nothing at all, fall back to treesitter for PHP
+        if (phpBatchResults.size === 0) phpParserStatus = 'fallback';
       }
     }
 
@@ -1545,27 +1574,22 @@ function cmdIndex(args) {
       langStats[lang].files++;
       const langParser = parsers[lang];
 
-      // PHP-Parser override for PHP files when php_parser is active
+      // PHP-Parser override: consume pre-built batch results
       if (lang === 'php' && phpParserStatus === 'active') {
-        try {
-          const phpResult = extractPhpViaParser(filePath);
-          if (phpResult !== null) {
-            if (phpResult.functions.length > 0 || phpResult.classes.length > 0 || phpResult.includes.length > 0) {
-              langStats[lang].yielded++;
-              astYieldCount++;
-            }
-            if (phpResult.parse_error) parseErrors++;
-            totalIncludes += phpResult.includes.length;
-            const normalizedPath = filePath.split(path.sep).join('/');
-            repoMap.files[normalizedPath] = phpResult;
-            processedCount++;
-            continue;
+        const normalizedPath = filePath.replace(/\\/g, '/');
+        const phpResult = phpBatchResults.get(normalizedPath) || null;
+        if (phpResult !== null) {
+          if (phpResult.functions.length > 0 || phpResult.classes.length > 0 || phpResult.includes.length > 0) {
+            langStats[lang].yielded++;
+            astYieldCount++;
           }
-        } catch {
-          errorCount++;
+          if (phpResult.parse_error) parseErrors++;
+          totalIncludes += phpResult.includes.length;
+          repoMap.files[normalizedPath] = phpResult;
           processedCount++;
           continue;
         }
+        // If not in batch results, fall through to treesitter
       }
 
       if (!langParser) {
@@ -2200,7 +2224,7 @@ function cmdTaskValidate(args) {
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '0.2.2',
+    version: '0.2.3',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
