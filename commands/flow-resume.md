@@ -3,6 +3,8 @@ description: Resume work — read state, surface lessons, load handoff, orient a
 agent: build
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §4 (Session Start), §9 (Lesson Injection), §15 (Reading Discipline), §17 (Session Discipline) before doing anything else.
 
 `[flow-tools-path]`:
@@ -90,6 +92,37 @@ If relevant lessons found, surface them:
   • [pattern — one line]
 ```
 If no relevant lessons — skip silently.
+
+**Prospective lesson check** — after loading recent lessons, run:
+```bash
+node [flow-tools-path] lessons recent --cwd . --n 20 --query "[upcoming phase zone]"
+```
+Where `[upcoming phase zone]` is derived from the next phase's CONTEXT.md scope (if it exists)
+or from the upcoming phase number in roadmap.md.
+
+From the returned entries, extract those whose `Pattern` field includes words from the
+upcoming phase's zone names. Surface any matches with:
+```
+⚠️  Applicable lesson from prior work:
+    Phase [X]: [Pattern field content]
+    See .flow/memory/lessons.md for full detail.
+```
+Display maximum 3 matched lessons. If none match — skip silently.
+
+## Cross-phase lesson propagation
+
+Before resuming, check if recent lessons are relevant to this phase:
+
+1. Read `.flow/config.json` → current milestone and phase
+2. Read `M/phases/phase-{active_phase}/CONTEXT.md` (if exists) to identify the phase's focus zones
+3. Run: `node [flow-tools-path] lessons recent --n 10 --body-filter "[zone-name]" --cwd .`
+   (or read last 10 from `.flow/memory/lessons.md` and grep for zone keywords)
+4. If matching lessons found: display them as:
+   ```
+   📋 Lessons relevant to this phase:
+   - [lesson header] — [Pattern: ...]
+   ```
+5. If no matches: skip silently.
 
 ## Step 5: Load Handoff
 
@@ -199,3 +232,4 @@ Tests:       [passing / N failing]
 Last action: [description]
 Next step:   [exact command]
 ```
+<!-- stage:0 end -->

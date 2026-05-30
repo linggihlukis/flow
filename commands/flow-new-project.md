@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §7 (Destructive Tiers), §12 (State Write) before doing anything else.
 
 # /flow-new-project
@@ -92,7 +94,11 @@ If developer chooses `/flow-quick` — stop here. Do not ask any more questions.
 If developer wants full project setup — proceed to Stage 1.
 If the request is clearly a multi-feature product or new system — skip the triage question and proceed directly to Stage 1.
 
+<!-- stage:0 end -->
+
 ---
+
+<!-- stage:1 start -->
 
 ## Stage 1: Questions
 
@@ -125,7 +131,11 @@ You must understand before proceeding:
 Ask until satisfied, then ask: "Does this capture your project correctly? Anything to add or change?"
 Do not proceed to Stage 2 until the developer confirms.
 
+<!-- stage:1 end -->
+
 ---
+
+<!-- stage:2 start -->
 
 ## Stage 2: Research
 
@@ -150,7 +160,11 @@ Spawn `@flow-researcher` for each brief (parallel if depth is standard/comprehen
 
 Each researcher writes its findings to `.flow/quick/research-brief-{N}.md`. Consolidate into `.flow/quick/project-research.md`.
 
+<!-- stage:2 end -->
+
 ---
+
+<!-- stage:3 start -->
 
 ## Stage 3: Requirements
 
@@ -192,7 +206,11 @@ Write `.flow/milestones/milestone-01/requirements.md`:
 
 Show the draft to the developer. Ask for confirmation before proceeding.
 
+<!-- stage:3 end -->
+
 ---
+
+<!-- stage:4 start -->
 
 ## Stage 4: Roadmap
 
@@ -255,3 +273,4 @@ v1 Scope:  [one sentence]
 
 Next step: /flow-discuss-phase 1
 ```
+<!-- stage:4 end -->

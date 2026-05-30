@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-list-phase-assumptions $ARGUMENTS
@@ -86,3 +88,4 @@ If the developer confirms:
 
 Next step: /flow-plan-phase $ARGUMENTS
 ```
+<!-- stage:0 end -->

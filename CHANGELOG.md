@@ -3,6 +3,46 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] - 2026-05-30
+
+### Added
+- 24 modular `bin/lib/` modules replacing the 2,400-line `flow-tools.js` monolith: `platform.js`, `cache.js`, `schemas.js`, `path-resolver.js`, `state.js`, `frontmatter.js`, `config.js`, `files.js`, `context.js`, `lessons.js`, `kb.js`, `patterns.js`, `phase.js`, `audit.js`, `repo-map.js`, `php-extractor.js`, `ts-extractor.js`, `index.js`, `task.js`, `batch.js`, `content.js`, `runtime-registry.js`, `runtime.js`, `_cli-utils.js`.
+- `lib/runtime-registry.js` — single source of truth for 4 runtimes (OpenCode, Claude, Codex, Antigravity) with path configuration and capability flags.
+- `lib/batch.js` — batch command executor accepts JSON array of operations via stdin, dispatches through `_libRoutes`, returns JSON array of results. Replaces 15–28 sequential `node` spawns per workflow with 1.
+- `lib/content.js` — `content check` subcommand for prompt-injection detection (7 regex patterns).
+- `lib/state.js` — `state validate`, `state sync`, `state migrate` subcommands for state integrity.
+- `lib/task.js` — `task validate` subcommand with 13 structural checks (Schema Gate).
+- `lib/runtime.js` — `runtime detect` subcommand.
+- In-process LRU cache (`lib/cache.js`) with mtime-based invalidation, wired into `lib/state.js`, `lib/config.js`, `lib/patterns.js` reads.
+- File locking for `lib/state.js` writes with exclusive lock file (`state.md.lock`).
+- SHA-256 integrity manifest generated during install, checked on `flow-tools.js` startup.
+- `<!-- stage:N start/end -->` markers added to all 24 command files for staged loading protocol.
+- Unit tests for all Phase 0 modules (`test/lib/`), contract tests (`test/contract-tests.js`), integration tests (`test/integration/`).
+- `npm run test:lib`, `npm run test:contracts`, `npm run test:integration`, `npm run docs` scripts.
+- `scripts/generate-docs.js` — auto-generates API reference from `lib/schemas.js`.
+- `node:` protocol prefix for all built-in module imports (`require('node:fs')`, etc.) — 29 files updated across `bin/`, `test/`, and `commands/`.
+
+### Changed
+- `bin/flow-tools.js` rewritten from ~2,400 line monolith to ~250 line thin dispatcher. All command implementations extracted into `lib/` modules. Dispatcher uses `_libRoutes` map with dynamic `require()`, validates inputs against JSON Schema, and handles both sync (throw-based) and async (Promise) module returns.
+- `lib/path-resolver.js` — symlink-aware `resolveSafePath()` using `fs.realpathSync`, replacing the non-symlink-resolving version in the old monolith.
+- `lib/schemas.js` — 24 subcommand JSON Schema contracts (input + output), used for dispatcher validation, contract tests, and API docs.
+- `lib/state.js` — dual-writes `state.json` alongside `state.md`; reads prefer `state.json` for faster JSON.parse. `cmdStateMigrate` converts legacy `state.md`-only projects.
+- `lib/frontmatter.js` — `_quoteYamlValue` quotes values containing YAML-unsafe characters (`:`, `#`, `{}`, `[]`, etc.) before serialization.
+- `bin/install.js` — `resolveTemplates()` replaces `[flow-tools-path]`, `[flow-tools-dir]`, `[flow-pkg-dir]` placeholders per runtime. `createRuntimeBridge()` generates `.cmd` shims (Windows) or symlinks (Unix) per-runtime instead of hardcoded paths. All `execSync` calls replaced with `execFileSync`.
+- All 24 command `.md` files updated with `[flow-tools-path]` template placeholders, `[flow-pkg-dir]` fallback paths, `<!-- stage:N start/end -->` markers, and cross-phase lesson propagation logic.
+- Merged `AGENTS-EXTENSIONS.md` (§9–§22) back into `AGENTS.md` — the split created a reliability gap because extensions were not auto-loaded by runtimes.
+
+### Removed
+- `bin/flow-php-parser.php` and `bin/lib/php-extractor.js` — PHP-Parser extractor was redundant with TreeSitter (already handles PHP via WASM grammar). Removed 500+ lines of PHP runtime detection, Composer dependency management, batch processing, and fallback logic.
+- `php_parser` config key from scaffold `config.json` — TreeSitter is now the only parser.
+- `php_parser` and `php_parser_status` fields from `repo-map.json` `treesitter_health`.
+- `agents/*.flow-agent.yml` source files and `transpileAgent()` dead code from `install.js` — transpiler was never wired into the install flow.
+- `<!-- section:NN start/end -->` comment markers from `AGENTS.md` — no tool reads them.
+- All `<!-- load:... -->` and `<!-- agents-core/extensions -->` split markers from `AGENTS.md`.
+
+### Security
+- Expanded `sanitizeStateValue()` regex from `[\n\r]` to `[\n\r:{}\[\]#]` — blocks all YAML-injection characters in state values.
+
 ## [0.2.3] - 2026-05-29
 
 ### Fixed

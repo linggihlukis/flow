@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const readline = require("readline");
-const { execSync } = require("child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+const os = require("node:os");
+const readline = require("node:readline");
+const { execFileSync } = require("node:child_process");
+const { getRuntime } = require('./lib/runtime-registry');
+const { Platform } = require('./lib/platform');
 
 // ─── Environment Variables Consumed ─────────────────────────────────────────
 // USERPROFILE       — Windows user home directory (fallback for os.homedir())
@@ -201,7 +203,7 @@ function copyFile(src, dest) {
 }
 
 // ─── Flow tools install ───────────────────────────────────────────────────────
-function installFlowHome() {
+function installFlowHome(runtimeName) {
   const toolsDir = getFlowHomeDir();
   ensureDir(toolsDir);
 
@@ -213,18 +215,26 @@ function installFlowHome() {
     return false;
   }
 
-  copyFile(src, dest);
-  ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
-
-  // Copy PHP parser script (source file, used by compose require at runtime)
-  const phpSrc = path.join(REPO_ROOT, "bin", "flow-php-parser.php");
-  const phpDest = path.join(toolsDir, "flow-php-parser.php");
-  if (fs.existsSync(phpSrc)) {
-    copyFile(phpSrc, phpDest);
-    ok(`flow-php-parser.php ${dim(`→ ${phpDest}`)}`);
+  if (runtimeName) {
+    const content = fs.readFileSync(src, 'utf8');
+    const resolved = resolveTemplates(content, runtimeName);
+    fs.writeFileSync(dest, resolved, 'utf8');
+    ok(`flow-tools.js ${dim(`→ ${dest}`)} (${runtimeName})`);
+  } else {
+    copyFile(src, dest);
+    ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
   }
 
   installNodeDeps(toolsDir);
+
+  // Generate SHA-256 integrity manifest
+  try {
+    const crypto = require('node:crypto');
+    const hash = crypto.createHash('sha256').update(fs.readFileSync(dest)).digest('hex');
+    const manifestPath = path.join(toolsDir, 'manifest.json');
+    fs.writeFileSync(manifestPath, JSON.stringify({ 'flow-tools.js': hash, installedAt: new Date().toISOString() }));
+  } catch {}
+
   return true;
 }
 
@@ -251,8 +261,8 @@ function installNodeDeps(toolsDir) {
 
   info(`Installing flow-tools deps: ${missing.join(", ")}`);
   try {
-    execSync(
-      `npm install --prefix "${toolsDir}" --save ${missing.join(" ")}`,
+    execFileSync(
+      "npm", ["install", "--prefix", toolsDir, "--save", ...missing],
       { stdio: "pipe", timeout: 60_000 }
     );
     ok(`flow-tools deps installed ${dim(`→ ${toolsDir}/node_modules`)}`);
@@ -287,92 +297,39 @@ function installWasm() {
   return copied > 0;
 }
 
-function installPhpParserDep(cwd) {
-  // Check if project config has php_parser: "php-parser"
-  const configPath = path.join(cwd, ".flow", "config.json");
-  if (!fs.existsSync(configPath)) return;
-
-  let projectConfig;
-  try {
-    projectConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  } catch {
-    return;
-  }
-
-  if (projectConfig.php_parser !== "php-parser") return;
-
-  info("php_parser: \"php-parser\" detected — installing nikic/php-parser...");
-
-  // Check php availability
-  try {
-    execSync("php -v", { stdio: "pipe", timeout: 5_000 });
-  } catch {
-    warn("php not found in PATH — PHP-Parser cannot be installed automatically.");
-    warn("Set php_parser back to \"treesitter\" or install php and re-run --update.");
-    return;
-  }
-
-  // Check composer availability
-  try {
-    execSync("composer -V", { stdio: "pipe", timeout: 10_000 });
-  } catch {
-    warn("composer not found in PATH — PHP-Parser cannot be installed automatically.");
-    warn("Install composer, then run: cd ~/.flow/tools && composer require nikic/php-parser");
-    return;
-  }
-
-  const toolsDir = getFlowHomeDir();
-  const autoloader = path.join(toolsDir, "vendor", "autoload.php");
-
-  if (fs.existsSync(autoloader)) {
-    ok("nikic/php-parser already installed");
-    return;
-  }
-
-  // Ensure composer.json exists in toolsDir
-  const composerJson = path.join(toolsDir, "composer.json");
-  if (!fs.existsSync(composerJson)) {
-    fs.writeFileSync(composerJson, JSON.stringify({
-      name: "flow/php-parser",
-      description: "Flow PHP-Parser dependencies",
-      require: {},
-    }, null, 2) + "\n");
-  }
-
-  try {
-    info("Running composer require nikic/php-parser...");
-    execSync("composer require nikic/php-parser", {
-      cwd: toolsDir,
-      stdio: "pipe",
-      timeout: 120_000,
-    });
-    ok("nikic/php-parser installed");
-  } catch (e) {
-    warn(`composer require failed: ${e.message}`);
-    warn("PHP-Parser will not be available — flow-tools will fall back to Treesitter.");
-    warn(`Manual: cd "${toolsDir}" && composer require nikic/php-parser`);
-  }
+// ─── Template resolution ──────────────────────────────────────────────────────
+function resolveTemplates(content, runtimeName) {
+  const r = getRuntime(runtimeName);
+  const toolsPath = Platform.normalize(path.join(r.toolsDir, r.toolsFile));
+  const toolsDir  = Platform.normalize(r.toolsDir);
+  const pkgDir    = Platform.normalize(path.join(__dirname, '..'));
+  return content
+    .replace(/\[flow-tools-path\]/g, toolsPath)
+    .replace(/\{\{FLOW_TOOLS_PATH\}\}/g, toolsPath)
+    .replace(/\[flow-tools-dir\]/g, toolsDir)
+    .replace(/\[flow-pkg-dir\]/g, pkgDir);
 }
 
-function createRuntimeBridge(runtimeFlowDir) {
+function createRuntimeBridge(runtimeFlowDir, runtimeName) {
   ensureDir(runtimeFlowDir);
 
-  const toolsSource = path.join(getFlowHomeDir(), "flow-tools.js");
+  const r = getRuntime(runtimeName || 'opencode');
+  const toolsPath = Platform.normalize(path.join(r.toolsDir, r.toolsFile));
 
   if (isWindows) {
     const shimPath = path.join(runtimeFlowDir, "flow-tools.cmd");
     if (fs.existsSync(shimPath)) return;
-    const shimContent = `@echo off\nnode "%USERPROFILE%\\.flow\\tools\\flow-tools.js" %*\n`;
+    const shimContent = `@echo off\nnode "${toolsPath}" %*\n`;
     fs.writeFileSync(shimPath, shimContent);
     ok(`flow-tools.cmd shim ${dim(`→ ${shimPath}`)}`);
   } else {
     const linkPath = path.join(runtimeFlowDir, "flow-tools.js");
     try {
       fs.lstatSync(linkPath);
-      return; // already exists
-    } catch { /* doesn't exist */ }
+      return;
+    } catch { }
     try {
-      fs.symlinkSync(toolsSource, linkPath);
+      fs.symlinkSync(toolsPath, linkPath);
       ok(`flow-tools.js symlink ${dim(`→ ${linkPath}`)}`);
     } catch (e) {
       warn(`Symlink creation failed: ${e.message}`);
@@ -715,29 +672,49 @@ function runSyncModels(runtime, location) {
 
 // ─── Install commands ─────────────────────────────────────────────────────────
 // Commands are flat .md files — copy them directly to the target commands dir
-function installCommands(commandsDir) {
+function installCommands(commandsDir, runtimeName) {
+  if (!runtimeName) {
+    ensureDir(commandsDir);
+    const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
+    for (const file of files) {
+      copyFile(path.join(COMMANDS_DIR, file), path.join(commandsDir, file));
+    }
+    return files.length;
+  }
   ensureDir(commandsDir);
   const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
-    copyFile(path.join(COMMANDS_DIR, file), path.join(commandsDir, file));
+    const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+    const resolved = resolveTemplates(content, runtimeName);
+    fs.writeFileSync(path.join(commandsDir, file), resolved, 'utf8');
   }
   return files.length;
 }
 
 // ─── Install agents ───────────────────────────────────────────────────────────
 // Agent .md files go to the runtime's agents directory
-function installAgents(agentsDir) {
+function installAgents(agentsDir, runtimeName) {
   const AGENTS_DIR = path.join(REPO_ROOT, "agents");
   if (!fs.existsSync(AGENTS_DIR)) return 0;
+  if (!runtimeName) {
+    ensureDir(agentsDir);
+    const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
+    for (const file of files) {
+      copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
+    }
+    return files.length;
+  }
   ensureDir(agentsDir);
   const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
-    copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
+    const content = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
+    const resolved = resolveTemplates(content, runtimeName);
+    fs.writeFileSync(path.join(agentsDir, file), resolved, 'utf8');
   }
   return files.length;
 }
 
-function installCodexSkills(skillsDir) {
+function installCodexSkills(skillsDir, runtimeName) {
   ensureDir(skillsDir);
   const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
@@ -746,12 +723,13 @@ function installCodexSkills(skillsDir) {
     const skillDir = path.join(skillsDir, name);
     ensureDir(skillDir);
     const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, source));
+    const content = runtimeName ? resolveTemplates(source, runtimeName) : source;
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
   }
   return files.length;
 }
 
-function installCodexAgents(agentsDir) {
+function installCodexAgents(agentsDir, runtimeName) {
   const AGENTS_DIR = path.join(REPO_ROOT, "agents");
   if (!fs.existsSync(AGENTS_DIR)) return 0;
   ensureDir(agentsDir);
@@ -759,22 +737,21 @@ function installCodexAgents(agentsDir) {
   for (const file of files) {
     const name = path.basename(file, ".md");
     const source = fs.readFileSync(path.join(AGENTS_DIR, file), "utf8");
-    const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+    const resolved = runtimeName ? resolveTemplates(source, runtimeName) : source;
+    const match = resolved.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
     const fm = match ? match[1] : "";
     const descriptionMatch = fm.match(/^description:\s*(.+)$/m);
-    // Codex sandbox mode should follow write/edit permissions only.
-    // Some FLOW agents are read-only but still need bash access for reads.
     const sandboxMode = detectCodexSandboxMode(source);
     const description = descriptionMatch ? descriptionMatch[1].trim() : "FLOW custom agent";
     fs.writeFileSync(
       path.join(agentsDir, `${name}.toml`),
-      generateCodexAgentToml(name, description, source, sandboxMode)
+      generateCodexAgentToml(name, description, resolved, sandboxMode)
     );
   }
   return files.length;
 }
 
-function installAntigravity(baseDir) {
+function installAntigravity(baseDir, runtimeName) {
   const workflowsDir = path.join(baseDir, "flow", "workflows");
   const agentsDir    = path.join(baseDir, "flow", "agents");
   const skillsBase   = path.join(baseDir, "skills");
@@ -784,7 +761,13 @@ function installAntigravity(baseDir) {
 
   const commandFiles = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
   for (const file of commandFiles) {
-    copyFile(path.join(COMMANDS_DIR, file), path.join(workflowsDir, file));
+    if (runtimeName) {
+      const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+      const resolved = resolveTemplates(content, runtimeName);
+      fs.writeFileSync(path.join(workflowsDir, file), resolved, 'utf8');
+    } else {
+      copyFile(path.join(COMMANDS_DIR, file), path.join(workflowsDir, file));
+    }
   }
 
   const AGENTS_DIR = path.join(REPO_ROOT, "agents");
@@ -792,7 +775,13 @@ function installAntigravity(baseDir) {
   if (fs.existsSync(AGENTS_DIR)) {
     const agentFiles = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
     for (const file of agentFiles) {
-      copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
+      if (runtimeName) {
+        const content = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
+        const resolved = resolveTemplates(content, runtimeName);
+        fs.writeFileSync(path.join(agentsDir, file), resolved, 'utf8');
+      } else {
+        copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
+      }
     }
     agentCount = agentFiles.length;
   }
@@ -815,6 +804,7 @@ function installScaffold(projectRoot) {
   const files = [
     [path.join(SCAFFOLD_DIR, "AGENTS.md"),                                              path.join(projectRoot, "AGENTS.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "state.md"),                                      path.join(projectRoot, ".flow", "state.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "state.json"),                                   path.join(projectRoot, ".flow", "state.json")],
     [path.join(SCAFFOLD_DIR, ".flow", "config.json"),                                 path.join(projectRoot, ".flow", "config.json")],
     [path.join(SCAFFOLD_DIR, ".flow", "memory", "lessons.md"),                         path.join(projectRoot, ".flow", "memory", "lessons.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "memory", "knowledge-base.md"),                  path.join(projectRoot, ".flow", "memory", "knowledge-base.md")],
@@ -1119,18 +1109,21 @@ function resolveTargets(runtime, location) {
     if (runtime === "opencode" || runtime === "all")
       targets.push({
         label: `OpenCode  (global) ${dim(path.join(getGlobalOpenCodeDir(), "commands"))}`,
+        runtimeName: "opencode",
         dir: path.join(getGlobalOpenCodeDir(), "commands"),
         agentsDir: path.join(getGlobalOpenCodeDir(), "agents"),
       });
     if (runtime === "claude" || runtime === "all")
       targets.push({
         label: `Claude Code (global) ${dim(path.join(getGlobalClaudeDir(), "commands"))}`,
+        runtimeName: "claude",
         dir: path.join(getGlobalClaudeDir(), "commands"),
         agentsDir: path.join(getGlobalClaudeDir(), "agents"),
       });
     if (runtime === "codex" || runtime === "all")
       targets.push({
         label: `Codex App / CLI (global) ${dim(getGlobalCodexSkillsDir())}`,
+        runtimeName: "codex",
         kind: "codex",
         skillsDir: getGlobalCodexSkillsDir(),
         agentsDir: getGlobalCodexAgentsDir(),
@@ -1139,18 +1132,21 @@ function resolveTargets(runtime, location) {
     if (runtime === "opencode" || runtime === "all")
       targets.push({
         label: `OpenCode  (local) ${dim(path.join(cwd, ".opencode", "commands"))}`,
+        runtimeName: "opencode",
         dir: path.join(cwd, ".opencode", "commands"),
         agentsDir: path.join(cwd, ".opencode", "agents"),
       });
     if (runtime === "claude" || runtime === "all")
       targets.push({
         label: `Claude Code (local) ${dim(path.join(cwd, ".claude", "commands"))}`,
+        runtimeName: "claude",
         dir: path.join(cwd, ".claude", "commands"),
         agentsDir: path.join(cwd, ".claude", "agents"),
       });
     if (runtime === "codex" || runtime === "all")
       targets.push({
         label: `Codex App / CLI (local) ${dim(path.join(cwd, ".agents", "skills"))}`,
+        runtimeName: "codex",
         kind: "codex",
         skillsDir: path.join(cwd, ".agents", "skills"),
         agentsDir: path.join(cwd, ".codex", "agents"),
@@ -1233,21 +1229,21 @@ async function main() {
   for (const target of targets) {
     try {
       if (target.kind === "codex") {
-        const sc = installCodexSkills(target.skillsDir);
-        const ac = installCodexAgents(target.agentsDir);
+        const sc = installCodexSkills(target.skillsDir, target.runtimeName);
+        const ac = installCodexAgents(target.agentsDir, target.runtimeName);
         if (skillCount === 0) skillCount = sc;
         if (agentCount === 0) agentCount = ac;
         ok(`${target.label}`);
         ok(`  ${sc} skills + ${ac} agents installed`);
-        createRuntimeBridge(path.join(path.dirname(target.agentsDir), "flow"));
+        createRuntimeBridge(path.join(path.dirname(target.agentsDir), "flow"), target.runtimeName);
       } else {
-        const installedCount = installCommands(target.dir);
+        const installedCount = installCommands(target.dir, target.runtimeName);
         if (commandCount === 0) commandCount = installedCount;
-        const ac = installAgents(target.agentsDir);
+        const ac = installAgents(target.agentsDir, target.runtimeName);
         if (agentCount === 0) agentCount = ac;
         ok(`${target.label}`);
         ok(`  ${installedCount} commands + ${ac} agents installed`);
-        createRuntimeBridge(path.join(path.dirname(target.dir), "flow"));
+        createRuntimeBridge(path.join(path.dirname(target.dir), "flow"), target.runtimeName);
       }
     } catch (e) {
       err(`Failed: ${e.message}`);
@@ -1257,7 +1253,7 @@ async function main() {
   if (runtime === "antigravity" || runtime === "all") {
     try {
       const agDir = getGlobalAntigravityDir();
-      const { workflows, agents, skills } = installAntigravity(agDir);
+      const { workflows, agents, skills } = installAntigravity(agDir, "antigravity");
       ok(`Antigravity (global) ${dim(agDir)}`);
       ok(`  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
     } catch (e) {
@@ -1267,7 +1263,7 @@ async function main() {
 
   // Flow tools — install home directory + WASM
   log(""); info("Installing Flow tools...");
-  installFlowHome();
+  installFlowHome(runtime);
   installWasm();
 
   // Scaffold — always install into the current project directory
@@ -1426,48 +1422,48 @@ async function runUpdate() {
 
   if (installed.opencode.global) {
     try {
-      const cmdCount = installCommands(path.join(getGlobalOpenCodeDir(), "commands"));
-      const agCount  = installAgents(path.join(getGlobalOpenCodeDir(), "agents"));
+      const cmdCount = installCommands(path.join(getGlobalOpenCodeDir(), "commands"), "opencode");
+      const agCount  = installAgents(path.join(getGlobalOpenCodeDir(), "agents"), "opencode");
       ok(`OpenCode global: ${cmdCount} commands + ${agCount} agents`);
     } catch (e) { err(`OpenCode global failed: ${e.message}`); }
   }
 
   if (installed.opencode.local) {
     try {
-      const cmdCount = installCommands(path.join(cwd, ".opencode", "commands"));
-      const agCount  = installAgents(path.join(cwd, ".opencode", "agents"));
+      const cmdCount = installCommands(path.join(cwd, ".opencode", "commands"), "opencode");
+      const agCount  = installAgents(path.join(cwd, ".opencode", "agents"), "opencode");
       ok(`OpenCode local:  ${cmdCount} commands + ${agCount} agents`);
     } catch (e) { err(`OpenCode local failed: ${e.message}`); }
   }
 
   if (installed.claude.global) {
     try {
-      const cmdCount = installCommands(path.join(getGlobalClaudeDir(), "commands"));
-      const agCount  = installAgents(path.join(getGlobalClaudeDir(), "agents"));
+      const cmdCount = installCommands(path.join(getGlobalClaudeDir(), "commands"), "claude");
+      const agCount  = installAgents(path.join(getGlobalClaudeDir(), "agents"), "claude");
       ok(`Claude Code global: ${cmdCount} commands + ${agCount} agents`);
     } catch (e) { err(`Claude Code global failed: ${e.message}`); }
   }
 
   if (installed.claude.local) {
     try {
-      const cmdCount = installCommands(path.join(cwd, ".claude", "commands"));
-      const agCount  = installAgents(path.join(cwd, ".claude", "agents"));
+      const cmdCount = installCommands(path.join(cwd, ".claude", "commands"), "claude");
+      const agCount  = installAgents(path.join(cwd, ".claude", "agents"), "claude");
       ok(`Claude Code local:  ${cmdCount} commands + ${agCount} agents`);
     } catch (e) { err(`Claude Code local failed: ${e.message}`); }
   }
 
   if (installed.codex.global.skills || installed.codex.global.agents) {
     try {
-      const skillCount = installed.codex.global.skills ? installCodexSkills(getGlobalCodexSkillsDir()) : 0;
-      const agCount    = installed.codex.global.agents ? installCodexAgents(getGlobalCodexAgentsDir()) : 0;
+      const skillCount = installed.codex.global.skills ? installCodexSkills(getGlobalCodexSkillsDir(), "codex") : 0;
+      const agCount    = installed.codex.global.agents ? installCodexAgents(getGlobalCodexAgentsDir(), "codex") : 0;
       ok(`Codex App / CLI global: ${skillCount} skills + ${agCount} agents`);
     } catch (e) { err(`Codex App / CLI global failed: ${e.message}`); }
   }
 
   if (installed.codex.local.skills || installed.codex.local.agents) {
     try {
-      const skillCount = installed.codex.local.skills ? installCodexSkills(path.join(cwd, ".agents", "skills")) : 0;
-      const agCount    = installed.codex.local.agents ? installCodexAgents(path.join(cwd, ".codex", "agents")) : 0;
+      const skillCount = installed.codex.local.skills ? installCodexSkills(path.join(cwd, ".agents", "skills"), "codex") : 0;
+      const agCount    = installed.codex.local.agents ? installCodexAgents(path.join(cwd, ".codex", "agents"), "codex") : 0;
       ok(`Codex App / CLI local:  ${skillCount} skills + ${agCount} agents`);
     } catch (e) { err(`Codex App / CLI local failed: ${e.message}`); }
   }
@@ -1475,7 +1471,7 @@ async function runUpdate() {
   if (installed.antigravity) {
     try {
       const agDir = getGlobalAntigravityDir();
-      const { workflows, agents, skills } = installAntigravity(agDir);
+      const { workflows, agents, skills } = installAntigravity(agDir, "antigravity");
       ok(`Antigravity global: ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
     } catch (e) { err(`Antigravity failed: ${e.message}`); }
   }
@@ -1499,14 +1495,7 @@ async function runUpdate() {
     warn("WASM files update skipped — optional feature.");
   }
 
-  // ── Step 2c: Auto-install PHP-Parser if php_parser: "php-parser" is set ────
-  try {
-    installPhpParserDep(cwd);
-  } catch (e) {
-    warn(`PHP-Parser install skipped: ${e.message}`);
-  }
-
-  // ── Step 2d: Recreate runtime bridges ──────────────────────────────────────
+  // ── Step 2c: Recreate runtime bridges ──────────────────────────────────────
   log("");
   log(bold("Step 2c — Recreating runtime bridges..."));
   log("");
@@ -1514,42 +1503,42 @@ async function runUpdate() {
   // OpenCode global
   if (installed.opencode.global) {
     try {
-      createRuntimeBridge(path.join(getGlobalOpenCodeDir(), "flow"));
+      createRuntimeBridge(path.join(getGlobalOpenCodeDir(), "flow"), "opencode");
     } catch (e) { err(`OpenCode global bridge failed: ${e.message}`); }
   }
 
   // OpenCode local
   if (installed.opencode.local) {
     try {
-      createRuntimeBridge(path.join(cwd, ".opencode", "flow"));
+      createRuntimeBridge(path.join(cwd, ".opencode", "flow"), "opencode");
     } catch (e) { err(`OpenCode local bridge failed: ${e.message}`); }
   }
 
   // Claude Code global
   if (installed.claude.global) {
     try {
-      createRuntimeBridge(path.join(getGlobalClaudeDir(), "flow"));
+      createRuntimeBridge(path.join(getGlobalClaudeDir(), "flow"), "claude");
     } catch (e) { err(`Claude Code global bridge failed: ${e.message}`); }
   }
 
   // Claude Code local
   if (installed.claude.local) {
     try {
-      createRuntimeBridge(path.join(cwd, ".claude", "flow"));
+      createRuntimeBridge(path.join(cwd, ".claude", "flow"), "claude");
     } catch (e) { err(`Claude Code local bridge failed: ${e.message}`); }
   }
 
   // Codex global
   if (installed.codex.global.skills || installed.codex.global.agents) {
     try {
-      createRuntimeBridge(path.join(path.dirname(getGlobalCodexAgentsDir()), "flow"));
+      createRuntimeBridge(path.join(path.dirname(getGlobalCodexAgentsDir()), "flow"), "codex");
     } catch (e) { err(`Codex global bridge failed: ${e.message}`); }
   }
 
   // Codex local
   if (installed.codex.local.skills || installed.codex.local.agents) {
     try {
-      createRuntimeBridge(path.join(cwd, ".codex", "flow"));
+      createRuntimeBridge(path.join(cwd, ".codex", "flow"), "codex");
     } catch (e) { err(`Codex local bridge failed: ${e.message}`); }
   }
 
@@ -1668,4 +1657,4 @@ if (require.main === module) {
   main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
 }
 
-module.exports = { deepMergeConfig, updateScaffold, createRuntimeBridge, installFlowHome, installWasm };
+module.exports = { deepMergeConfig, updateScaffold, createRuntimeBridge, installFlowHome, installWasm, resolveTemplates };

@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-audit-milestone
@@ -17,6 +19,9 @@ Phase verification (`flow-verify-work`) checks that each phase delivered what it
 A project can pass all phase verifications and still miss requirements if they were split awkwardly across phases or partially deferred. This audit catches that before you ship.
 
 ---
+<!-- stage:0 end -->
+
+<!-- stage:1 start -->
 
 ## Stage 1: Load Requirements
 
@@ -28,7 +33,11 @@ If `M/requirements.md` doesn't exist:
 Run /flow-new-project to initialise the project first.
 ```
 
+<!-- stage:1 end -->
+
 ---
+
+<!-- stage:2 start -->
 
 ## Stage 2: Check Each Requirement
 
@@ -58,7 +67,11 @@ Mark each requirement:
 - ⚠️  **Partial** — some implementation exists but requirement not fully met
 - ❌ **Missing** — no evidence of implementation
 
+<!-- stage:2 end -->
+
 ---
+
+<!-- stage:3 start -->
 
 ## Stage 3: Report
 
@@ -99,3 +112,4 @@ Next step: /flow-complete-milestone
 Recommended: Add phases to address gaps before completing the milestone.
 Use /flow-plan-milestone-gaps to automatically generate gap-closing phases, or /flow-add-phase to add them manually.
 ```
+<!-- stage:3 end -->

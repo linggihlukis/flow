@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §5 (Subagents), §17 (Session Discipline), `.flow/state.md`, and `.flow/config.json` before doing anything else.
 
 # /flow-do $ARGUMENTS
@@ -197,3 +199,4 @@ to a single command and chains that command's lifecycle for one phase. It cannot
 
 If you need to run multiple phases, invoke `flow-do` separately for each phase or
 use `/flow-execute-phase [N]` directly.
+<!-- stage:0 end -->

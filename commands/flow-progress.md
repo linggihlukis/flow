@@ -3,6 +3,8 @@ description: Show current project position — milestone, phase, status, next st
 agent: build
 ---
 
+<!-- stage:0 start -->
+
 Read `.flow/state.md` and `M/roadmap.md`.
 
 # /flow-progress
@@ -38,3 +40,4 @@ If state.md shows `status: not-started`:
 📍 FLOW — Not yet initialised
 Run /flow-new-project to start
 ```
+<!-- stage:0 end -->

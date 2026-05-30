@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §7 (Destructive Tiers), §12 (State Write) before doing anything else.
 
 `[flow-tools-path]`:
@@ -424,7 +426,6 @@ If it has entries:
     Note in the Step 6 report: "[N] amendments incorporated and cleared."
 
 ---
-
 ## Pre-Stage: Repo-Map Generation
 
 Run this immediately before spawning the Stage 1 agents.
@@ -537,6 +538,9 @@ If the tool/script does not exist or fails:
 4. Stage 1 proceeds with its existing analysis protocol — nothing downstream hard-depends on repo-map.
 
 ---
+<!-- stage:0 end -->
+
+<!-- stage:1 start -->
 
 ## Stage 1: Parallel Codebase Analysis
 
@@ -717,6 +721,9 @@ The executor will not run a test suite health check — no baseline exists to ch
 ```
 
 ---
+<!-- stage:1 end -->
+
+<!-- stage:2 start -->
 
 ## Stage 2: Write PATTERNS.md
 
@@ -989,6 +996,9 @@ Known Technical Debt, Unknown Unknowns, Calibrated Confidence Checklist,
 Confidence Notes, Testing Patterns are written identically in both variants.
 
 ---
+<!-- stage:2 end -->
+
+<!-- stage:3 start -->
 
 ## Stage 3: Polyrepo Detection
 
@@ -1104,6 +1114,9 @@ Note any non-standard patterns the planner should know about.]
 **If no polyrepo evidence found:** note "Single-repo architecture — service-map.md not needed" and skip this stage.
 
 ---
+<!-- stage:3 end -->
+
+<!-- stage:4 start -->
 
 ## Stage 4: Write `codebase_profile`
 
@@ -1170,6 +1183,9 @@ This makes the verifier auto-enable on legacy and brownfield codebases — the
 exact cases where execution divergence from CONTEXT.md is most likely.
 
 ---
+<!-- stage:4 end -->
+
+<!-- stage:5 start -->
 
 ## Stage 5: Skills Check
 
@@ -1251,5 +1267,6 @@ State:             [scaffolded / already existed]
 ⚠️  Fill in .flow/codebase/service-map.md before running /flow-new-project.
 
 Next step: /flow-new-project
-           (Questions will focus on what you're ADDING, not what exists)
+            (Questions will focus on what you're ADDING, not what exists)
 ```
+<!-- stage:5 end -->

@@ -43,6 +43,18 @@ Proceeding...
 
 This list must match the task's <files> field exactly. If you find you need to touch a file not in that list, stop and report it — do not expand scope silently.
 
+**Sandbox detection** — before writing any file, check runtime capabilities:
+```bash
+node [flow-tools-path] runtime detect --cwd .
+```
+If `capabilities.sandbox === true` AND the runtime is `codex`:
+  Do not write files directly. Instead, for each file modification, output a unified diff:
+  ```
+  ⚠️  Codex sandbox mode detected. Outputting patch instead of direct write.
+  ```
+  Then output the full unified diff to stdout. The orchestrator applies the patch.
+If sandbox is false or runtime is not codex: proceed with direct writes as normal.
+
 **Do Not Change check** — After announcing your file list, check the `## Do Not Change`
 section of PATTERNS.md (from the path provided in your brief) against every file you
 plan to touch. If any file, schema, interface, or API contract is listed there, stop immediately:
@@ -231,6 +243,13 @@ If a material contradiction was found:
 
 If no material contradiction was found:
   Do not append anything. An empty file and an absent file are equivalent.
+
+**World model signal** — after appending an amendment, update state:
+```bash
+node [flow-tools-path] state patch --cwd . --set patterns_stale=true
+```
+This signals to the next phase's planner that PATTERNS.md may be outdated for
+the amended zone.
 
 ## Deviation Threshold Calibration
 

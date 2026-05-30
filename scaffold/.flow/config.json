@@ -56,7 +56,6 @@
     "git_history": true
   },
   "skip_mapping": [],
-  "php_parser": "treesitter",
   "languages": {
     "python": [".py"],
     "ruby": [".rb"]

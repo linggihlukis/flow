@@ -3,6 +3,8 @@ description: Manually capture a lesson, pattern, or insight into lessons.md
 agent: build
 ---
 
+<!-- stage:0 start -->
+
 # /flow-lesson $ARGUMENTS
 
 Lesson to capture: **$ARGUMENTS**
@@ -36,3 +38,4 @@ Confirm:
 
 This will be surfaced in future /flow-resume sessions.
 ```
+<!-- stage:0 end -->

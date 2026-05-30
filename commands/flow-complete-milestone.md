@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write), §14 (File Size Limits) and `.flow/state.md` before doing anything else.
 
 `[flow-tools-path]`:
@@ -52,7 +54,11 @@ If count exceeds 200 entries:
 ```
 If no files exceed their limits — note "Archive check passed, no action needed" and continue.
 
+<!-- stage:0 end -->
+
 ---
+
+<!-- stage:1 start -->
 
 ## Stage 1: Heuristic Distillation
 
@@ -168,7 +174,11 @@ heuristic rules. This step runs **inline** — do not spawn a subagent.
         Clusters found: [N]. Duplicates skipped: [N].
     ```
 
+<!-- stage:1 end -->
+
 ---
+
+<!-- stage:2 start -->
 
 ## Stage 2: Generate Milestone Summary
 
@@ -206,7 +216,11 @@ Write `M/summary.md`:
 
 Save to `M/summary.md` (replace NN with the milestone number).
 
+<!-- stage:2 end -->
+
 ---
+
+<!-- stage:3 start -->
 
 ## Stage 3: Tag the Release
 
@@ -216,7 +230,11 @@ git tag -a milestone-[N] -m "Milestone [N]: [name] complete"
 
 Confirm the tag was created.
 
+<!-- stage:3 end -->
+
 ---
+
+<!-- stage:4 start -->
 
 ## Stage 4: Update .flow/state.md
 
@@ -261,3 +279,4 @@ Summary:   M/summary.md
 
 Next step: /flow-new-milestone
 ```
+<!-- stage:4 end -->

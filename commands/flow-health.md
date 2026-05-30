@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations) before doing anything else.
 
 # /flow-health $ARGUMENTS
@@ -17,6 +19,9 @@ Flags: `--repair` to auto-fix issues where safe to do so.
 Validates that the FLOW file system is consistent with the current state.md position. Catches corrupt YAML, missing required files, and path mismatches before they cause silent failures.
 
 ---
+<!-- stage:0 end -->
+
+<!-- stage:1 start -->
 
 ## Stage 1: Core File Check
 
@@ -41,7 +46,7 @@ node [flow-tools-path] patterns extract --section "Unknown Unknowns" | node -e "
 
 **config.json validity check:**
 ```bash
-node -e "JSON.parse(require('fs').readFileSync('.flow/config.json','utf8'))" 2>/dev/null && echo "config.json OK" || echo "INVALID: config.json is not valid JSON — repair required"
+node -e "JSON.parse(require('node:fs').readFileSync('.flow/config.json','utf8'))" 2>/dev/null && echo "config.json OK" || echo "INVALID: config.json is not valid JSON — repair required"
 ```
 
 **File size check** — run after confirming files exist:
@@ -70,7 +75,11 @@ File sizes:     [✅ all within limits | ⚠️  N files approaching limits | �
 
 If any file is at or over its hard limit: flag as ❌ and recommend running `/flow-complete-milestone` to archive.
 
+<!-- stage:1 end -->
+
 ---
+
+<!-- stage:2 start -->
 
 ## Stage 2: state.md YAML Validation
 
@@ -84,7 +93,11 @@ If YAML is malformed and `--repair` is set:
 - Back up to `.flow/state.md.bak`
 - Reset frontmatter to safe defaults, preserve prose section
 
+<!-- stage:2 end -->
+
 ---
+
+<!-- stage:3 start -->
 
 ## Stage 3: Phase File Consistency
 
@@ -96,7 +109,11 @@ Read current `phase` from state.md. If not null, check:
 
 (Replace NN with the zero-padded phase number from state.md.)
 
+<!-- stage:3 end -->
+
 ---
+
+<!-- stage:4 start -->
 
 ## Stage 4: Directory Structure
 
@@ -112,6 +129,12 @@ Confirm these directories exist:
 ```
 
 If `--repair`: create any missing directories silently.
+
+<!-- stage:4 end -->
+
+---
+
+<!-- stage:5 start -->
 
 ## Stage 5: Structural Conformance
 
@@ -201,3 +224,4 @@ Structural:     [✅ conformant | ⚠️  N orphan files detected]
 ⚠️  Issues found. Run /flow-health --repair to fix automatically,
 or resolve manually using the list above.
 ```
+<!-- stage:5 end -->

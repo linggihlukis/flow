@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write), §18 (SERVICE-MAP) and `.flow/state.md` before doing anything else.
 
 `[flow-tools-path]`:
@@ -255,3 +257,4 @@ Saved to: M/phases/phase-$ARGUMENTS/CONTEXT.md
 
 Next step: /flow-plan-phase $ARGUMENTS
 ```
+<!-- stage:0 end -->

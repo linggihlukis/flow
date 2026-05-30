@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-insert-phase $ARGUMENTS
@@ -82,3 +84,4 @@ Phase $ARGUMENTS.1 inserted [date] — [reason]
 
 Next step: /flow-discuss-phase $ARGUMENTS.1
 ```
+<!-- stage:0 end -->

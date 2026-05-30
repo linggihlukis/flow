@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-remove-phase $ARGUMENTS
@@ -97,3 +99,4 @@ Context files: [deleted / preserved]
 
 Roadmap updated. Review `M/roadmap.md` to confirm.
 ```
+<!-- stage:0 end -->

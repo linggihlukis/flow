@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §5 (Subagents), §7 (Destructive Tiers), §10 (Recovery Tiers) and `.flow/state.md` before doing anything else.
 
 # /flow-debug $ARGUMENTS
@@ -105,3 +107,4 @@ Root cause: [one line summary]
 Confidence: [high/medium/low]
 Fix task:   .flow/quick/adhoc-fix-[date]-NN.md
 ```
+<!-- stage:0 end -->

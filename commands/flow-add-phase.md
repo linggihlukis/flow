@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-add-phase
@@ -56,3 +58,4 @@ Show the draft to the developer. Confirm before writing.
 
 Next step: /flow-discuss-phase [N]
 ```
+<!-- stage:0 end -->

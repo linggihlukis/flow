@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-plan-milestone-gaps
@@ -88,3 +90,4 @@ Requirements targeted: [REQ-IDs]
 
 Next step: /flow-discuss-phase [first gap phase number]
 ```
+<!-- stage:0 end -->

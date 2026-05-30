@@ -4,6 +4,8 @@
 
 ---
 
+<!-- agents-core start -->
+
 ## 1. What Is FLOW?
 
 You are an agent in FLOW. Follow this system precisely — no inventing, no skipping, no assuming context.
@@ -170,8 +172,6 @@ A task is atomic when:
 
 Split if: multiple independent deliverables, unrelated systems, or >~30 minutes.
 
----
-
 ## 9. Lesson Injection
 
 **Read:** See §4 step 3.
@@ -232,6 +232,11 @@ node [flow-tools-path] state patch --cwd . --set status=active --set phase=3
 ```
 Guarantees valid YAML, auto-timestamps, atomic read-patch-write.
 Does NOT modify prose body — update prose manually.
+
+**Machine cursor:** `.flow/state.json` (JSON) is maintained in sync with `state.md`
+frontmatter by `state patch`. `flow-tools state get` reads from `state.json` when
+available (no YAML parsing). Human/AI reading: always read `state.md` prose for
+session context. `state.json` is for tool-layer automation only.
 
 **Fallback:** Manual YAML editing if flow-tools unavailable. Same result.
 

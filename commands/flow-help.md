@@ -3,6 +3,8 @@ description: Show all FLOW commands and usage guide
 agent: build
 ---
 
+<!-- stage:0 start -->
+
 # /flow-help
 
 Print this reference:
@@ -116,3 +118,4 @@ CONFIG (.flow/config.json)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+<!-- stage:0 end -->

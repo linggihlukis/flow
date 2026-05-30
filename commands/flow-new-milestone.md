@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write) and `.flow/state.md` before doing anything else.
 
 # /flow-new-milestone $ARGUMENTS
@@ -20,7 +22,11 @@ Milestone name (optional): **$ARGUMENTS**
 3. Read previous milestone summary from `M/summary.md`
 4. Note any deferred items from the previous milestone
 
+<!-- stage:0 end -->
+
 ---
+
+<!-- stage:1 start -->
 
 ## Stage 1: Questions
 
@@ -45,7 +51,11 @@ Ask conversationally, 2-3 at a time:
 
 Ask until satisfied. Then confirm: "Does this capture the milestone correctly?"
 
+<!-- stage:1 end -->
+
 ---
+
+<!-- stage:2 start -->
 
 ## Stage 2: Research
 
@@ -67,7 +77,11 @@ model: [value of models.flow-researcher from config.json — omit this line enti
 
 Wait for the researcher to complete before proceeding to Stage 3.
 
+<!-- stage:2 end -->
+
 ---
+
+<!-- stage:3 start -->
 
 ## Stage 3: Requirements
 
@@ -93,7 +107,11 @@ Update `M/requirements.md` — append a new milestone section:
 
 Show to developer. Confirm before proceeding.
 
+<!-- stage:3 end -->
+
 ---
+
+<!-- stage:4 start -->
 
 ## Stage 4: Roadmap
 
@@ -137,3 +155,4 @@ Requirements added: [count]
 
 Next step: /flow-discuss-phase [first phase number]
 ```
+<!-- stage:4 end -->

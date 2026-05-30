@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:1 start -->
+
 Read AGENTS.md §2 (File Locations), §3 (Runtime Detection), §5 (Subagents), §7 (Destructive Tiers), §9 (Lesson Injection), §10 (Recovery Tiers), §11 (Commit Protocol), §12 (State Write), §14 (File Size Limits), §15 (Reading Discipline), §16 (Context Discipline), §18 (SERVICE-MAP) and `.flow/state.md` before doing anything else.
 
 `[flow-tools-path]`:
@@ -221,6 +223,9 @@ b. If `[flow-tools-path]` is not available:
    ```
 
 ---
+<!-- stage:1 end -->
+
+<!-- stage:2 start -->
 
 ## Stage 2: Execute Each Plan
 
@@ -311,7 +316,14 @@ If the executor reports a task error (task assumes something that isn't true):
 *Recoverable — budget exhausted:*
 - Stop execution of this wave
 - Report exactly which task failed, what was tried, what failed
-- Append to `.flow/memory/lessons.md`
+- Append to `.flow/memory/lessons.md`:
+  ```markdown
+  ## [Milestone X / Phase Y] — [ISO date] — Verify Failure
+  **Context:** [task title] — [phase goal]
+  **Mistake:** Verify command `[command]` failed after [budget] retries.
+  **Fix:** [what was tried in the repair attempts — from executor report]
+  **Pattern:** [what class of failure this represents — syntax error / dependency missing / etc.]
+  ```
 - Ask developer: continue with remaining tasks or stop?
 
 *Confused:*
@@ -397,6 +409,17 @@ If the command exits non-zero (file missing):
 
 ---
 
+**Context window update** — after all waves complete, append to `P/context-window.md`:
+```
+Stage 2 (Execute): complete — [1-line outcome summary]
+```
+Keep this file to ≤ 10 lines total.
+
+---
+<!-- stage:2 end -->
+
+<!-- stage:3 start -->
+
 ## Stage 3: Write Phase Handoff
 
 After all waves complete, collect plan summaries before writing the handoff.
@@ -442,6 +465,24 @@ Before writing the handoff, compare actual file changes against planned file cha
          - [file path]
        These will be noted in the handoff.
    ```
+
+   **Semantic reflection check** — for each locked decision in `P/CONTEXT.md`
+   `## Locked Decisions`, read the corresponding task summary's
+   `## What was done` section and verify:
+
+   For each locked decision:
+   a. Find the task whose title or deliverable maps to this decision.
+   b. Confirm the summary's "What was done" describes implementing it, not working around it.
+   c. If a summary says "used X instead of Y" where Y was locked: flag it.
+
+   Output:
+   ```
+   ## Semantic Alignment Check
+   | Locked Decision | Task | Aligned? | Notes |
+   |---|---|---|---|
+   | [decision] | task-NN | ✅ yes / ⚠️ partial / ❌ no | [divergence if any] |
+   ```
+   Add this table to the handoff under `## Key Decisions Made This Phase`.
 
    Add an `## Implementation Drift` section to the handoff (after `## Key Decisions`):
    ```markdown
@@ -542,7 +583,16 @@ Include only decisions not already in CONTEXT.md.]
 
 Write to `M/phases/phase-$ARGUMENTS/handoff.md`.
 
+**Context window update** — after handoff written, append to `P/context-window.md`:
+```
+Stage 3 (Handoff): complete — [1-line outcome summary]
+```
+Keep this file to ≤ 10 lines total.
+
 ---
+<!-- stage:3 end -->
+
+<!-- stage:4 start -->
 
 ## Completion
 
@@ -586,3 +636,4 @@ Handoff: M/phases/phase-$ARGUMENTS/handoff.md
 
 Next step: /flow-verify-work $ARGUMENTS
 ```
+<!-- stage:4 end -->

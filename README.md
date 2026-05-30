@@ -203,6 +203,49 @@ repeat per phase → /flow-complete-milestone → /flow-new-milestone
 
 ---
 
+## Architecture
+
+Flow's tool layer was decomposed from a 2,412-line monolith into a modular dispatcher + library architecture in v0.3.0:
+
+```
+bin/
+├── flow-tools.js             ← Thin dispatcher (~250 lines)
+├── flow-php-parser.php       ← PHP AST extractor
+├── install.js                 ← Runtime installer + template engine
+└── lib/
+    ├── platform.js            ← Cross-platform path/shell abstraction
+    ├── cache.js               ← In-process LRU with mtime invalidation
+    ├── schemas.js             ← JSON Schema contracts (24 subcommands)
+    ├── path-resolver.js       ← Symlink-aware safe path resolution
+    ├── state.js               ← State read/write/migrate (dual state.json + state.md)
+    ├── frontmatter.js         ← YAML frontmatter get/set
+    ├── config.js              ← Config key-path resolution
+    ├── files.js               ← File existence + metadata checks
+    ├── context.js             ← Token estimation + budget checks
+    ├── lessons.js             ← Lesson retrieval + filtering
+    ├── kb.js                  ← Knowledge base search
+    ├── patterns.js            ← PATTERNS.md section extraction
+    ├── phase.js               ← Phase listing + wave resolution
+    ├── audit.js               ← State consistency auditing
+    ├── repo-map.js            ← Tree-sitter repo-map search
+    ├── task.js                ← Task file validation
+    ├── content.js             ← Prompt injection detection
+    ├── batch.js               ← Batch command executor
+    ├── runtime.js             ← Runtime detection
+    ├── runtime-registry.js    ← Multi-runtime path registry
+    ├── index.js               ← Indexer coordinator
+    ├── php-extractor.js       ← PHP-Parser adapter
+    └── ts-extractor.js        ← Tree-sitter AST extractors
+
+**Key design properties:**
+- **Deterministic:** All tools are pure functions — same input always produces same output
+- **Cross-platform:** Every path is normalized to forward slashes; Windows shell is handled correctly
+- **Cached:** In-process LRU cache eliminates redundant disk reads during batch operations
+- **Validated:** Every subcommand has a JSON Schema contract checked at the dispatcher level
+- **Runtimes:** Template substitution at install time resolves `[flow-tools-path]` per runtime
+
+---
+
 ## The Phase Loop
 
 **1. Discuss — `/flow-discuss-phase N`**
@@ -776,6 +819,8 @@ project-root/
 ```
 
 > **Runtime tools:** `~/.flow/tools/` (outside your project, managed by the installer) holds `flow-tools.js` and its npm dependencies (`js-yaml`, `web-tree-sitter`, `tree-sitter-wasms`). Do not commit or edit manually.
+
+> **Project tools:** `bin/` contains `flow-tools.js` CLI entry point, `bin/lib/` holds 17 modular tool modules.
 
 > Do not add `.flow/` to `.gitignore`. It is your project's persistent memory. Losing it means losing all state, lessons, and context.
 

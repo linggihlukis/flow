@@ -4,6 +4,8 @@ agent: build
 subtask: false
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §5 (Subagents), §9 (Lesson Injection), §10 (Recovery Tiers), §12 (State Write), §17 (Session Discipline) and `.flow/state.md` before doing anything else.
 
 `[flow-tools-path]`:
@@ -104,7 +106,6 @@ Proceed to UAT anyway, or fix first?
 Wait for developer response before continuing. Do not skip to Stage 1 without confirmation.
 
 ---
-
 ## Pre-flight: Deliverable File Check (optional)
 
 If `[flow-tools-path]` is available, check deliverable files before extracting:
@@ -135,6 +136,9 @@ existing reset for the normal end-of-verification path. This new reset handles t
 re-run case (when a user runs /flow-verify-work again after fixing issues).
 
 ---
+<!-- stage:0 end -->
+
+<!-- stage:1 start -->
 
 ## Stage 1: Extract Testable Deliverables
 
@@ -151,6 +155,9 @@ Example transformation:
 Write all deliverables to `M/phases/phase-$ARGUMENTS/verification.md` and show the list to the developer.
 
 ---
+<!-- stage:1 end -->
+
+<!-- stage:2 start -->
 
 ## Stage 2: Guided Walkthrough
 
@@ -177,6 +184,9 @@ On FAIL: ask the developer to describe exactly what they saw and any error messa
 Record precisely — do not debug inline. Continue to next deliverable.
 
 ---
+<!-- stage:2 end -->
+
+<!-- stage:3 start -->
 
 ## Stage 3: Debug Failed Items (if any)
 
@@ -208,6 +218,9 @@ Knowledge base: .flow/memory/knowledge-base.md
 Use `fix_task_path` and `root_cause` directly. Read the full fix task only if the Return block is absent.
 
 ---
+<!-- stage:3 end -->
+
+<!-- stage:4 start -->
 
 ## Stage 4: Review Fix Plans
 
@@ -249,6 +262,9 @@ step deduplicates.
 If no compression signal → skip silently.
 
 ---
+<!-- stage:4 end -->
+
+<!-- stage:5 start -->
 
 ## Completion — All Pass
 
@@ -340,3 +356,4 @@ In `yolo` mode (and fix_cycles < 2):
 → Auto-resuming: /flow-execute-phase $ARGUMENTS (fix tasks ready)
 ```
 Route immediately — no pause.
+<!-- stage:5 end -->

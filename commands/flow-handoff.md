@@ -3,6 +3,8 @@ description: Manually generate or update a phase handoff document
 agent: build
 ---
 
+<!-- stage:0 start -->
+
 Read .flow/state.md before doing anything else.
 
 # /flow-handoff $ARGUMENTS
@@ -67,3 +69,4 @@ Print:
 ```
 📋 Handoff written: M/phases/N/handoff.md
 ```
+<!-- stage:0 end -->

@@ -3,6 +3,8 @@ description: Safely pause work — write state, commit progress, prepare for res
 agent: build
 ---
 
+<!-- stage:0 start -->
+
 Read AGENTS.md §2 (File Locations), §12 (State Write), §17 (Session Discipline) and `.flow/state.md` before doing anything else.
 
 `[flow-tools-path]`:
@@ -77,3 +79,4 @@ Committed:   [yes / no — reason if no]
 
 Next step:   /flow-resume
 ```
+<!-- stage:0 end -->

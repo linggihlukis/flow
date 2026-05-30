@@ -1,13 +1,17 @@
 {
   "name": "@linggihlukis/flow",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Flow — spec-driven agentic development workflow for solo developers.",
   "bin": {
     "flow": "./bin/install.js"
   },
   "scripts": {
     "start": "node bin/install.js",
-    "test": "node test/flow-test.js"
+    "test": "node test/flow-test.js",
+    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js",
+    "test:contracts": "node test/contract-tests.js",
+    "test:integration": "node test/integration/flow-execute.test.js",
+    "docs": "node scripts/generate-docs.js > docs/api-reference.md"
   },
   "keywords": [
     "flow",

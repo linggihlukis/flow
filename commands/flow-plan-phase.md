@@ -19,7 +19,39 @@ Phase number: **$ARGUMENTS**
 
 ---
 
+<!-- stage:0 start -->
+
 ## Pre-flight Checks
+
+**Stale patterns check** — read `state.md` → `patterns_stale`. If `true`:
+```
+⚠️  patterns-amendments.md has new entries from the previous phase.
+    Check .flow/codebase/patterns-amendments.md for affected zones before
+    generating plans. Consider running /flow-map-codebase --refresh if
+    multiple zones are affected.
+```
+Then clear the flag:
+```bash
+node [flow-tools-path] state patch --cwd . --set patterns_stale=false
+```
+
+**Patterns-amendments propagation check** — if `.flow/codebase/patterns-amendments.md` exists
+and has entries (non-empty after the header), check whether any amendments affect downstream phases:
+
+1. Read `.flow/codebase/patterns-amendments.md`
+2. For each unmerged amendment, identify its zone
+3. Check if any downstream (not yet executed) phases in the current milestone touch that zone
+   by reading their `P/CONTEXT.md` files
+4. If affected phases found, print:
+   ```
+   ⚠️  patterns-amendments.md has [N] unmerged amendment(s) affecting phase(s) [list]:
+      - [zone] → phase [N], phase [N]
+      Consider running /flow-map-codebase --refresh to merge them before planning.
+   ```
+5. If no affected phases: clear the `patterns_stale` flag silently (already done above).
+
+Note: Do NOT merge amendments here — just surface the information. Merging is done
+by `flow-map-codebase --refresh`.
 
 0. **Pause-refresh recovery check** — before doing anything else, check whether
    `M/phases/phase-$ARGUMENTS/.refresh-paused` exists.
@@ -174,7 +206,9 @@ Phase number: **$ARGUMENTS**
    If indexer fails or is not available, skip silently. The researcher will proceed without AST data.
 
 ---
+<!-- stage:0 end -->
 
+<!-- stage:1 start -->
 ## Stage 1: Research
 
 Check `.flow/config.json` → `workflow.research`. If false, skip to Stage 2.
@@ -442,7 +476,15 @@ For each locked decision in CONTEXT.md's "Locked Decisions" table:
     Stop. Do not spawn the planner.
 
 ---
+<!-- stage:1 end -->
 
+**Context window update** — after this stage completes, append to `P/context-window.md`:
+```
+Stage 1 (Research): complete — [1-line outcome summary]
+```
+Keep this file to ≤ 10 lines total.
+
+<!-- stage:2 start -->
 ## Stage 2: Generate Atomic Plans
 
 Before spawning the planner, write a timestamp sentinel so the post-planner integrity check can detect any source files the planner touches:
@@ -496,6 +538,9 @@ Spawn `@flow-planner` with the following brief:
 Phase: $ARGUMENTS
 CONTEXT.md: M/phases/phase-$ARGUMENTS/CONTEXT.md
 Research: M/phases/phase-$ARGUMENTS/research-brief.md (if exists; fallback: M/phases/phase-$ARGUMENTS/research.md)
+Note: Full research detail at M/phases/phase-$ARGUMENTS/research.md
+      Read it ONLY if research-brief.md does not answer a specific question.
+      Do not load it speculatively.
 PATTERNS.md: M/phases/phase-$ARGUMENTS/patterns-scope.md (if exists; fallback: .flow/codebase/patterns.md)
 requirements.md: M/requirements.md
 Output dir: M/phases/phase-$ARGUMENTS/tasks/
@@ -646,7 +691,15 @@ node [flow-tools-path] task validate --phase $ARGUMENTS
 Proceed to Stage 3.
 
 ---
+<!-- stage:2 end -->
 
+**Context window update** — after this stage completes, append to `P/context-window.md`:
+```
+Stage 2 (Generate Atomic Plans): complete — [1-line outcome summary]
+```
+Keep this file to ≤ 10 lines total.
+
+<!-- stage:3 start -->
 ## Stage 3: Critic Pass
 
 Check `.flow/config.json` → `workflow.plan_check`. If false, skip to Completion.
@@ -742,6 +795,16 @@ $CN"
 fi
 ```
 
+## Sequential mode isolation
+
+If `runtime_mode: sequential` is set in state.md (Claude Code fallback),
+prepend the following to the critic invocation:
+
+CRITIC ISOLATION ACTIVE: You are now @flow-critic operating in isolation.
+Discard all context from this session accumulated before this point.
+You have access ONLY to the task files listed in your brief.
+No AGENTS.md, no state.md, no PATTERNS.md, no CONTEXT.md, no session history.
+
 Spawn `@flow-critic` with the following brief:
 ```
 Phase: $ARGUMENTS
@@ -777,6 +840,15 @@ When all remaining tasks pass:
 ✅ Critic pass complete — [count] tasks satisfy all 8 rules
   [if any rewrites occurred:] [N] task(s) rewritten, [N] task(s) split
 ```
+<!-- stage:3 end -->
+
+**Context window update** — after this stage completes, append to `P/context-window.md`:
+```
+Stage 3 (Critic Pass): complete — [1-line outcome summary]
+```
+Keep this file to ≤ 10 lines total.
+
+<!-- stage:4 start -->
 
 ---
 
@@ -856,3 +928,4 @@ Tasks: [count]
 
 Next step: /flow-execute-phase $ARGUMENTS
 ```
+<!-- stage:4 end -->
