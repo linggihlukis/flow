@@ -62,7 +62,7 @@ const VALID_STATUSES = new Set([
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: require('../package.json').version,
+    version: '[flow-version]',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
@@ -235,12 +235,7 @@ function main() {
   const args = process.argv.slice(2);
   if (args.length === 0 || args[0] === '--help') { showHelp(); return; }
   if (args[0] === '--version') {
-    try {
-      const pkg = require('../package.json');
-      output({ version: pkg.version });
-    } catch {
-      output({ version: 'unknown' });
-    }
+    output({ version: '[flow-version]' });
     return;
   }
   const cmd = args[0];

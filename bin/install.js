@@ -202,6 +202,19 @@ function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
+function copyRecursiveSync(src, dest) {
+  ensureDir(dest);
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyRecursiveSync(s, d);
+    } else {
+      copyFile(s, d);
+    }
+  }
+}
+
 // ─── Flow tools install ───────────────────────────────────────────────────────
 function installFlowHome(runtimeName) {
   const toolsDir = getFlowHomeDir();
@@ -221,8 +234,20 @@ function installFlowHome(runtimeName) {
     fs.writeFileSync(dest, resolved, 'utf8');
     ok(`flow-tools.js ${dim(`→ ${dest}`)} (${runtimeName})`);
   } else {
-    copyFile(src, dest);
+    const content = fs.readFileSync(src, 'utf8');
+    const resolved = content.replace(/\[flow-version\]/g, pkg.version);
+    fs.writeFileSync(dest, resolved, 'utf8');
     ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
+  }
+
+  // Copy lib/ modules required by flow-tools.js via require('./lib/...')
+  const libSrc = path.join(REPO_ROOT, "bin", "lib");
+  const libDest = path.join(toolsDir, "lib");
+  if (fs.existsSync(libSrc)) {
+    copyRecursiveSync(libSrc, libDest);
+    ok(`flow-tools lib/ ${dim(`→ ${libDest}`)}`);
+  } else {
+    warn("bin/lib/ not found — flow-tools may fail at runtime");
   }
 
   installNodeDeps(toolsDir);
@@ -230,9 +255,15 @@ function installFlowHome(runtimeName) {
   // Generate SHA-256 integrity manifest
   try {
     const crypto = require('node:crypto');
-    const hash = crypto.createHash('sha256').update(fs.readFileSync(dest)).digest('hex');
-    const manifestPath = path.join(toolsDir, 'manifest.json');
-    fs.writeFileSync(manifestPath, JSON.stringify({ 'flow-tools.js': hash, installedAt: new Date().toISOString() }));
+    const manifest = { installedAt: new Date().toISOString() };
+    manifest['flow-tools.js'] = crypto.createHash('sha256').update(fs.readFileSync(dest)).digest('hex');
+    for (const entry of fs.readdirSync(libDest, { withFileTypes: true })) {
+      if (entry.isFile()) {
+        const filePath = path.join(libDest, entry.name);
+        manifest[`lib/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+      }
+    }
+    fs.writeFileSync(path.join(toolsDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   } catch {}
 
   return true;
@@ -307,7 +338,8 @@ function resolveTemplates(content, runtimeName) {
     .replace(/\[flow-tools-path\]/g, toolsPath)
     .replace(/\{\{FLOW_TOOLS_PATH\}\}/g, toolsPath)
     .replace(/\[flow-tools-dir\]/g, toolsDir)
-    .replace(/\[flow-pkg-dir\]/g, pkgDir);
+    .replace(/\[flow-pkg-dir\]/g, pkgDir)
+    .replace(/\[flow-version\]/g, pkg.version);
 }
 
 function createRuntimeBridge(runtimeFlowDir, runtimeName) {
@@ -1163,9 +1195,9 @@ async function main() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log(dim(`  v${pkg.version} · ${process.platform}`));
   log("");
-  log(`  ${dim("Already using FLOW? To update an existing project:")}`); 
-  log(`  ${dim("  cd your-project && npx @linggihlukis/flow@latest --update")}`); 
-  log(`  ${dim("  Your .flow data is safe — only commands, agents, and AGENTS.md are updated.")}`); 
+  log(`  ${dim("Already using FLOW? To update an existing project:")}`);
+  log(`  ${dim("  cd your-project && npx @linggihlukis/flow@latest --update")}`);
+  log(`  ${dim("  Your .flow data is safe — only commands, agents, and AGENTS.md are updated.")}`);
   log("");
 
   if (flagUninstall) {
@@ -1643,7 +1675,7 @@ async function runUpdate() {
     }
   }
   log(`  ${dim("To update again later:")}`);
-  log(`  ${dim("  npx @linggihlukis/flow@latest --update")}`); 
+  log(`  ${dim("  npx @linggihlukis/flow@latest --update")}`);
   log("");
   if (installed.opencode.global || installed.opencode.local)  log(dim("  Restart OpenCode to load the updated commands."));
   if (installed.claude.global   || installed.claude.local)    log(dim("  Reload Claude Code to load the updated commands."));
