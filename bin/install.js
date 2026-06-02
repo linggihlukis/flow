@@ -294,7 +294,7 @@ function installNodeDeps(toolsDir) {
   try {
     execFileSync(
       "npm", ["install", "--prefix", toolsDir, "--save", ...missing],
-      { stdio: "pipe", timeout: 60_000 }
+      { stdio: "pipe", timeout: 60_000, shell: true }
     );
     ok(`flow-tools deps installed ${dim(`→ ${toolsDir}/node_modules`)}`);
     return true;
