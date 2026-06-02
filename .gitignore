@@ -1,5 +1,5 @@
 node_modules/
-vendor/
+.env
 *.log
 .DS_Store
 Thumbs.db
