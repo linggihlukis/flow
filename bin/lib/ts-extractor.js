@@ -44,6 +44,48 @@ async function initParser() {
 }
 
 /**
+ * Synchronous check — returns true if web-tree-sitter was loaded successfully.
+ * Use as a guard before attempting any parser operations.
+ */
+function isParserAvailable() {
+  return Parser !== null;
+}
+
+/**
+ * Initialize the tree-sitter WASM runtime and create language-specific parsers.
+ * Returns { parsers: { [lang]: Parser }, wasmStatus: { [lang]: boolean } }.
+ */
+async function createLanguageParsers(wasmDir, availableLangs) {
+  const parsers = {};
+  const wasmStatus = {};
+
+  if (!Parser) return { parsers, wasmStatus };
+
+  try {
+    await Parser.init();
+  } catch {
+    return { parsers, wasmStatus };
+  }
+
+  for (const lang of availableLangs) {
+    const wasmPath = path.join(wasmDir, 'tree-sitter-' + lang + '.wasm');
+    if (fs.existsSync(wasmPath)) {
+      try {
+        const p = new Parser();
+        const L = await Parser.Language.load(wasmPath);
+        p.setLanguage(L);
+        parsers[lang] = p;
+        wasmStatus[lang] = true;
+      } catch {
+        wasmStatus[lang] = false;
+      }
+    }
+  }
+
+  return { parsers, wasmStatus };
+}
+
+/**
  * Returns the list of languages supported by the dedicated extractors.
  */
 function getSupportedLanguages() {
@@ -365,6 +407,8 @@ module.exports = {
   extractJava,
   extractRust,
   extractGeneric,
+  isParserAvailable,
+  createLanguageParsers,
   getSupportedLanguages,
   findWasmDir,
   MAX_AST_DEPTH,
