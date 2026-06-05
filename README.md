@@ -143,6 +143,7 @@ The updater auto-detects every runtime where Flow is installed and updates all o
 |---|---|
 | Runtime files (commands, agents) | Always overwritten with latest versions |
 | `AGENTS.md` (project root) | Always overwritten |
+| `.flow/docs/` (reference files) | Always overwritten |
 | `.flow/config.json` | Deep merged — new keys added, `flow_version` bumped, your settings preserved |
 | `.flow/state.md` | **Never touched** |
 | `.flow/memory/lessons.md` | **Never touched** |
@@ -781,6 +782,11 @@ project-root/
     │   ├── repo-map.json                  ← tree-sitter index
     │   ├── test-baseline.md              ← pre-existing test failures
     │   └── compression-exceptions.md     ← zones to always include in scoped extracts
+    │
+    ├── docs/                              ← reference files (scaffolded, auto-updated)
+    │   ├── spawn-protocol-ref.md         ← §21 bash commands (token estimation, context log)
+    │   ├── file-map.md                   ← full .flow/ directory tree
+    │   └── model-routing.md              ← §13 model sync commands
     │
     ├── milestones/                        ← EACH MILESTONE IS SELF-CONTAINED
     │   ├── milestone-01/

@@ -42,6 +42,7 @@ const CANONICAL_FLOW_PREFIXES = [
   ".flow/memory/",
   ".flow/config.json",
   ".flow/quick/",
+  ".flow/docs/",
   ".flow/tools/",
   ".flow/tools",
 ];
