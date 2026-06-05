@@ -842,7 +842,11 @@ function installScaffold(projectRoot) {
     [path.join(SCAFFOLD_DIR, ".flow", "memory", "knowledge-base.md"),                  path.join(projectRoot, ".flow", "memory", "knowledge-base.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "codebase", "patterns-amendments.md"),               path.join(projectRoot, ".flow", "codebase", "patterns-amendments.md")],
     [path.join(SCAFFOLD_DIR, ".flow", "codebase", "compression-exceptions.md"),            path.join(projectRoot, ".flow", "codebase", "compression-exceptions.md")],
-  ];
+    // New: docs reference files
+    [path.join(SCAFFOLD_DIR, ".flow", "docs", "spawn-protocol-ref.md"), path.join(projectRoot, ".flow", "docs", "spawn-protocol-ref.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "docs", "file-map.md"), path.join(projectRoot, ".flow", "docs", "file-map.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "docs", "model-routing.md"), path.join(projectRoot, ".flow", "docs", "model-routing.md")],
+    ];
 
   // Ensure directory structure exists
   const dirs = [
@@ -851,6 +855,7 @@ function installScaffold(projectRoot) {
     ".flow/memory",
     ".flow/memory/archives",
     ".flow/quick",
+    ".flow/docs",
   ].map(d => path.join(projectRoot, d));
   for (const d of dirs) ensureDir(d);
 
@@ -920,6 +925,7 @@ function updateScaffold(projectRoot) {
     ".flow/memory",
     ".flow/memory/archives",
     ".flow/quick",
+    ".flow/docs",
   ].map(d => path.join(projectRoot, d));
   for (const d of dirs) {
     if (!fs.existsSync(d)) {
@@ -934,7 +940,18 @@ function updateScaffold(projectRoot) {
   copyFile(agentsSrc, agentsDest);
   report.updated.push("AGENTS.md");
 
-  // 2. config.json — merge new scaffold keys into existing user config
+  // 2. docs/ reference files — always overwrite (instructions only, no user data)
+  const docsSrcDir = path.join(SCAFFOLD_DIR, ".flow", "docs");
+  if (fs.existsSync(docsSrcDir)) {
+    const docsDestDir = path.join(projectRoot, ".flow", "docs");
+    ensureDir(docsDestDir);
+    for (const file of fs.readdirSync(docsSrcDir).filter(f => f.endsWith(".md"))) {
+      copyFile(path.join(docsSrcDir, file), path.join(docsDestDir, file));
+    }
+    report.updated.push(".flow/docs/ (reference files)");
+  }
+
+  // 3. config.json — merge new scaffold keys into existing user config
   const configSrc  = path.join(SCAFFOLD_DIR, ".flow", "config.json");
   const configDest = path.join(projectRoot, ".flow", "config.json");
   if (!fs.existsSync(configDest)) {
