@@ -6,43 +6,8 @@ const { getConfigValue } = require('./config');
 const { readStateFile } = require('./state');
 const { Platform } = require('./platform');
 const { extractFromFile, findWasmDir, KB, MAX_AST_DEPTH, isParserAvailable, createLanguageParsers } = require('./ts-extractor');
-
-function output(data) { return data; }
-function exitErr(code, message) { throw { code, message }; }
-
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) {
-      const r = path.relative(process.cwd(), resolved);
-      if (r.startsWith('..')) exitErr('PATH_NOT_FOUND', `--cwd path '${resolved}' is outside the working directory`);
-    }
-    return resolved;
-  }
-  return process.cwd();
-}
-
-function collectFlagValues(args, flagName) {
-  const values = [];
-  let collecting = false;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flagName) { collecting = true; continue; }
-    if (collecting) {
-      if (args[i].startsWith('--')) { collecting = false; continue; }
-      values.push(args[i]);
-    }
-  }
-  return values;
-}
-
-function readConfig(cwd) {
-  const configPath = path.join(cwd, '.flow', 'config.json');
-  if (!fs.existsSync(configPath)) return {};
-  try { return JSON.parse(fs.readFileSync(configPath, 'utf8')); }
-  catch { return {}; }
-}
+const { output, exitErr, getCwd, collectFlagValues } = require('./_cli-utils');
+const { readConfig } = require('./config');
 
 function isMinified(filePath, source) {
   if (path.extname(filePath) !== '.js') return false;

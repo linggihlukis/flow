@@ -529,7 +529,7 @@ suite("Suite 9 — flow-tools.js function tests");
 // 9c: nowISO
 (function () {
   const iso = nowISO();
-  const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/;
+  const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 
   if (typeof iso === "string" && isoRegex.test(iso)) {
     pass("nowISO: returns valid ISO 8601 string");

@@ -73,7 +73,10 @@ function cmdContextEstimate(args) {
     try {
       const content = fs.readFileSync(resolved, 'utf8');
       const chars = content.length;
-      const tokens = Math.round(chars / 4);
+      // Rough token estimate: ~4 chars per token for English prose.
+// Can be 2-5x off for dense code, non-English text, or long identifiers.
+// Sufficient for budget-check heuristics, not for precise counting.
+const tokens = Math.round(chars / 4);
       totalChars += chars;
       perFile.push({ path: p, chars, tokens });
     } catch {
@@ -81,16 +84,16 @@ function cmdContextEstimate(args) {
     }
   }
 
+  // See note above — chars/4 is a rough approximation
   const estimatedTokens = Math.round(totalChars / 4);
   const budgetPct = modelContextLimit > 0 ? Math.round((estimatedTokens / modelContextLimit) * 1000) / 10 : 0;
 
   if (args.includes('--budget-check')) {
-    const limit   = getConfigValue(cwd, 'context.model_context_limit', MODEL_CONTEXT_LIMIT_DEFAULT);
     const lowPct  = getConfigValue(cwd, 'context.budget_low_pct', 70);
     const critPct = getConfigValue(cwd, 'context.budget_critical_pct', 90);
-    const usagePct = (estimatedTokens / limit) * 100;
+    const usagePct = (estimatedTokens / modelContextLimit) * 100;
     const status = usagePct >= critPct ? 'critical' : usagePct >= lowPct ? 'warning' : 'ok';
-    return output({ tokens: estimatedTokens, budget_status: status, usage_pct: Math.round(usagePct), limit });
+    return output({ tokens: estimatedTokens, budget_status: status, usage_pct: Math.round(usagePct), limit: modelContextLimit });
   }
 
   return output({

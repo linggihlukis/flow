@@ -17,6 +17,8 @@ class LRUCache {
       if (this._ttl > 0 && (Date.now() - entry.ts) > this._ttl) {
         this._map.delete(key);
       } else {
+        this._map.delete(key);
+        this._map.set(key, entry);
         return entry.value;
       }
     }

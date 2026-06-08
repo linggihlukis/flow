@@ -21,8 +21,11 @@ const MODEL_CONTEXT_LIMIT_DEFAULT = 200000;
 const MAX_AST_DEPTH = 200;
 
 function exitErr(code, message) {
-  process.stdout.write(JSON.stringify({ error: true, code, message }) + '\n');
-  process.exit(1);
+  if (require.main === module) {
+    process.stdout.write(JSON.stringify({ error: true, code, message }) + '\n');
+    process.exit(1);
+  }
+  throw { error: true, code, message };
 }
 function output(data) { process.stdout.write(JSON.stringify(data) + '\n'); }
 
@@ -92,48 +95,12 @@ function showHelp() {
   });
 }
 
-// ─── Helpers (exported for test suite compatibility) ────────────────────────
+// ─── Helpers (re-exported from lib/ for test suite compatibility) ────────────
 
-const yaml = require('js-yaml');
-
-function parseFrontmatter(content) {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  try { return yaml.load(match[1]); } catch { return null; }
-}
-
-function _quoteYamlValue(value) {
-  if (value === null) return 'null';
-  if (typeof value === 'boolean' || typeof value === 'number') return String(value);
-  const str = String(value);
-  if (/[:\#\{\}\[\]\,\&\*\!\|\>\'\"\%\@\`\r\n]/.test(str) || /^\s/.test(str) || /\s$/.test(str)) {
-    return '"' + str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
-  }
-  return str;
-}
-
-function serializeFrontmatter(obj) {
-  const lines = ['---'];
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) continue;
-    lines.push(`${key}: ${_quoteYamlValue(value)}`);
-  }
-  lines.push('---');
-  return lines.join('\n');
-}
-
-function nowISO() {
-  const now = new Date();
-  const off = -now.getTimezoneOffset();
-  const sign = off >= 0 ? '+' : '-';
-  const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
-  const m = String(Math.abs(off) % 60).padStart(2, '0');
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${sign}${h}:${m}`;
-}
+const { parseFrontmatter, serializeFrontmatter } = require('./lib/frontmatter');
+const { nowISO } = require('./lib/state');
 
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
 function extractField(body, fieldName) {
   const match = body.match(new RegExp(`\\*\\*${escapeRegex(fieldName)}:\\*\\*\\s*(.+)$`, 'm'));
   return match ? match[1].trim() : null;

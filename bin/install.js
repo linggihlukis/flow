@@ -149,7 +149,14 @@ function parseNpmConfigArgv() {
   }
 }
 
-const args = [...new Set([...process.argv.slice(2), ...parseNpmConfigArgv()])];
+const args = (() => {
+  const seen = new Set();
+  const result = [];
+  for (const arg of [...process.argv.slice(2), ...parseNpmConfigArgv()]) {
+    if (!seen.has(arg)) { seen.add(arg); result.push(arg); }
+  }
+  return result;
+})();
 function envFlag(name) {
   const key = `npm_config_${name.replace(/^--/, "").replace(/^-/, "").replace(/-/g, "_")}`;
   const value = process.env[key];
@@ -293,8 +300,8 @@ function installNodeDeps(toolsDir) {
   info(`Installing flow-tools deps: ${missing.join(", ")}`);
   try {
     execFileSync(
-      "npm", ["install", "--prefix", toolsDir, "--save", ...missing],
-      { stdio: "pipe", timeout: 60_000, shell: true }
+      isWindows ? "npm.cmd" : "npm", ["install", "--prefix", toolsDir, "--save", ...missing],
+      { stdio: "pipe", timeout: 60_000 }
     );
     ok(`flow-tools deps installed ${dim(`→ ${toolsDir}/node_modules`)}`);
     return true;
