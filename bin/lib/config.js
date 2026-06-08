@@ -2,25 +2,7 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const { globalCache } = require('./cache');
-
-function output(data) { return data; }
-
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) {
-      const cwdDir = process.cwd();
-      const relative = path.relative(cwdDir, resolved);
-      if (relative.startsWith('..')) {
-        throw { code: 'PATH_NOT_FOUND', message: `--cwd path '${resolved}' is outside the working directory` };
-      }
-    }
-    return resolved;
-  }
-  return process.cwd();
-}
+const { output, getCwd, extractPositionalArg } = require('./_cli-utils');
 
 function readConfig(cwd) {
   const configPath = path.join(cwd, '.flow', 'config.json');
@@ -44,10 +26,7 @@ function getConfigValue(cwd, keyPath, defaultValue) {
 
 function cmdConfigGet(args) {
   const cwd = getCwd(args);
-  let keyPath = null;
-  for (let i = 0; i < args.length; i++) {
-    if (!args[i].startsWith('--')) { keyPath = args[i]; break; }
-  }
+  const keyPath = extractPositionalArg(args);
   if (!keyPath) {
     return output({ value: readConfig(cwd), key: null });
   }

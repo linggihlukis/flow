@@ -22,17 +22,17 @@ async function execute(_args, routes) {
     throw { code: 'INVALID_INPUT', message: 'batch input must be a JSON array' };
   }
 
-  return ops.map(op => {
+  return Promise.all(ops.map(async op => {
     try {
       const route = routes[op.cmd];
       if (!route) throw { code: 'UNKNOWN_COMMAND', message: `Unknown batch command: ${op.cmd}` };
       const mod = require(route);
-      const result = mod.execute(op.args || []);
+      const result = await mod.execute(op.args || []);
       return { result };
     } catch (e) {
       return { error: { code: e.code || 'ERROR', message: e.message || String(e) } };
     }
-  });
+  }));
 }
 
 module.exports = { execute };

@@ -25,7 +25,7 @@ const SCHEMAS = {
         },
         'state sync': {
     input:  { type: 'object', properties: { cwd: { type: 'string' } } },
-    output: { type: 'object', properties: { synced: { type: 'boolean' }, fields_rebuilt: { type: 'array' }, inconsistencies: { type: 'array' } } },
+    output: { type: 'object', properties: { synced: { type: 'boolean' }, fields_checked: { type: 'array' }, inconsistencies: { type: 'array' } } },
   },
   'config get': {
     input:  { type: 'object', properties: { cwd: { type: 'string' }, key: { type: 'string' } } },

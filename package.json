@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node bin/install.js",
     "test": "node test/flow-test.js",
-    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js",
+    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/content.test.js",
     "test:contracts": "node test/contract-tests.js",
     "test:integration": "node test/integration/flow-execute.test.js",
     "docs": "node scripts/generate-docs.js > docs/api-reference.md"

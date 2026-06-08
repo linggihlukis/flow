@@ -19,3 +19,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
       - run: npm test
+      - run: npm run test:lib
+      - run: npm run test:contracts
+      - run: npm run test:integration
+      - run: npm audit --audit-level=high
+        continue-on-error: true
