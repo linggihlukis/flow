@@ -3,6 +3,7 @@
 
 const fs   = require('node:fs');
 const path = require('node:path');
+const os   = require('node:os');
 const crypto = require('node:crypto');
 
 const ERROR_CODES = {
@@ -244,17 +245,42 @@ function main() {
 }
 
 // ─── Startup integrity check ─────────────────────────────────────────────────
-try {
-  const homeDir = require('node:os').homedir();
-  const manifestPath = path.join(homeDir, '.flow', 'tools', 'manifest.json');
-  if (fs.existsSync(manifestPath)) {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    const actual = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
-    if (manifest['flow-tools.js'] && manifest['flow-tools.js'] !== actual) {
-      process.stderr.write('⚠️  flow-tools.js integrity check failed. Run: npx @linggihlukis/flow@latest --update\n');
-    }
+function runIntegrityCheck() {
+  const manifestPath = path.join(os.homedir(), '.flow', 'tools', 'manifest.json');
+  if (!fs.existsSync(manifestPath)) return;
+
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (err) {
+    if (process.env.DEBUG) process.stderr.write(`flow-tools: integrity manifest parse failed: ${err.message}\n`);
+    return;
   }
-} catch {}
+
+  // When running from source (bin/flow-tools.js in project), __filename contains
+  // the [flow-version] template placeholder — the installed copy at ~/.flow/tools/
+  // has the resolved version. Hash the target file the manifest was built from.
+  const SRC_CONTENT = fs.readFileSync(__filename, 'utf8');
+  const isSourceFile = SRC_CONTENT.includes('[flow-version]');
+  const targetFile = isSourceFile
+    ? path.join(os.homedir(), '.flow', 'tools', 'flow-tools.js')
+    : __filename;
+
+  if (!isSourceFile && !fs.existsSync(targetFile)) return;
+
+  let actual;
+  try {
+    actual = crypto.createHash('sha256').update(fs.readFileSync(targetFile)).digest('hex');
+  } catch (err) {
+    if (process.env.DEBUG) process.stderr.write(`flow-tools: integrity hashing failed: ${err.message}\n`);
+    return;
+  }
+
+  if (manifest['flow-tools.js'] && manifest['flow-tools.js'] !== actual) {
+    process.stderr.write('⚠️  flow-tools.js integrity check failed. Run: npx @linggihlukis/flow@latest --update\n');
+  }
+}
+runIntegrityCheck();
 
 // ─── Centralized error handling ───────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {

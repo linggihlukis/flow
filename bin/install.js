@@ -348,13 +348,30 @@ function createRuntimeBridge(runtimeFlowDir, runtimeName) {
   const r = getRuntime(runtimeName || 'opencode');
   const toolsPath = Platform.normalize(path.join(r.toolsDir, r.toolsFile));
 
-  if (isWindows) {
-    const shimPath = path.join(runtimeFlowDir, "flow-tools.cmd");
-    if (fs.existsSync(shimPath)) return;
-    const shimContent = `@echo off\nnode "${toolsPath}" %*\n`;
-    fs.writeFileSync(shimPath, shimContent);
-    ok(`flow-tools.cmd shim ${dim(`→ ${shimPath}`)}`);
-  } else {
+  	if (isWindows) {
+  		// .cmd shim — batch file wrapping node invocation
+  		const cmdShimPath = path.join(runtimeFlowDir, "flow-tools.cmd");
+  		if (!fs.existsSync(cmdShimPath)) {
+  			const cmdContent = `@echo off\nnode "${toolsPath}" %*\n`;
+  			fs.writeFileSync(cmdShimPath, cmdContent);
+  			ok(`flow-tools.cmd shim ${dim(`→ ${cmdShimPath}`)}`);
+  		}
+
+  		// .js shim — Node.js wrapper for environments that invoke .js directly
+  		const jsShimPath = path.join(runtimeFlowDir, "flow-tools.js");
+  		if (!fs.existsSync(jsShimPath)) {
+  			const jsContent = [
+  				'#!/usr/bin/env node',
+  				"'use strict';",
+  				'const { spawnSync } = require("node:child_process");',
+  				`const result = spawnSync(process.execPath, [${JSON.stringify(toolsPath)}, ...process.argv.slice(2)], { stdio: "inherit" });`,
+  				'process.exit(result.status ?? 1);',
+  				''
+  			].join('\n');
+  			fs.writeFileSync(jsShimPath, jsContent);
+  			ok(`flow-tools.js shim ${dim(`→ ${jsShimPath}`)}`);
+  		}
+  	} else {
     const linkPath = path.join(runtimeFlowDir, "flow-tools.js");
     try {
       fs.lstatSync(linkPath);
