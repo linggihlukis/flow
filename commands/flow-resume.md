@@ -10,7 +10,7 @@ Read AGENTS.md §2 (File Locations), §4 (Session Start), §9 (Lesson Injection)
 `[flow-tools-path]`:
   OpenCode:    ~/.config/opencode/flow/flow-tools.js
   Claude Code: ~/.claude/flow/flow-tools.js
-  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js
+  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js (Legacy) or ~/.gemini/antigravity-ide/flow/flow-tools.js (IDE)
   Codex:       ~/.codex/flow/flow-tools.cmd
   Windows:     use flow-tools.cmd extension, not .js
 

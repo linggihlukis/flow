@@ -438,6 +438,17 @@ if (installSource.includes("installCodexSkills") && installSource.includes("inst
   fail("install.js is missing Codex skill or agent installers");
 }
 
+if (
+  installSource.includes("function installAntigravity(baseDir, runtimeName, location)") &&
+  installSource.includes("antigravity: { global: false, local: false },") &&
+  installSource.includes("installed.antigravity.global") &&
+  installSource.includes("installed.antigravity.local")
+) {
+  pass("install.js supports local-scoped antigravity and antigravity-ide runtimes");
+} else {
+  fail("install.js is missing local-scoped antigravity or antigravity-ide support");
+}
+
 const codexAgentSection = installSource.slice(
   installSource.indexOf("function installCodexAgents"),
   installSource.indexOf("function installAntigravity")
