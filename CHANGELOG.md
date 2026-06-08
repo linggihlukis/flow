@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [0.3.1] - 2026-06-08
 
 ### Added
+- **Local Antigravity Installation**: Extended Flow CLI to support local-scoped installations of the Antigravity and Antigravity-IDE runtimes (storing files in `.gemini/` and `.agents/skills/`), with dynamic skill wrapper generation and context-aware path resolution.
+- **Updater & Uninstaller Scope Awareness**: Hardened updater and uninstaller commands to correctly detect, update, and clean up both global and local-scoped Antigravity installs.
 - **Agent Quality & Constraints**: Added §23 (Judgment Axioms), §24 (Universal Output Contract), and §25 (Tool Use Discipline) to `scaffold/AGENTS.md` and role-specific output contracts for all 6 agent files.
 - **CI/CD Workflow**: Trigger GitHub Actions CI workflow on push and pull requests targeting the `dev` branch.
 - **PowerShell Support**: Provided PowerShell equivalents for all 64+ bash command listings in `flow-map-codebase.md`.
