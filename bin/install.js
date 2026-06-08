@@ -49,6 +49,10 @@ function getGlobalAntigravityDir() {
   return path.join(os.homedir(), ".gemini", "antigravity");
 }
 
+function getGlobalAntigravityIdeDir() {
+  return path.join(os.homedir(), ".gemini", "antigravity-ide");
+}
+
 function getGlobalCodexSkillsDir() {
   return path.join(os.homedir(), ".agents", "skills");
 }
@@ -99,8 +103,9 @@ function generateSkillMarkdown(name, description, sourceContent) {
   return `---\nname: ${name}\ndescription: ${description}\n---\n\n${body.endsWith("\n") ? body : `${body}\n`}`;
 }
 
-function generateAntigravitySkillWrapper(name, description) {
-  return `---\nname: ${name}\ndescription: ${description}\n---\n\n<context>\nArguments: $ARGUMENTS\n</context>\n\n<execution_context>\n@~/.gemini/antigravity/flow/workflows/${name}.md\n</execution_context>\n\n<process>\nExecute the ${name} workflow end-to-end.\nPreserve all workflow gates, validation steps, and state updates.\n</process>\n`;
+function generateAntigravitySkillWrapper(name, description, runtimeName) {
+  const dirName = runtimeName === "antigravity-ide" ? "antigravity-ide" : "antigravity";
+  return `---\nname: ${name}\ndescription: ${description}\n---\n\n<context>\nArguments: $ARGUMENTS\n</context>\n\n<execution_context>\n@~/.gemini/${dirName}/flow/workflows/${name}.md\n</execution_context>\n\n<process>\nExecute the ${name} workflow end-to-end.\nPreserve all workflow gates, validation steps, and state updates.\n</process>\n`;
 }
 
 function generateCodexAgentToml(name, description, sourceContent, sandboxMode) {
@@ -181,8 +186,9 @@ const RUNTIME_CHOICES = [
   { label: "OpenCode",                                    value: "opencode" },
   { label: "Claude Code",                                 value: "claude" },
   { label: "Codex App / CLI",                             value: "codex" },
-  { label: "Antigravity  (Google, Gemini — global only)", value: "antigravity" },
-  { label: "All (OpenCode + Claude + Codex + Antigravity)", value: "all" },
+  { label: "Antigravity (Legacy) (Google, Gemini — global only)", value: "antigravity" },
+  { label: "Antigravity IDE (Google, Gemini — global only)", value: "antigravity-ide" },
+  { label: "All (OpenCode + Claude + Codex + Antigravity + Antigravity IDE)", value: "all" },
 ];
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
@@ -235,7 +241,7 @@ function installFlowHome(runtimeName) {
     return false;
   }
 
-  if (runtimeName) {
+  if (runtimeName && runtimeName !== "all") {
     const content = fs.readFileSync(src, 'utf8');
     const resolved = resolveTemplates(content, runtimeName);
     fs.writeFileSync(dest, resolved, 'utf8');
@@ -848,8 +854,23 @@ function installAntigravity(baseDir, runtimeName) {
     const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
     const skillDir = path.join(skillsBase, name);
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateAntigravitySkillWrapper(name, description));
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateAntigravitySkillWrapper(name, description, runtimeName));
     skillCount++;
+  }
+
+  // Also install to Antigravity 2.0 / IDE global config skills path: ~/.gemini/config/skills
+  const configSkillsBase = path.join(os.homedir(), ".gemini", "config", "skills");
+  try {
+    ensureDir(configSkillsBase);
+    for (const file of commandFiles) {
+      const name = path.basename(file, ".md");
+      const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
+      const skillDir = path.join(configSkillsBase, name);
+      ensureDir(skillDir);
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateAntigravitySkillWrapper(name, description, runtimeName));
+    }
+  } catch (e) {
+    warn(`Could not install skill wrappers to Antigravity config directory: ${e.message}`);
   }
 
   return { workflows: commandFiles.length, agents: agentCount, skills: skillCount };
@@ -1152,21 +1173,38 @@ function uninstall(runtime, location) {
 
   removed > 0 ? ok(`Removed ${removed} FLOW command(s)`) : warn("No FLOW commands found to remove");
 
-  if (runtime === "antigravity" || runtime === "all") {
-    const agBaseDir = getGlobalAntigravityDir();
-    const skillsDir = path.join(agBaseDir, "skills");
-    if (fs.existsSync(skillsDir)) {
-      for (const entry of fs.readdirSync(skillsDir)) {
+  if (runtime === "antigravity" || runtime === "antigravity-ide" || runtime === "all") {
+    const runtimesToUninstall = [];
+    if (runtime === "antigravity" || runtime === "all") runtimesToUninstall.push("antigravity");
+    if (runtime === "antigravity-ide" || runtime === "all") runtimesToUninstall.push("antigravity-ide");
+
+    for (const rt of runtimesToUninstall) {
+      const agBaseDir = rt === "antigravity-ide" ? getGlobalAntigravityIdeDir() : getGlobalAntigravityDir();
+      const skillsDir = path.join(agBaseDir, "skills");
+      if (fs.existsSync(skillsDir)) {
+        for (const entry of fs.readdirSync(skillsDir)) {
+          if (entry.startsWith("flow-")) {
+            fs.rmSync(path.join(skillsDir, entry), { recursive: true, force: true });
+            removed++;
+          }
+        }
+      }
+      const flowDir = path.join(agBaseDir, "flow");
+      if (fs.existsSync(flowDir)) {
+        fs.rmSync(flowDir, { recursive: true, force: true });
+        removed++;
+      }
+    }
+
+    // Also remove from global config skills if this is any antigravity uninstall
+    const configSkillsDir = path.join(os.homedir(), ".gemini", "config", "skills");
+    if (fs.existsSync(configSkillsDir)) {
+      for (const entry of fs.readdirSync(configSkillsDir)) {
         if (entry.startsWith("flow-")) {
-          fs.rmSync(path.join(skillsDir, entry), { recursive: true, force: true });
+          fs.rmSync(path.join(configSkillsDir, entry), { recursive: true, force: true });
           removed++;
         }
       }
-    }
-    const flowDir = path.join(agBaseDir, "flow");
-    if (fs.existsSync(flowDir)) {
-      fs.rmSync(flowDir, { recursive: true, force: true });
-      removed++;
     }
   }
 
@@ -1276,7 +1314,7 @@ async function main() {
 
   // Location
   let location;
-  if (runtime === "antigravity") {
+  if (runtime === "antigravity" || runtime === "antigravity-ide") {
     location = "global";
   } else if (flagLocation) {
     location = ["--global","-g"].includes(flagLocation) ? "global" : "local";
@@ -1327,10 +1365,21 @@ async function main() {
     try {
       const agDir = getGlobalAntigravityDir();
       const { workflows, agents, skills } = installAntigravity(agDir, "antigravity");
-      ok(`Antigravity (global) ${dim(agDir)}`);
+      ok(`Antigravity (Legacy) (global) ${dim(agDir)}`);
       ok(`  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
     } catch (e) {
       err(`Antigravity install failed: ${e.message}`);
+    }
+  }
+
+  if (runtime === "antigravity-ide" || runtime === "all") {
+    try {
+      const agIdeDir = getGlobalAntigravityIdeDir();
+      const { workflows, agents, skills } = installAntigravity(agIdeDir, "antigravity-ide");
+      ok(`Antigravity IDE (global) ${dim(agIdeDir)}`);
+      ok(`  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
+    } catch (e) {
+      err(`Antigravity IDE install failed: ${e.message}`);
     }
   }
 
@@ -1402,6 +1451,7 @@ function detectInstalledRuntimes(cwd) {
     claude:   { global: false, local: false },
     codex:    { global: { skills: false, agents: false }, local: { skills: false, agents: false } },
     antigravity: false,
+    "antigravity-ide": false,
   };
 
   // OpenCode global: ~/.config/opencode/commands/flow-*.md
@@ -1445,11 +1495,17 @@ function detectInstalledRuntimes(cwd) {
   if (fs.existsSync(agWorkflows) && fs.readdirSync(agWorkflows).some(f => f.startsWith("flow-")))
     found.antigravity = true;
 
+  // Antigravity IDE: ~/.gemini/antigravity-ide/flow/workflows/
+  const agIdeWorkflows = path.join(getGlobalAntigravityIdeDir(), "flow", "workflows");
+  if (fs.existsSync(agIdeWorkflows) && fs.readdirSync(agIdeWorkflows).some(f => f.startsWith("flow-")))
+    found["antigravity-ide"] = true;
+
   return found;
 }
 
 // ─── Update flow ─────────────────────────────────────────────────────────────
 // Auto-detects every installed runtime and updates all of them.
+// No runtime prompt — finds what's there and updates it.
 // No runtime prompt — finds what's there and updates it.
 async function runUpdate() {
   log("");
@@ -1467,11 +1523,11 @@ async function runUpdate() {
                   || installed.claude.global   || installed.claude.local
                   || installed.codex.global.skills || installed.codex.global.agents
                   || installed.codex.local.skills   || installed.codex.local.agents
-                  || installed.antigravity;
+                  || installed.antigravity || installed["antigravity-ide"];
 
   if (!anyRuntime) {
     warn("No Flow runtime installation detected.");
-    warn("Checked: OpenCode (global + local), Claude Code (global + local), Codex App / CLI (global + local), Antigravity (global)");
+    warn("Checked: OpenCode (global + local), Claude Code (global + local), Codex App / CLI (global + local), Antigravity (global), Antigravity IDE (global)");
     warn("If this is a new project, run the installer first: npx @linggihlukis/flow");
     log("");
     return;
@@ -1486,7 +1542,8 @@ async function runUpdate() {
     info(`Codex App / CLI global  ${dim(`${getGlobalCodexSkillsDir()} + ${getGlobalCodexAgentsDir()}`)}`);
   if (installed.codex.local.skills || installed.codex.local.agents)
     info(`Codex App / CLI local   ${dim(`${path.join(cwd, ".agents", "skills")} + ${path.join(cwd, ".codex", "agents")}`)}`);
-  if (installed.antigravity)      info(`Antigravity global  ${dim(path.join(getGlobalAntigravityDir(), "flow", "workflows"))}`);
+  if (installed.antigravity)      info(`Antigravity (Legacy) global  ${dim(path.join(getGlobalAntigravityDir(), "flow", "workflows"))}`);
+  if (installed["antigravity-ide"]) info(`Antigravity IDE global       ${dim(path.join(getGlobalAntigravityIdeDir(), "flow", "workflows"))}`);
   log("");
 
   // ── Step 2: Update command & agent files for each detected runtime ─────────
@@ -1545,8 +1602,16 @@ async function runUpdate() {
     try {
       const agDir = getGlobalAntigravityDir();
       const { workflows, agents, skills } = installAntigravity(agDir, "antigravity");
-      ok(`Antigravity global: ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) { err(`Antigravity failed: ${e.message}`); }
+      ok(`Antigravity (Legacy) global: ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
+    } catch (e) { err(`Antigravity (Legacy) failed: ${e.message}`); }
+  }
+
+  if (installed["antigravity-ide"]) {
+    try {
+      const agIdeDir = getGlobalAntigravityIdeDir();
+      const { workflows, agents, skills } = installAntigravity(agIdeDir, "antigravity-ide");
+      ok(`Antigravity IDE global:     ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
+    } catch (e) { err(`Antigravity IDE failed: ${e.message}`); }
   }
 
   // ── Step 2b: Update Flow tools ─────────────────────────────────────────────
