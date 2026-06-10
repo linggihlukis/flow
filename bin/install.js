@@ -100,7 +100,7 @@ function escapeTomlBasicString(value) {
 
 function generateSkillMarkdown(name, description, sourceContent) {
   const body = stripFrontmatter(sourceContent).trimStart();
-  return `---\nname: ${name}\ndescription: ${description}\n---\n\n${body.endsWith("\n") ? body : `${body}\n`}`;
+  return `---\nname: ${name}\ndescription: ${description}\ndisable-model-invocation: true\n---\n\n${body.endsWith("\n") ? body : `${body}\n`}`;
 }
 
 function generateAntigravitySkillWrapper(name, description, runtimeName, location) {
@@ -188,10 +188,10 @@ const flagSyncModels = args.includes("--sync-models") || envFlag("--sync-models"
 const RUNTIME_CHOICES = [
   { label: "OpenCode",                                    value: "opencode" },
   { label: "Claude Code",                                 value: "claude" },
-  { label: "Codex App / CLI",                             value: "codex" },
+  { label: "Codex App / CLI / Zed Editor",                value: "codex" },
   { label: "Antigravity (Legacy) (Google, Gemini — global only)", value: "antigravity" },
   { label: "Antigravity IDE (Google, Gemini — global only)", value: "antigravity-ide" },
-  { label: "All (OpenCode + Claude + Codex + Antigravity + Antigravity IDE)", value: "all" },
+  { label: "All (OpenCode + Claude + Codex/Zed + Antigravity + Antigravity IDE)", value: "all" },
 ];
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
@@ -266,6 +266,16 @@ function installFlowHome(runtimeName) {
     warn("bin/lib/ not found — flow-tools may fail at runtime");
   }
 
+  // Copy agents/ directory required by runtimes (e.g. Zed) to load subagent instructions
+  const agentsSrc = path.join(REPO_ROOT, "agents");
+  const agentsDest = path.join(toolsDir, "agents");
+  if (fs.existsSync(agentsSrc)) {
+    copyRecursiveSync(agentsSrc, agentsDest);
+    ok(`flow-tools agents/ ${dim(`→ ${agentsDest}`)}`);
+  } else {
+    warn("agents/ directory not found — subagents may be unavailable at runtime");
+  }
+
   installNodeDeps(toolsDir);
 
   // Generate SHA-256 integrity manifest
@@ -277,6 +287,14 @@ function installFlowHome(runtimeName) {
       if (entry.isFile()) {
         const filePath = path.join(libDest, entry.name);
         manifest[`lib/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+      }
+    }
+    if (fs.existsSync(agentsDest)) {
+      for (const entry of fs.readdirSync(agentsDest, { withFileTypes: true })) {
+        if (entry.isFile()) {
+          const filePath = path.join(agentsDest, entry.name);
+          manifest[`agents/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+        }
       }
     }
     fs.writeFileSync(path.join(toolsDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
@@ -1247,7 +1265,7 @@ function resolveTargets(runtime, location) {
       });
     if (runtime === "codex" || runtime === "all")
       targets.push({
-        label: `Codex App / CLI (global) ${dim(getGlobalCodexSkillsDir())}`,
+        label: `Codex / Zed (global) ${dim(getGlobalCodexSkillsDir())}`,
         runtimeName: "codex",
         kind: "codex",
         skillsDir: getGlobalCodexSkillsDir(),
@@ -1270,7 +1288,7 @@ function resolveTargets(runtime, location) {
       });
     if (runtime === "codex" || runtime === "all")
       targets.push({
-        label: `Codex App / CLI (local) ${dim(path.join(cwd, ".agents", "skills"))}`,
+        label: `Codex / Zed (local) ${dim(path.join(cwd, ".agents", "skills"))}`,
         runtimeName: "codex",
         kind: "codex",
         skillsDir: path.join(cwd, ".agents", "skills"),
@@ -1455,7 +1473,7 @@ async function main() {
     log(dim("  Reload Claude Code (or restart your shell) to load the new commands."));
   }
   if (runtime === "codex" || runtime === "all") {
-    log(dim("  Restart Codex App / CLI to load the new skills and agents."));
+    log(dim("  Restart Codex App / CLI or reload Zed Editor to load the new skills and agents."));
   }
   if (runtime === "antigravity" || runtime === "all") {
     log(dim("  Restart Antigravity to load the new skills (/flow-* commands)."));
@@ -1845,4 +1863,4 @@ if (require.main === module) {
   main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
 }
 
-module.exports = { deepMergeConfig, updateScaffold, createRuntimeBridge, installFlowHome, installWasm, resolveTemplates };
+module.exports = { deepMergeConfig, updateScaffold, createRuntimeBridge, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown };
