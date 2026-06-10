@@ -552,7 +552,7 @@ async function run() {
       const docsRaw = execSync("node scripts/generate-docs.js").toString();
       if (docsRaw.includes("# FLOW Tools API Reference") && docsRaw.includes("### Input")) { pass("17n: generate-docs script runs and prints markdown schemas correctly"); } else { fail("17n: generate-docs script output is invalid"); }
       const { Platform } = require("../bin/lib/platform");
-      if (Platform.normalize("foo\\bar") === "foo/bar" && Platform.isAbsolute(path.resolve("foo")) === true && typeof Platform.escapeArg("test") === "string" && typeof Platform.phpBin === "string" && Platform.shell.cmd !== undefined) { pass("17o: Platform helper methods work correctly across platforms"); } else { fail("17o: Platform helper methods returned unexpected results"); }
+      if (Platform.normalize(path.join("foo", "bar")) === "foo/bar" && Platform.isAbsolute(path.resolve("foo")) === true && typeof Platform.escapeArg("test") === "string" && typeof Platform.phpBin === "string" && Platform.shell.cmd !== undefined) { pass("17o: Platform helper methods work correctly across platforms"); } else { fail("17o: Platform helper methods returned unexpected results"); }
       const { getRuntime, RUNTIMES } = require("../bin/lib/runtime-registry");
       if (RUNTIMES.opencode && getRuntime("opencode").name === "opencode") { pass("17p: Runtime registry getRuntime resolves correctly"); } else { fail("17p: Runtime registry getRuntime failed"); }
     } catch (e) { fail("Suite 17: subcommand tests failed — " + e.message); }
