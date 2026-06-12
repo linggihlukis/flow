@@ -51,6 +51,18 @@ const RUNTIMES = {
     spawnSyntax:    '@',
     capabilities: { subagentSpawn: true, sandbox: false, modelAssignment: false },
   },
+  'antigravity-ide': {
+    name: 'antigravity-ide',
+    commandsDir:    path.join(Platform.home, '.gemini', 'antigravity-ide', 'flow', 'workflows'),
+    agentsDir:      path.join(Platform.home, '.gemini', 'antigravity-ide', 'flow', 'agents'),
+    toolsDir:       path.join(Platform.home, '.gemini', 'antigravity-ide', 'flow'),
+    configPath:     null,
+    toolsFile:      'flow-tools.js',
+    agentFormat:    'md-skill',
+    modelField:     null,
+    spawnSyntax:    '@',
+    capabilities: { subagentSpawn: true, sandbox: false, modelAssignment: false },
+  },
 };
 
 function getRuntime(name) {

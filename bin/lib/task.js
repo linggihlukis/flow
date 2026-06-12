@@ -4,6 +4,7 @@ const path = require('node:path');
 const { resolveSafePath } = require('./path-resolver');
 const { readStateFile } = require('./state');
 const { output, exitErr, getCwd } = require('./_cli-utils');
+const { parseFrontmatter } = require('./frontmatter');
 
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function extractField(body, fieldName) {
@@ -55,7 +56,27 @@ function cmdTaskValidate(args) {
     if (!lines.some(l => /^## Done Condition\b/.test(l))) errors.push(`${basename}: missing ## Done Condition`);
     if (!lines.some(l => /^\*\*Depends on:\*\*/.test(l))) errors.push(`${basename}: missing **Depends on:**`);
     const depLine = lines.find(l => /^\*\*Depends on:\*\*/.test(l));
-    if (depLine) { const dv = depLine.replace(/^\*\*Depends on:\*\*\s*/, '').trim(); if (!/^(none|task-\d+)$/i.test(dv)) errors.push(`${basename}: **Depends on:** value '${dv}' is not 'none' or 'task-NN'`); }
+    if (depLine) {
+      const dv = depLine.replace(/^\*\*Depends on:\*\*\s*/, '').trim();
+      const parts = dv.split(',').map(s => s.trim()).filter(Boolean);
+      for (const part of parts) {
+        if (!/^(none|task-\d+)$/i.test(part)) {
+          errors.push(`${basename}: **Depends on:** value '${part}' is not 'none' or 'task-NN'`);
+        }
+      }
+    }
+    const fm = parseFrontmatter(content);
+    if (fm) {
+      const fmDeps = fm.depends_on || fm['Depends on'] || [];
+      const depsArray = typeof fmDeps === 'string'
+        ? (fmDeps === 'none' ? [] : [fmDeps])
+        : (Array.isArray(fmDeps) ? fmDeps : []);
+      for (const dep of depsArray) {
+        if (typeof dep === 'string' && !/^(none|task-\d+)$/i.test(dep.trim())) {
+          errors.push(`${basename}: frontmatter depends_on value '${dep}' is not 'none' or 'task-NN'`);
+        }
+      }
+    }
     const verifyIdx = lines.findIndex(l => /^## Verify$/.test(l));
     if (verifyIdx >= 0) {
       const verifyLines = lines.slice(verifyIdx + 1);

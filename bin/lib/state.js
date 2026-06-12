@@ -7,13 +7,7 @@ const { parseFrontmatter, serializeFrontmatter } = require('./frontmatter');
 const { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, ERROR_CODES } = require('./_cli-utils');
 
 function nowISO() {
-  const now = new Date();
-  const off = -now.getTimezoneOffset();
-  const sign = off >= 0 ? '+' : '-';
-  const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
-  const m = String(Math.abs(off) % 60).padStart(2, '0');
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${sign}${h}:${m}`;
+  return new Date().toISOString();
 }
 
 const VALID_STATUSES = new Set([
@@ -95,7 +89,9 @@ function cmdStatePatch(args) {
     exitErr('INVALID_STATUS', `Invalid status '${fm.status}'. Must be one of: ${[...VALID_STATUSES].join(', ')}`);
   }
 
-  fm.updated_at = nowISO();
+  const timestamp = nowISO();
+
+  fm.updated_at = timestamp;
   if (!patched.includes('updated_at')) patched.push('updated_at');
 
   return withStateLock(statePath, () => {
@@ -114,10 +110,10 @@ function cmdStatePatch(args) {
     const stateJsonPath = path.join(cwd, '.flow', 'state.json');
     if (fs.existsSync(stateJsonPath)) {
       try {
-        const current = JSON.parse(fs.readFileSync(stateJsonPath, 'utf8'));
-        for (const k of patched) current[k] = fm[k];
-        current.updated_at = nowISO();
-        fs.writeFileSync(stateJsonPath, JSON.stringify(current, null, 2));
+        const jsonCopy = { ...fm };
+        delete jsonCopy._prose_body;
+        jsonCopy.updated_at = timestamp;
+        fs.writeFileSync(stateJsonPath, JSON.stringify(jsonCopy, null, 2));
       } catch {}
     }
     return output({ patched: true, fields: patched });
@@ -165,7 +161,7 @@ function cmdStateSync(args) {
   const fm = parseFrontmatter(content);
   if (!fm) exitErr(ERROR_CODES.STATE_PARSE_ERROR, '.flow/state.md frontmatter is malformed');
 
-  const fieldsRebuilt = [];
+  const fieldsChecked = [];
   const inconsistencies = [];
 
   if (fm.active_milestone !== undefined && fm.active_milestone !== null) {
@@ -173,6 +169,7 @@ function cmdStateSync(args) {
     if (!fs.existsSync(milestoneDir)) {
       inconsistencies.push({ field: 'milestone_dir', expected: milestoneDir, actual: 'not found' });
     }
+    fieldsChecked.push('milestone_dir');
   }
 
   if (fm.active_phase !== undefined && fm.active_phase !== null && fm.active_phase !== '') {
@@ -188,11 +185,12 @@ function cmdStateSync(args) {
         inconsistencies.push({ field: 'phase_dir', expected: phaseDir, actual: 'not found' });
       }
     }
+    fieldsChecked.push('phase_dir');
   }
 
   return output({
     synced: inconsistencies.length === 0,
-    fields_rebuilt: fieldsRebuilt,
+    fields_checked: fieldsChecked,
     inconsistencies,
   });
 }
@@ -204,12 +202,12 @@ function cmdStateMigrate(args) {
     return output({ migrated: false, reason: 'state.json already exists' });
   }
   const { fm } = readStateFile(cwd);
-  const cursor = {
-    active_milestone: fm.active_milestone || 'milestone-01',
-    active_phase:     String(fm.active_phase || '0'),
-    status:           fm.status || 'not-started',
-    updated_at:       fm.updated_at || nowISO(),
-  };
+  const cursor = { ...fm };
+  if (!cursor.active_milestone) cursor.active_milestone = 'milestone-01';
+  if (!cursor.active_phase) cursor.active_phase = '0';
+  if (!cursor.status) cursor.status = 'not-started';
+  if (!cursor.updated_at) cursor.updated_at = nowISO();
+  delete cursor._prose_body;
   fs.writeFileSync(stateJsonPath, JSON.stringify(cursor, null, 2));
   return output({ migrated: true, path: stateJsonPath, cursor });
 }
@@ -224,4 +222,4 @@ function execute(args) {
   throw { code: 'UNKNOWN_COMMAND', message: `Unknown state subcommand: ${sub}` };
 }
 
-module.exports = { execute, readStateFile };
+module.exports = { execute, readStateFile, nowISO };

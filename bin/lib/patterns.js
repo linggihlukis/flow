@@ -2,20 +2,7 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const { globalCache } = require('./cache');
-
-function output(data) { return data; }
-function exitErr(code, message) { process.stdout.write(JSON.stringify({ error: true, code, message }) + '\n'); process.exit(1); }
-
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) { const r = path.relative(process.cwd(), resolved); if (r.startsWith('..')) exitErr('PATH_NOT_FOUND', `--cwd path '${resolved}' is outside the working directory`); }
-    return resolved;
-  }
-  return process.cwd();
-}
+const { output, exitErr, getCwd } = require('./_cli-utils');
 
 function classifySectionType(lines) {
   for (const line of lines) { if (/^\s*\|[\s-:|]+\|\s*$/.test(line)) return 'table'; }
@@ -47,17 +34,17 @@ function cmdPatternsExtract(args) {
   const queryIdx = args.indexOf('--query');
   const query = queryIdx >= 0 ? args[queryIdx + 1] : null;
   if (!fs.existsSync(patternsPath)) return output({ sections: [] });
-  const cacheKey = 'patterns:' + patternsPath + ':' + (sectionFilter || '') + ':' + (query || '');
-  const result = globalCache.get(cacheKey, patternsPath, () => {
+  const allSections = globalCache.get('patterns:' + patternsPath, patternsPath, () => {
     const content = fs.readFileSync(patternsPath, 'utf8');
     const sections = []; let current = null;
     for (const line of content.split('\n')) { if (line.startsWith('## ')) { if (current) sections.push(current); current = { header: line.slice(3).trim(), lines: [] }; } else if (current) current.lines.push(line); }
     if (current) sections.push(current);
-    let filtered = sections;
-    if (sectionFilter) { const lf = sectionFilter.toLowerCase(); filtered = sections.filter(s => s.header.toLowerCase().includes(lf)); }
-    if (query) { const lq = query.toLowerCase(); filtered = filtered.filter(s => s.lines.some(l => l.toLowerCase().includes(lq))); }
-    return filtered.map(s => { const ne = s.lines.filter(l => l.trim()); const st = classifySectionType(ne); const rows = extractRows(ne, st); return { section: s.header, type: st, rows }; });
+    return sections;
   });
+  let filtered = allSections;
+  if (sectionFilter) { const lf = sectionFilter.toLowerCase(); filtered = allSections.filter(s => s.header.toLowerCase().includes(lf)); }
+  if (query) { const lq = query.toLowerCase(); filtered = filtered.filter(s => s.lines.some(l => l.toLowerCase().includes(lq))); }
+  const result = filtered.map(s => { const ne = s.lines.filter(l => l.trim()); const st = classifySectionType(ne); const rows = extractRows(ne, st); return { section: s.header, type: st, rows }; });
   return output({ sections: result });
 }
 

@@ -96,8 +96,8 @@ function cmdStatuslineShow(args) {
   const { fm } = readStateFile(cwd);
   const mName = fm.active_milestone || 'milestone-01';
   if (!fm.active_milestone) console.error('Warning: active_milestone not set in state.md, defaulting to milestone-01');
-  const mPhase = phaseNum || fm.active_phase || '0';
-  const padded = String(mPhase).padStart(2, '0');
+  const mPhase = String(phaseNum || fm.active_phase || '0');
+  const padded = mPhase.padStart(2, '0');
   const contextPath = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`, 'CONTEXT.md');
   let phaseName = null;
   if (fs.existsSync(contextPath)) { phaseName = extractTaskTitle(fs.readFileSync(contextPath, 'utf8')); }

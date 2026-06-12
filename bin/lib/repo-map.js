@@ -3,20 +3,7 @@ const fs   = require('node:fs');
 const path = require('node:path');
 const { resolveSafePath } = require('./path-resolver');
 const { Platform } = require('./platform');
-
-function output(data) { return data; }
-function exitErr(code, message) { process.stdout.write(JSON.stringify({ error: true, code, message }) + '\n'); process.exit(1); }
-
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) { const r = path.relative(process.cwd(), resolved); if (r.startsWith('..')) exitErr('PATH_NOT_FOUND', `--cwd path '${resolved}' is outside the working directory`); }
-    return resolved;
-  }
-  return process.cwd();
-}
+const { output, exitErr, getCwd } = require('./_cli-utils');
 
 function cmdRepoMapSearch(args) {
   const cwd = getCwd(args);

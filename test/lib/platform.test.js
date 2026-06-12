@@ -13,9 +13,12 @@ const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; }
 console.assert(typeof Platform.home === "string", "home must be string");
 pass("home returns a string");
 
-// ─── normalize ────────────────────────────────────────────────────────────────
-console.assert(Platform.normalize("a\\b\\c") === "a/b/c", "Windows backslashes → forward slashes");
-pass("normalize converts backslashes to forward slashes");
+if (process.platform === "win32") {
+  console.assert(Platform.normalize("a\\b\\c") === "a/b/c", "Windows backslashes → forward slashes");
+  pass("normalize converts backslashes to forward slashes");
+} else {
+  pass("normalize converts backslashes to forward slashes (skipped on non-Windows)");
+}
 
 console.assert(Platform.normalize("a/b/c") === "a/b/c", "forward slashes unchanged");
 pass("normalize leaves forward slashes unchanged");

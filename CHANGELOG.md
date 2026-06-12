@@ -3,6 +3,44 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] - 2026-06-12
+
+### Added
+- **Local Antigravity Installation**: Extended Flow CLI to support local-scoped installations of the Antigravity and Antigravity-IDE runtimes (storing files in `.gemini/` and `.agents/skills/`), with dynamic skill wrapper generation and context-aware path resolution.
+- **Updater & Uninstaller Scope Awareness**: Hardened updater and uninstaller commands to correctly detect, update, and clean up both global and local-scoped Antigravity installs.
+- **Agent Quality & Constraints**: Added §23 (Judgment Axioms), §24 (Universal Output Contract), and §25 (Tool Use Discipline) to `scaffold/AGENTS.md` and role-specific output contracts for all 6 agent files.
+- **CI/CD Workflow**: Trigger GitHub Actions CI workflow on push and pull requests targeting the `dev` branch.
+- **PowerShell Support**: Provided PowerShell equivalents for all 64+ bash command listings in `flow-map-codebase.md`.
+- **Scaffold Docs**: Scaffolding of reference and documentation helper files under `.flow/docs/` on install or update runs.
+
+### Fixed
+- **Custom Error Handling**: Introduced a custom `FlowError` class for structured and standardized CLI errors.
+- **Unified getCwd**: Consolidated multiple duplicated `getCwd` implementations from 6 different modules into a single central helper in `lib/_cli-utils.js`.
+- **CLI Helper Centralization**: Re-exported common utility helpers from `lib/_cli-utils.js` and added conditional `exitErr` handling.
+- **Path Traversal Security**: Resolved a directory traversal bypass vulnerability in `content.js` prompt-injection checks.
+- **Batch Executions**: Prevented async task dropping in `batch.js` during concurrent executions.
+- **Validator Paths**: Fixed target path resolution mismatches in the task validator.
+- **CI Test Suite Coverage**: Restored 3 missing CI test suites to the automated test runner.
+- **CLI Argument Parsing**: Corrected positional argument parsing for CLI subcommands.
+- **State Synchronization**: Implemented full mirrored synchronization for `state.json` matching `state.md`.
+- **State Schema Accuracy**: Renamed `fields_rebuilt` to `fields_checked` in the state synchronization output to accurately reflect verified fields.
+- **Token Estimation Clarity**: Added documentation explaining the `chars / 4` character-to-token heuristic used in context budget checks.
+- **YAML Hardening**: Expanded the allowed YAML parser schema blocklist for security hardening.
+- **Cache Registry Optimization**: Enabled LRU promotion logic in the local cache registry.
+- **Performance Caching**: Implemented file-level patterns caching to speed up discuss/plan workflows.
+- **UTC Timestamps**: Synchronized timestamps across state files to utilize standardized UTC time.
+- **List Deduplication**: Added an order-preserving deduplication helper for list operations.
+- **Process Spawn Hardening**: Removed unnecessary `shell:true` options from child process executions to secure command spawns.
+- **Windows PATH Resolution**: Enabled `shell:true` during npm dependency installs to resolve `ENOENT` PATH lookup failures on Windows.
+- **Windows Shell Shims**: Generated both `.cmd` and `.js` shell wrappers during Windows installation to ensure global PATH accessibility.
+- **Module Copying Integrity**: Fixed `installFlowHome` to recursively copy all `bin/lib/` module helpers to `~/.flow/tools/lib/`, preventing runtime `MODULE_NOT_FOUND` errors.
+- **SHA-256 Manifest Verification**: Expanded installer SHA-256 manifest checks to include integrity hashes for all library files.
+- **Tree-sitter Refactoring**: Resolved `ReferenceError: Parser is not defined` inside `lib/index.js` by encapsulating all tree-sitter operations into `ts-extractor.js` with a synchronous `isParserAvailable()` guard and an async language parser factory.
+
+### Changed
+- **Metadata Updates**: Updated the `author` metadata in `package.json` to include developer name, email, and GitHub URL.
+- **Installer Metadata**: Standardized binary script execution names and script author metadata in installer scripts.
+
 ## [0.3.0] - 2026-05-30
 
 ### Added

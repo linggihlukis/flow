@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const { resolveSafePath } = require('./path-resolver');
+const { getCwd } = require('./_cli-utils');
 
 const INJECTION_PATTERNS = [
   /^ignore\s+all\s+previous/im,
@@ -15,8 +16,7 @@ const INJECTION_PATTERNS = [
 function cmdContentCheck(args) {
   const fileIdx = args.indexOf('--file');
   const filePath = fileIdx >= 0 ? args[fileIdx + 1] : null;
-  const cwdIdx   = args.indexOf('--cwd');
-  const cwd      = cwdIdx >= 0 ? args[cwdIdx + 1] : process.cwd();
+  const cwd = getCwd(args);
   if (!filePath) throw { code: 'INVALID_INPUT', message: '--file required' };
   const resolved = resolveSafePath(cwd, filePath);
   const content  = fs.existsSync(resolved) ? fs.readFileSync(resolved, 'utf8') : '';

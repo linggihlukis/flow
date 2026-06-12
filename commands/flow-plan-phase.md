@@ -9,7 +9,7 @@ Read AGENTS.md §2 (File Locations), §3 (Runtime Detection), §5 (Subagents), �
 `[flow-tools-path]`:
   OpenCode:    ~/.config/opencode/flow/flow-tools.js
   Claude Code: ~/.claude/flow/flow-tools.js
-  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js
+  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js (Legacy) or ~/.gemini/antigravity-ide/flow/flow-tools.js (IDE)
   Codex:       ~/.codex/flow/flow-tools.cmd
   Windows:     use flow-tools.cmd extension, not .js
 
@@ -262,7 +262,7 @@ For each overlapping Module Zone in PATTERNS.md:
 3. If files deviate from PATTERNS.md claims, record the deviation under `## PATTERNS.md Staleness` and in the `patterns_stale` list in the Return block.
 
 **Step 4: Build and write research.md**
-Write the results directly to `M/phases/phase-$ARGUMENTS/research.md`. Use this structure (see `agents/flow-researcher.md` for the full reference):
+Write the results directly to `M/phases/phase-$ARGUMENTS/research.md`. Use this structure (see `[flow-tools-dir]/agents/flow-researcher.md` for the full reference):
 
 ```markdown
 # Phase $ARGUMENTS Research — [Phase Name]

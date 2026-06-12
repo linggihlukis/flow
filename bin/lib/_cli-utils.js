@@ -13,10 +13,19 @@ const ERROR_CODES = {
   INVALID_STATUS:         'INVALID_STATUS',
 };
 
+class FlowError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'FlowError';
+    this.code = code;
+    this.error = true;
+  }
+}
+
 function output(data) { return data; }
 
 function exitErr(code, message) {
-  throw { error: true, code, message };
+  throw new FlowError(code, message);
 }
 
 function getCwd(args) {
@@ -49,7 +58,7 @@ function collectFlagValues(args, flagName) {
   return values;
 }
 
-const YAML_UNSAFE = /[\n\r:{}\[\]#]/;
+const YAML_UNSAFE = /[\n\r:{}\[\]#,'"*&!|>%@`]/;
 
 function sanitizeStateValue(raw) {
   if (YAML_UNSAFE.test(raw)) {
@@ -59,4 +68,19 @@ function sanitizeStateValue(raw) {
   return raw.trim();
 }
 
-module.exports = { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, ERROR_CODES };
+const KNOWN_VALUED_FLAGS = new Set([
+  '--cwd', '--field', '--set', '--file', '--phase', '--section',
+  '--patterns', '--query', '--n', '--type', '--body-filter',
+  '--newer', '--max-results', '--path', '--zone',
+]);
+
+function extractPositionalArg(args, knownFlags = KNOWN_VALUED_FLAGS) {
+  for (let i = 0; i < args.length; i++) {
+    if (knownFlags.has(args[i])) { i++; continue; }
+    if (args[i].startsWith('--')) continue;
+    return args[i];
+  }
+  return null;
+}
+
+module.exports = { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, ERROR_CODES, FlowError, extractPositionalArg };

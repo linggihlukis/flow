@@ -3,6 +3,7 @@
 
 const fs   = require('node:fs');
 const path = require('node:path');
+const os   = require('node:os');
 const crypto = require('node:crypto');
 
 const ERROR_CODES = {
@@ -20,8 +21,11 @@ const MODEL_CONTEXT_LIMIT_DEFAULT = 200000;
 const MAX_AST_DEPTH = 200;
 
 function exitErr(code, message) {
-  process.stdout.write(JSON.stringify({ error: true, code, message }) + '\n');
-  process.exit(1);
+  if (require.main === module) {
+    process.stdout.write(JSON.stringify({ error: true, code, message }) + '\n');
+    process.exit(1);
+  }
+  throw { error: true, code, message };
 }
 function output(data) { process.stdout.write(JSON.stringify(data) + '\n'); }
 
@@ -62,7 +66,7 @@ const VALID_STATUSES = new Set([
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: require('../package.json').version,
+    version: '[flow-version]',
     commands: {
       index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
@@ -91,48 +95,12 @@ function showHelp() {
   });
 }
 
-// ─── Helpers (exported for test suite compatibility) ────────────────────────
+// ─── Helpers (re-exported from lib/ for test suite compatibility) ────────────
 
-const yaml = require('js-yaml');
-
-function parseFrontmatter(content) {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  try { return yaml.load(match[1]); } catch { return null; }
-}
-
-function _quoteYamlValue(value) {
-  if (value === null) return 'null';
-  if (typeof value === 'boolean' || typeof value === 'number') return String(value);
-  const str = String(value);
-  if (/[:\#\{\}\[\]\,\&\*\!\|\>\'\"\%\@\`\r\n]/.test(str) || /^\s/.test(str) || /\s$/.test(str)) {
-    return '"' + str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
-  }
-  return str;
-}
-
-function serializeFrontmatter(obj) {
-  const lines = ['---'];
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) continue;
-    lines.push(`${key}: ${_quoteYamlValue(value)}`);
-  }
-  lines.push('---');
-  return lines.join('\n');
-}
-
-function nowISO() {
-  const now = new Date();
-  const off = -now.getTimezoneOffset();
-  const sign = off >= 0 ? '+' : '-';
-  const h = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
-  const m = String(Math.abs(off) % 60).padStart(2, '0');
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${sign}${h}:${m}`;
-}
+const { parseFrontmatter, serializeFrontmatter } = require('./lib/frontmatter');
+const { nowISO } = require('./lib/state');
 
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
 function extractField(body, fieldName) {
   const match = body.match(new RegExp(`\\*\\*${escapeRegex(fieldName)}:\\*\\*\\s*(.+)$`, 'm'));
   return match ? match[1].trim() : null;
@@ -235,12 +203,7 @@ function main() {
   const args = process.argv.slice(2);
   if (args.length === 0 || args[0] === '--help') { showHelp(); return; }
   if (args[0] === '--version') {
-    try {
-      const pkg = require('../package.json');
-      output({ version: pkg.version });
-    } catch {
-      output({ version: 'unknown' });
-    }
+    output({ version: '[flow-version]' });
     return;
   }
   const cmd = args[0];
@@ -249,17 +212,42 @@ function main() {
 }
 
 // ─── Startup integrity check ─────────────────────────────────────────────────
-try {
-  const homeDir = require('node:os').homedir();
-  const manifestPath = path.join(homeDir, '.flow', 'tools', 'manifest.json');
-  if (fs.existsSync(manifestPath)) {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    const actual = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
-    if (manifest['flow-tools.js'] && manifest['flow-tools.js'] !== actual) {
-      process.stderr.write('⚠️  flow-tools.js integrity check failed. Run: npx @linggihlukis/flow@latest --update\n');
-    }
+function runIntegrityCheck() {
+  const manifestPath = path.join(os.homedir(), '.flow', 'tools', 'manifest.json');
+  if (!fs.existsSync(manifestPath)) return;
+
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (err) {
+    if (process.env.DEBUG) process.stderr.write(`flow-tools: integrity manifest parse failed: ${err.message}\n`);
+    return;
   }
-} catch {}
+
+  // When running from source (bin/flow-tools.js in project), __filename contains
+  // the [flow-version] template placeholder — the installed copy at ~/.flow/tools/
+  // has the resolved version. Hash the target file the manifest was built from.
+  const SRC_CONTENT = fs.readFileSync(__filename, 'utf8');
+  const isSourceFile = SRC_CONTENT.includes('[flow-version]');
+  const targetFile = isSourceFile
+    ? path.join(os.homedir(), '.flow', 'tools', 'flow-tools.js')
+    : __filename;
+
+  if (!isSourceFile && !fs.existsSync(targetFile)) return;
+
+  let actual;
+  try {
+    actual = crypto.createHash('sha256').update(fs.readFileSync(targetFile)).digest('hex');
+  } catch (err) {
+    if (process.env.DEBUG) process.stderr.write(`flow-tools: integrity hashing failed: ${err.message}\n`);
+    return;
+  }
+
+  if (manifest['flow-tools.js'] && manifest['flow-tools.js'] !== actual) {
+    process.stderr.write('⚠️  flow-tools.js integrity check failed. Run: npx @linggihlukis/flow@latest --update\n');
+  }
+}
+runIntegrityCheck();
 
 // ─── Centralized error handling ───────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {

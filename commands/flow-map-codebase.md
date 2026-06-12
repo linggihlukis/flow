@@ -11,16 +11,41 @@ Read AGENTS.md §2 (File Locations), §7 (Destructive Tiers), §12 (State Write)
 `[flow-tools-path]`:
   OpenCode:    ~/.config/opencode/flow/flow-tools.js
   Claude Code: ~/.claude/flow/flow-tools.js
-  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js
+  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js (Legacy) or ~/.gemini/antigravity-ide/flow/flow-tools.js (IDE)
   Codex:       ~/.codex/flow/flow-tools.cmd
   Windows:     use flow-tools.cmd extension, not .js
 
 `[flow-tools-dir]` (directory containing flow-tools, for npm install):
   OpenCode:    ~/.config/opencode/flow/
   Claude Code: ~/.claude/flow/
-  Antigravity: ~/.gemini/antigravity/flow/
+  Antigravity: ~/.gemini/antigravity/flow/ (Legacy) or ~/.gemini/antigravity-ide/flow/ (IDE)
   Codex:       ~/.codex/flow/
   Windows:     %USERPROFILE%\.codex\flow\
+
+### Windows / PowerShell quick-reference
+
+This command uses bash syntax. When running on Windows PowerShell, substitute:
+
+| Bash | PowerShell |
+|---|---|
+| `grep -r "p" --include="*.ext" -l . \| head -N` | `Get-ChildItem -Recurse -Filter "*.ext" -File -EA SilentlyContinue \| Select-String -Pattern "p" -List \| Select-Object -First N \| ForEach-Object { $_.Path }` |
+| `grep -rn "p" [file-or-dir] \| head -N` | `Select-String -Path "[file-or-dir]" -Pattern "p" \| Select-Object -First N` (add `-Recurse` to Get-ChildItem for recursive) |
+| `grep -c "p" [file]` | `(Select-String -Path "[file]" -Pattern "p" -AllMatches).Matches.Count` |
+| `grep -rh "p" . \| grep -oP "..." \| sort -u` | `Get-ChildItem -Recurse -File -EA SilentlyContinue \| Select-String -Pattern "p" -AllMatches \| ForEach-Object { $_.Matches.Value } \| Sort-Object -Unique` |
+| `find . -name "*.ext" \| head -N` | `Get-ChildItem -Recurse -Filter "*.ext" -File -EA SilentlyContinue \| Select-Object -First N` |
+| `find . -maxdepth 2 -name "*.ext"` | `Get-ChildItem -Depth 2 -Filter "*.ext" -File -EA SilentlyContinue` |
+| `ls pattern1 pattern2 2>/dev/null` | `Get-ChildItem pattern1,pattern2 -EA SilentlyContinue` |
+| `cat file \| grep "p"` | `Select-String -Path "file" -Pattern "p"` |
+| `wc -l [file]` | `(Get-Content "[file]").Count` |
+| `xargs grep -l "p" \| wc -l` | `(Get-ChildItem -Recurse -Filter "*.ext" -File -EA SilentlyContinue \| Select-String -Pattern "p" -List).Count` |
+| `test -f [path] && echo "ok"` | `if (Test-Path "[path]") { Write-Output "ok" }` |
+| `sort -u` | `Sort-Object -Unique` |
+| `2>/dev/null` | `-ErrorAction SilentlyContinue` (append to cmdlet) |
+| `head -N` | `\| Select-Object -First N` |
+| `&&` | `; if ($LASTEXITCODE -eq 0) { ... }` or separate statements |
+| `||` | `; if ($LASTEXITCODE -ne 0) { ... }` |
+
+---
 
 # /flow-map-codebase
 
@@ -103,7 +128,10 @@ Run targeted checks for each section. Do not re-analyse the whole codebase — o
 **Module Zones:**
 - For each listed path in the Module Zones table, run:
   ```bash
+  # Linux/macOS:
   ls [path] 2>/dev/null || echo "MISSING"
+  # Windows PowerShell:
+  # if (Test-Path "[path]") { Get-ChildItem "[path]" } else { Write-Output "MISSING" }
   ```
 - Flag any path that no longer exists
 - Flag any path whose purpose appears to have changed (spot-check 2-3 files per zone)
@@ -115,7 +143,10 @@ Run targeted checks for each section. Do not re-analyse the whole codebase — o
 **Do Not Change:**
 - For each listed item, check whether it still exists:
   ```bash
+  # Linux/macOS:
   grep -r "[item name]" --include="*.ts" --include="*.js" --include="*.py" -l . 2>/dev/null | head -3
+  # Windows PowerShell:
+  # Get-ChildItem -Recurse -Include "*.ts","*.js","*.py" -File -EA SilentlyContinue | Select-String -Pattern "[item name]" -List | Select-Object -First 3 | ForEach-Object { $_.Path }
   ```
 - Flag items that no longer appear in the codebase — they may have been changed or removed
 
@@ -126,7 +157,10 @@ Run targeted checks for each section. Do not re-analyse the whole codebase — o
 **Confidence Notes:**
 - For each low-confidence zone, check if test coverage has been added:
   ```bash
+  # Linux/macOS:
   find [zone path] -name "*.test.*" -o -name "*.spec.*" 2>/dev/null | head -5
+  # Windows PowerShell:
+  # Get-ChildItem -Path "[zone path]" -Recurse -Include "*.test.*","*.spec.*" -File -EA SilentlyContinue | Select-Object -First 5
   ```
 - Flag zones where test files now exist that didn't before
 
@@ -156,48 +190,70 @@ Using signals from Step 2, determine two classifications.
   the `## Stack` → Language line already read in Step 1 of PATTERNS.md instead.
   Apply the matching signal set:
 
-  **javascript / typescript:**
-  ```bash
-  ls pnpm-workspace.yaml nx.json turbo.json lerna.json 2>/dev/null
-  cat package.json | grep -i '"workspaces"' 2>/dev/null
-  ```
+	  **javascript / typescript:**
+	  ```bash
+	  # Linux/macOS:
+	  ls pnpm-workspace.yaml nx.json turbo.json lerna.json 2>/dev/null
+	  cat package.json | grep -i '"workspaces"' 2>/dev/null
+	  # Windows PowerShell:
+	  # Get-ChildItem pnpm-workspace.yaml,nx.json,turbo.json,lerna.json -EA SilentlyContinue
+	  # Select-String -Path "package.json" -Pattern '"workspaces"'
+	  ```
   - `monorepo` — any of `nx.json`, `turbo.json`, `pnpm-workspace.yaml`, `lerna.json`, or `workspaces` field in root `package.json`
   - `polyrepo` — sibling directories with their own `package.json` manifests
 
-  **php:**
-  ```bash
-  find . -maxdepth 2 -name "index.php" 2>/dev/null
-  find . -maxdepth 2 -name ".htaccess" 2>/dev/null
-  grep -r "require\|include" --include="*.php" -l . 2>/dev/null | head -5
-  ```
+	  **php:**
+	  ```bash
+	  # Linux/macOS:
+	  find . -maxdepth 2 -name "index.php" 2>/dev/null
+	  find . -maxdepth 2 -name ".htaccess" 2>/dev/null
+	  grep -r "require\|include" --include="*.php" -l . 2>/dev/null | head -5
+	  # Windows PowerShell:
+	  # Get-ChildItem -Recurse -Filter "index.php" -File -EA SilentlyContinue
+	  # Get-ChildItem -Recurse -Filter ".htaccess" -File -EA SilentlyContinue
+	  # Get-ChildItem -Recurse -Filter "*.php" -File -EA SilentlyContinue | Select-String -Pattern "require|include" -List | Select-Object -First 5 | ForEach-Object { $_.Path }
+	  ```
   - `polyrepo` — multiple root-level `index.php` in sibling directories, multiple `.htaccess` files, or cross-directory `require`/`include` to `../sibling` paths
 
-  **python:**
-  ```bash
-  find . -maxdepth 2 -name "setup.py" -o -name "pyproject.toml" 2>/dev/null
-  ```
+	  **python:**
+	  ```bash
+	  # Linux/macOS:
+	  find . -maxdepth 2 -name "setup.py" -o -name "pyproject.toml" 2>/dev/null
+	  # Windows PowerShell:
+	  # Get-ChildItem -Depth 2 -Include "setup.py","pyproject.toml" -File -EA SilentlyContinue
+	  ```
   - `polyrepo` — multiple `setup.py` or `pyproject.toml` in sibling directories
 
-  **go:**
-  ```bash
-  find . -maxdepth 2 -name "go.mod" 2>/dev/null
-  ```
+	  **go:**
+	  ```bash
+	  # Linux/macOS:
+	  find . -maxdepth 2 -name "go.mod" 2>/dev/null
+	  # Windows PowerShell:
+	  # Get-ChildItem -Depth 2 -Filter "go.mod" -File -EA SilentlyContinue
+	  ```
   - `polyrepo` — multiple `go.mod` in sibling directories
 
-  **ruby:**
-  ```bash
-  find . -maxdepth 2 -name "Gemfile" 2>/dev/null
-  ```
+	  **ruby:**
+	  ```bash
+	  # Linux/macOS:
+	  find . -maxdepth 2 -name "Gemfile" 2>/dev/null
+	  # Windows PowerShell:
+	  # Get-ChildItem -Depth 2 -Filter "Gemfile" -File -EA SilentlyContinue
+	  ```
   - `polyrepo` — multiple `Gemfile` in sibling directories
 
   **mixed / unknown:**
   - `polyrepo` — `entry_point_count > 1` from signals as the primary signal
 
-  **Stack-neutral signals (apply to all stacks):**
-  ```bash
-  ls ../*/package.json ../*/go.mod ../*/requirements.txt 2>/dev/null | head -5
-  grep -r "SERVICE_URL\|API_GATEWAY" .env 2>/dev/null | head -3
-  ```
+	  **Stack-neutral signals (apply to all stacks):**
+	  ```bash
+	  # Linux/macOS:
+	  ls ../*/package.json ../*/go.mod ../*/requirements.txt 2>/dev/null | head -5
+	  grep -r "SERVICE_URL\|API_GATEWAY" .env 2>/dev/null | head -3
+	  # Windows PowerShell:
+	  # Get-ChildItem ..\*\package.json,..\*\go.mod,..\*\requirements.txt -EA SilentlyContinue | Select-Object -First 5
+	  # Select-String -Path ".env" -Pattern "SERVICE_URL|API_GATEWAY" | Select-Object -First 3
+	  ```
   - `polyrepo` — sibling directories with their own manifest files, or `.env` referencing other service URLs
   - `single` — none of the above signals found
 
@@ -290,12 +346,15 @@ signals:
       entry_points / entry_point_count:
         Run:
         ```bash
+        # Linux/macOS:
         find . -maxdepth 1 -type f \( \
           -name "index.php" -o -name "index.js" -o -name "index.ts" \
           -o -name "main.go" -o -name "main.py" -o -name "manage.py" \
           -o -name "app.py" -o -name "server.js" \
           -o -name "cron.php" -o -name "cli.php" \
         \) 2>/dev/null
+        # Windows PowerShell:
+        # Get-ChildItem -File -Include "index.php","index.js","index.ts","main.go","main.py","manage.py","app.py","server.js","cron.php","cli.php" -EA SilentlyContinue
         ```
         Set entry_points to the list of found files.
         Set entry_point_count to the count of found files.
@@ -305,17 +364,26 @@ signals:
         Use stack derived from PATTERNS.md above.
         If stack is php:
         ```bash
+        # Linux/macOS:
         grep -r "require\|include" --include="*.php" -l . 2>/dev/null \
           | xargs grep -l "\.\./" 2>/dev/null | wc -l
+        # Windows PowerShell:
+        # (Get-ChildItem -Recurse -Filter "*.php" -File -EA SilentlyContinue | Select-String -Pattern "require|include" -List | ForEach-Object { $_.Path } | ForEach-Object { Select-String -Path $_ -Pattern "\.\./" -List } | Measure-Object).Count
         ```
         If stack is javascript or typescript:
         ```bash
+        # Linux/macOS:
         grep -r "from \"\.\.\//" --include="*.js" --include="*.ts" \
           -l . 2>/dev/null | wc -l
+        # Windows PowerShell:
+        # (Get-ChildItem -Recurse -Include "*.js","*.ts" -File -EA SilentlyContinue | Select-String -Pattern 'from "\.\./' -List).Count
         ```
         If stack is python:
         ```bash
+        # Linux/macOS:
         grep -r "sys\.path" --include="*.py" -l . 2>/dev/null | wc -l
+        # Windows PowerShell:
+        # (Get-ChildItem -Recurse -Filter "*.py" -File -EA SilentlyContinue | Select-String -Pattern "sys\.path" -List).Count
         ```
         For all other stacks: set cross_zone_coupling: false.
         If count > 0: set cross_zone_coupling: true. Otherwise: false.
@@ -449,7 +517,7 @@ deployed, deps should already be present. Regardless, verify before proceeding.
 
 **Step 1 — Verify deps:**
 ```bash
-node -e "require('js-yaml'); require('web-tree-sitter'); require('tree-sitter-wasms'); console.log('OK')" \
+node -e "require('js-yaml'); require('web-tree-sitter'); require('tree-sitter-wasms/package.json'); console.log('OK')" \
   --require module-alias/register 2>/dev/null || \
 ls ~/.flow/tools/node_modules/js-yaml \
   ~/.flow/tools/node_modules/web-tree-sitter \
@@ -548,6 +616,12 @@ Read `models.flow-researcher` from `.flow/config.json`. If not `"inherit"`, incl
 
 Spawn 4 parallel `@flow-researcher` agents with the following briefs:
 
+**⚠️ No active phase exists during flow-map-codebase.** Agents are spawned outside
+phase context — `M` and `N` path variables are undefined. Do not write any files.
+Return all findings in the conversation response only. The orchestrator will
+consolidate findings into `.flow/codebase/analysis.md` after all agents complete.
+Any agent that writes a file contrary to this instruction has violated the brief.
+
 **Agent 1 — Stack & Dependencies**
 - Detect language(s), framework(s), runtime version(s)
 - List all dependencies (package.json, requirements.txt, go.mod, etc.)
@@ -584,8 +658,15 @@ Spawn 4 parallel `@flow-researcher` agents with the following briefs:
 For each convention or pattern you identify, measure coverage by sampling before
 reporting a percentage. Do not estimate — report only measured ratios:
 
+  ```bash
+  # Linux/macOS:
   find [zone_path] -name "*.[ext]" | head -20 | xargs grep -l "[pattern]" | wc -l
   find [zone_path] -name "*.[ext]" | head -20 | wc -l
+  # Windows PowerShell:
+  # $files = Get-ChildItem -Path "[zone_path]" -Recurse -Filter "*.[ext]" -File | Select-Object -First 20
+  # $matching = ($files | ForEach-Object { Select-String -Path $_.FullName -Pattern "[pattern]" -List } | Measure-Object).Count
+  # $total = $files.Count
+  ```
   Coverage = (files matching pattern) / (files sampled)
 
 Minimum sample: all files if zone has ≤ 20 files; 20 files if zone has > 20 files.
@@ -602,33 +683,50 @@ Minimum sample: all files if zone has ≤ 20 files; 20 files if zone has > 20 fi
 For each zone identified by Agent 1/2, run the following bash checks and record every hit:
 
 ```bash
+# Linux/macOS:
 # 1. Files with no inbound references AND not an entry point
 #    (likely dead code or hidden coupling via dynamic include)
 #    Run per zone — replace [zone_path] and [filename] for each file
 grep -r "[filename]" . --include="*.php" --include="*.js" --include="*.ts" --include="*.py" -l 2>/dev/null | wc -l
 # Flag if result == 0 and file is not in entry_points[]
+# Windows PowerShell:
+# (Get-ChildItem -Recurse -Include "*.php","*.js","*.ts","*.py" -File -EA SilentlyContinue | Select-String -Pattern "[filename]" -List).Count
 
 # 2. Functions defined in more than one file in the same zone (hidden duplicates)
 grep -r "function [name]" [zone_path] -l 2>/dev/null | wc -l
 # Flag if result > 1
+# Windows PowerShell:
+# (Select-String -Path "[zone_path]\*" -Pattern "function [name]" -List).Count
 
 # 3. Directories with no tests AND > 500 lines of code (unverified zones)
 find [zone_path] \( -name "*.test.*" -o -name "*.spec.*" -o -name "*Test.php" -o -name "*_test.py" \) 2>/dev/null | wc -l
 # Flag if result == 0; then check total line count
+# Windows PowerShell:
+# (Get-ChildItem -Path "[zone_path]" -Recurse -Include "*.test.*","*.spec.*","*Test.php","*_test.py" -File -EA SilentlyContinue).Count
 
 # 4. Functions over 100 lines with no internal comments (opaque logic)
 # Approximate: files where avg function length is high and comment density is low
 grep -c "^\s*//" [file] 2>/dev/null   # comment lines
 wc -l [file]                           # total lines
 # Flag if comment_lines / total_lines < 0.05 AND total_lines > 150
+# Windows PowerShell:
+# $commentLines = @(Select-String -Path "[file]" -Pattern "^\s*//").Count
+# $totalLines = (Get-Content "[file]").Count
 
 # 5. Modules with only one caller (potential dead code or tight coupling)
 grep -r "[module_name]" . -l 2>/dev/null | wc -l
 # Flag if result == 1 (only the file itself or one caller)
+# Windows PowerShell:
+# (Get-ChildItem -Recurse -File -EA SilentlyContinue | Select-String -Pattern "[module_name]" -List).Count
 
 # 6. Environment variables referenced in code but absent from .env.example / config templates
-grep -rh "getenv\|$_ENV\|process\.env\|os\.environ" . 2>/dev/null | grep -oP "[\'\"][A-Z_]{3,}[\'\"]" | sort -u
+grep -rh "getenv\|\$_ENV\|process\.env\|os\.environ" . 2>/dev/null | grep -oP "[\'\"][A-Z_]{3,}[\'\"]" | sort -u
 # Compare against .env.example or equivalent — flag any not documented
+# Windows PowerShell:
+# Get-ChildItem -Recurse -File -EA SilentlyContinue | Select-String -Pattern "getenv|\$_ENV|process\\.env|os\\.environ" -AllMatches |
+#   ForEach-Object { $_.Matches.Value } |
+#   Select-String -Pattern "[A-Z_]{3,}" -AllMatches |
+#   ForEach-Object { $_.Matches.Value } | Sort-Object -Unique
 
 # 7. Files not modified in > 12 months with no tests (frozen/fragile)
 git log --since="12 months ago" --name-only --pretty=format: 2>/dev/null | sort -u > /tmp/recently_modified.txt
@@ -638,6 +736,8 @@ git log --since="12 months ago" --name-only --pretty=format: 2>/dev/null | sort 
 #  Do you have files you consider frozen or fragile that should be manually flagged
 #  in the Unknown Unknowns section? If yes, list them; if no, type 'none'."
 # Record the developer's response in the Unknown Unknowns section verbatim.
+# Windows PowerShell:
+# git log --since="12 months ago" --name-only --pretty=format: 2>$null | Sort-Object -Unique | Set-Content "$env:TEMP\recently_modified.txt"
 ```
 
 Record every flagged item. These are your Unknown Unknowns findings.
@@ -661,7 +761,10 @@ The file must contain:
 Write the file now. Then verify it exists:
 
 ```bash
+# Linux/macOS:
 test -f .flow/codebase/analysis.md && echo "✓ analysis.md written" || echo "✗ analysis.md MISSING — STOP"
+# Windows PowerShell:
+# if (Test-Path ".flow/codebase/analysis.md") { Write-Output "✓ analysis.md written" } else { Write-Output "✗ analysis.md MISSING — STOP" }
 ```
 
 If the verification prints "MISSING", stop and write the file before proceeding.

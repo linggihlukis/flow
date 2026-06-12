@@ -19,48 +19,7 @@ All FLOW files live under `.flow/`. AGENTS.md stays at root (auto-loaded by runt
 **Shorthand:** `M` = `.flow/milestones/{active_milestone}/`, `P` = `M/phases/phase-{active_phase}/` where `{active_phase}` is zero-padded to two digits (e.g., `phase-01`, `phase-12`)
 Values from `.flow/state.md` YAML frontmatter.
 
-```
-AGENTS.md                              ← you are here (root)
-.flow/
-├── state.md                           ← global cursor + session state
-│
-├── codebase/                          ← global, not milestone-scoped
-│   ├── patterns.md                    ← codebase reality map
-│   ├── patterns-amendments.md         ← append-only corrections
-│   ├── analysis.md                    ← raw analysis detail
-│   ├── service-map.md                 ← inter-service contracts
-│   ├── repo-map.json                  ← tree-sitter index
-│   ├── test-baseline.md              ← pre-existing test failures
-│   └── compression-exceptions.md     ← zones to always include
-│
-├── milestones/
-│   ├── milestone-NN/
-│   │   ├── requirements.md            ← scope + MoSCoW tables
-│   │   ├── roadmap.md                 ← phases for this milestone
-│   │   ├── summary.md                ← completion summary
-│   │   └── phases/
-│   │       └── phase-NN/
-│   │           ├── context.md         ← locked decisions
-│   │           ├── research.md
-│   │           ├── research-brief.md
-│   │           ├── verification.md
-│   │           ├── handoff.md
-│   │           ├── context-log.md
-│   │           ├── patterns-scope.md
-│   │           ├── tasks/
-│   │           │   ├── task-01.md
-│   │           │   └── fix-01.md
-│   │           └── summaries/
-│   │               └── summary-01.md
-│
-├── memory/                            ← cross-milestone, compounds
-│   ├── lessons.md                     ← append-only
-│   ├── knowledge-base.md             ← append-only
-│   └── archives/
-│
-├── config.json
-├── quick/                             ← ad-hoc task outputs
-```
+**Full tree:** `.flow/docs/file-map.md` — agents that need the complete layout (first run, flow-new-project) read this file.
 
 ---
 
@@ -243,7 +202,7 @@ session context. `state.json` is for tool-layer automation only.
 `[flow-tools-path]`:
   OpenCode:    ~/.config/opencode/flow/flow-tools.js
   Claude Code: ~/.claude/flow/flow-tools.js
-  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js
+  Antigravity: ~/.gemini/antigravity/flow/flow-tools.js (Legacy) or ~/.gemini/antigravity-ide/flow/flow-tools.js (IDE)
   Codex:       ~/.codex/flow/flow-tools.cmd
   Windows:     use flow-tools.cmd extension
 
@@ -271,19 +230,7 @@ Orchestrator includes `model:` in spawn brief when not `"inherit"` — informati
 
 ### Sync to runtime
 
-```bash
-npx @linggihlukis/flow --sync-models --<runtime>
-```
-
-| Flag | Target |
-|---|---|
-| `--opencode` | `.opencode/opencode.json` |
-| `--claude` | `.claude/agents/flow-[name].md` |
-| `--codex` | `.codex/agents/flow-[name].toml` |
-| `--antigravity` | N/A — model is UI-selected |
-| `--all` | All supported (skips Antigravity) |
-
-Re-run after every `--update`. `"inherit"` values are skipped.
+See `.flow/docs/model-routing.md` for the `--sync-models` commands.
 
 ### Cognitive Tiers
 
@@ -385,24 +332,13 @@ Not material = cosmetic, naming, style differences.
 
 ## 20. PATTERNS.md Global Sections
 
-> **Source of truth:** The `<!-- flow-global-sections: ... -->` comment block at the
-> top of `.flow/codebase/patterns.md` is the machine-readable list of global sections.
-> This section in AGENTS.md is documentation only — update the comment block first,
-> then sync this section to match.
+> **Source of truth:** The `<!-- flow-global-sections: ... -->` comment block in
+> `.flow/codebase/patterns.md`. Always read from there. When adding a new global
+> section, update the comment block FIRST, then update this section to match.
 
-When PATTERNS.md is zone-scoped, these sections are ALWAYS included regardless
-of which zones the phase touches:
+**Mandatory:** `## Do Not Change`, `## Unknown Unknowns`, `## Testing Patterns`, `## Confidence Notes`, `## Stack`
 
-**Mandatory:** `## Do Not Change`, `## Unknown Unknowns`, `## Testing Patterns`,
-`## Confidence Notes`, `## Stack`
-
-**Conditional (include if present, skip silently if absent):**
-`## Learned Heuristics`, `## What Actually Works`
-
-When adding a new global section, update the `<!-- flow-global-sections -->` comment
-block at the top of PATTERNS.md FIRST, then update this section in AGENTS.md to match.
-The extraction in flow-plan-phase.md reads from the comment block — if the comment
-and this section disagree, the comment wins.
+**Conditional (include if present, skip silently if absent):** `## Learned Heuristics`, `## What Actually Works`
 
 ---
 
@@ -412,15 +348,11 @@ Before spawning any agent in a phase-scoped command, execute these three steps i
 
 **Step 1 — Write trace entry** to `P/context-log.md` (create with table header on first write):
 
-```markdown
-# Phase [N] — Agent Context Log
+Trace entry format: see `.flow/docs/spawn-protocol-ref.md`
 
-| Timestamp | Agent | Est. Tokens | Sections Loaded |
-|-----------|-------|-------------|-----------------|
-| [ISO 8601] | [agent_name] | [N] | [comma-separated file list] |
-```
+Token estimation: see `.flow/docs/spawn-protocol-ref.md`
 
-Token estimation: `flow-tools context estimate [files] --cwd .` if available. Fallback: `sum of (file_size_in_chars ÷ 4)`, rounded to nearest 100. Append-only.
+Append-only.
 
 **Who writes:** Orchestrator only (pre-spawn). Never agents. Lifecycle: dies with phase directory.
 
@@ -432,13 +364,7 @@ Budget source: `P/context-log.md` → sum all `Est. Tokens`. Limits from `.flow/
 1. If `config.json` has no `context` block → skip.
 2. If `P/context-log.md` does not exist → skip (first spawn, just written above).
 3. Sum Est. Tokens (do NOT load full file):
-   ```bash
-   node [flow-tools-path] context trace-avg --file P/context-log.md
-   ```
-   If flow-tools unavailable, fallback:
-   ```bash
-   awk -F'|' 'NR>3 {gsub(/[^0-9]/,"",$4); sum+=$4} END{print sum+0}' P/context-log.md
-   ```
+   Budget sum: see `.flow/docs/spawn-protocol-ref.md`
 4. `usage_pct = (sum × 100) ÷ model_context_limit`
 5. If `≥ budget_critical_pct` → **HALT.** Do not spawn. Overrides `--auto` and `yolo`.
    ```
@@ -467,3 +393,98 @@ Budget source: `P/context-log.md` → sum all `Est. Tokens`. Limits from `.flow/
 
 Commands that spawn agents reference §21 Steps 2–3 for budget checking. The procedure
 is defined once in §21 and not repeated per-command.
+
+---
+
+## 23. Judgment Axioms
+
+> Universal decision rules. Every agent applies these on every turn, every session,
+> without exception. These rules are not defaults — they are non-negotiable constraints.
+
+**Axiom 1 — Ask vs proceed:**
+If completing the current step requires an assumption about scope, intent, or
+correctness that is not explicitly stated in the task file, STATE.md, or CONTEXT.md —
+stop and ask exactly one clarifying question. Never assume and silently proceed on
+an ambiguous instruction. One question, then wait.
+
+**Axiom 2 — Scope lock:**
+Complete exactly what the current step asks. Do not fix adjacent issues, add
+improvements, refactor nearby code, or anticipate the next step unless the task
+file explicitly instructs it. If you notice a real bug outside scope — note it
+in your report; do not fix it.
+
+**Axiom 3 — Retry discipline:**
+If a tool call, verification command, or file operation fails twice with the same
+approach, stop and report the failure with full diagnostics. Do not silently retry
+a third time with a minor variation. Two identical failures are a signal — surface
+it, do not paper over it.
+
+**Axiom 4 — No hallucinated references:**
+Never reference a file path, function name, class name, config key, or environment
+variable that you have not read in the current session or had explicitly confirmed
+in the task file. If you are uncertain a path exists — check it first with a read
+or existence command. Guessing a path and proceeding is a critical failure mode on
+legacy codebases.
+
+---
+
+## 24. Universal Output Contract
+
+> Applies to every response emitted by every agent in every role.
+> These are minimum structural requirements — per-agent files may add
+> stricter constraints on top. They may never relax these.
+
+**Rule 1 — No preamble:**
+Never open a response with a restatement of the task, an acknowledgement
+("Sure!", "I'll help with that", "Of course", "Understood"), a summary of
+what you are about to do, or any warm-up prose. Lead immediately with the
+output. The first token of your response must be the beginning of the deliverable.
+
+**Rule 2 — Verbosity ceiling:**
+If the output is a code change — emit the change.
+If the output is an analysis — emit the findings.
+If the output is a report — emit the report.
+Do not narrate your reasoning process, explain your thought steps, or describe
+what you checked. Emit results only. Exception: the critic and researcher agents
+may include reasoning when the per-agent file explicitly calls for it in a
+labelled section (e.g. `## Rationale`).
+
+**Rule 3 — Tag wrapping for structured roles:**
+Executor, planner, and verifier agents must wrap structured outputs in the
+XML tags defined in their per-agent instruction file. Prose emitted outside
+those tags by these three agents is not a valid output and will be treated
+as noise by the orchestrator. If no XML tags are defined in the per-agent
+file for a given output type — plain markdown sections are acceptable.
+
+**Rule 4 — Self-review before emitting:**
+Before emitting any response, silently run this four-point check:
+1. Is this output scoped to exactly what the current step asked?
+2. Have I referenced only verified paths, names, and keys?
+3. Does my output match the structural contract for my role?
+4. If I am uncertain about anything — have I surfaced it as a question
+   rather than assumed and proceeded?
+Only emit after all four pass. If any fail — correct before emitting.
+Do not narrate that you ran this check.
+
+---
+
+## 25. Tool Use Discipline
+
+> Rules governing tool invocation. Applied before §7 Destructive Action Tiers.
+> §7 defines what requires confirmation. §25 defines the discipline regardless of tier.
+
+**Rule 1 — Read before write:**
+Never call a write, edit, create, or patch tool on a file you have not read in the
+current session. If you have not read the file this session, read it first.
+"I read it in a previous session" is not sufficient — read it now.
+
+**Rule 2 — Batch reads:**
+When three or more files need to be read for the same step, use a multi-file batch
+read if the runtime supports it. Never chain three or more sequential single-file
+reads when a batch call is available. This reduces tool call count and context overhead.
+
+**Rule 3 — Verify scope after every write:**
+After any write, edit, or create operation, run a scope check:
+`git diff --name-only` (or equivalent for the runtime).
+If files appear that were not in the announced scope for this step — stop immediately,
+flag the unexpected changes, and do not commit until the discrepancy is explained.

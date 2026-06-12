@@ -3,7 +3,7 @@ const fs   = require('node:fs');
 const path = require('node:path');
 const yaml = require('js-yaml');
 const { resolveSafePath } = require('./path-resolver');
-const { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue } = require('./_cli-utils');
+const { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, extractPositionalArg } = require('./_cli-utils');
 
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -47,10 +47,7 @@ function serializeFrontmatterEOL(obj, eol) {
 
 function cmdFrontmatterGet(args) {
   const cwd = getCwd(args);
-  let filePath = null;
-  for (let i = 0; i < args.length; i++) {
-    if (!args[i].startsWith('--')) { filePath = args[i]; break; }
-  }
+  const filePath = extractPositionalArg(args);
   if (!filePath) exitErr('PATH_NOT_FOUND', 'File path is required for frontmatter get');
   const resolved = resolveSafePath(cwd, filePath);
   if (!fs.existsSync(resolved)) exitErr('PATH_NOT_FOUND', `File not found: ${resolved}`);
@@ -67,10 +64,7 @@ function cmdFrontmatterGet(args) {
 
 function cmdFrontmatterSet(args) {
   const cwd = getCwd(args);
-  let filePath = null;
-  for (let i = 0; i < args.length; i++) {
-    if (!args[i].startsWith('--')) { filePath = args[i]; break; }
-  }
+  const filePath = extractPositionalArg(args);
   if (!filePath) exitErr('PATH_NOT_FOUND', 'File path is required for frontmatter set');
   const resolved = resolveSafePath(cwd, filePath);
   if (!fs.existsSync(resolved)) exitErr('PATH_NOT_FOUND', `File not found: ${resolved}`);

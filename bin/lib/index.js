@@ -5,44 +5,9 @@ const path = require('node:path');
 const { getConfigValue } = require('./config');
 const { readStateFile } = require('./state');
 const { Platform } = require('./platform');
-const { extractFromFile, findWasmDir, KB, MAX_AST_DEPTH } = require('./ts-extractor');
-
-function output(data) { return data; }
-function exitErr(code, message) { throw { code, message }; }
-
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) {
-      const r = path.relative(process.cwd(), resolved);
-      if (r.startsWith('..')) exitErr('PATH_NOT_FOUND', `--cwd path '${resolved}' is outside the working directory`);
-    }
-    return resolved;
-  }
-  return process.cwd();
-}
-
-function collectFlagValues(args, flagName) {
-  const values = [];
-  let collecting = false;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flagName) { collecting = true; continue; }
-    if (collecting) {
-      if (args[i].startsWith('--')) { collecting = false; continue; }
-      values.push(args[i]);
-    }
-  }
-  return values;
-}
-
-function readConfig(cwd) {
-  const configPath = path.join(cwd, '.flow', 'config.json');
-  if (!fs.existsSync(configPath)) return {};
-  try { return JSON.parse(fs.readFileSync(configPath, 'utf8')); }
-  catch { return {}; }
-}
+const { extractFromFile, findWasmDir, KB, MAX_AST_DEPTH, isParserAvailable, createLanguageParsers } = require('./ts-extractor');
+const { output, exitErr, getCwd, collectFlagValues } = require('./_cli-utils');
+const { readConfig } = require('./config');
 
 function isMinified(filePath, source) {
   if (path.extname(filePath) !== '.js') return false;
@@ -77,7 +42,7 @@ async function cmdIndex(args, progress = false) {
   const patternsPath = patternsIdx >= 0 ? args[patternsIdx + 1] : '.flow/codebase/patterns.md';
 
   const wasmDir = findWasmDir();
-  if (!wasmDir || !Parser) {
+  if (!wasmDir || !isParserAvailable()) {
     return output({ files_parsed: 0, lang_coverage: {}, repo_map_size_kb: 0, total_symbols: 0, output_path: null, skipped_reason: 'WASM_NOT_FOUND' });
   }
 
@@ -244,22 +209,7 @@ async function cmdIndex(args, progress = false) {
   const flaggedPatterns = loadFlaggedPatterns(path.join(cwd, patternsPath));
 
   async function runIndex(filesToProcess, carryOver, carryCount) {
-    await Parser.init();
-    const parsers = {};
-    const wasmStatus = {};
-
-    for (const lang of availableLangs) {
-      const wasmPath = path.join(wasmDir, `tree-sitter-${lang}.wasm`);
-      if (fs.existsSync(wasmPath)) {
-        try {
-          const p = new Parser();
-          const L = await Parser.Language.load(wasmPath);
-          p.setLanguage(L);
-          parsers[lang] = p;
-          wasmStatus[lang] = true;
-        } catch { wasmStatus[lang] = false; }
-      }
-    }
+    const { parsers, wasmStatus } = await createLanguageParsers(wasmDir, availableLangs);
 
     const wasmLoaded = Object.values(wasmStatus).some(Boolean);
 
