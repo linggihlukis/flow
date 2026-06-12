@@ -3,7 +3,7 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.3.1] - 2026-06-08
+## [0.4.0] - 2026-06-12
 
 ### Added
 - **Local Antigravity Installation**: Extended Flow CLI to support local-scoped installations of the Antigravity and Antigravity-IDE runtimes (storing files in `.gemini/` and `.agents/skills/`), with dynamic skill wrapper generation and context-aware path resolution.
