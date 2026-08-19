@@ -129,7 +129,7 @@ Run: `node test/lib/primitives.test.js` → FAIL (commands still advertised)
 **Step 3: Write minimal implementation**
 
 - Trim `_libRoutes` map; `showHelp()` lists only `state / frontmatter / files / map / task / audit`.
-- Delete listed lib files; if tests import them, replace with shim `throw {code:'DELETED'}` + mark `DEBT: shim for migration; remove in 0.6`. Also delete dead `__legacyCmdIndex_dead` body in `bin/lib/index.js` (was `DEBT: remove in 0.6` — remove now with `--phase` deletion).
+- Delete listed lib files; if tests import them, replace with shim `throw {code:'DELETED'}` + mark `DEBT: shim for migration; remove in 0.6`. Also delete dead `__legacyCmdIndex_dead` body in `bin/lib/index.js` (was `DEBT: remove in 0.6` — remove now with `--phase` deletion) and mark `isMinified`/`loadFlaggedPatterns` as dead with `DEBT:`.
 - `state.js`: remove `migrate`, `active_milestone/active_phase/active_composite` handling; validate `active_work_item` + `status` enum.
 
 **Step 4: Run test — verify it passes**
