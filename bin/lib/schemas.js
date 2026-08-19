@@ -91,11 +91,15 @@ const SCHEMAS = {
     input:  { type: 'object', required: ['cwd'], properties: { cwd: { type: 'string' }, file: { type: 'string' }, phase: { type: 'string' } } },
     output: { type: 'object', properties: { valid: { type: 'boolean' }, file: { type: ['string', 'null'] }, errors: { type: 'array', items: { type: 'string' } } } },
   },
+  'map index': {
+    input:  { type: 'object', properties: { cwd: { type: 'string' }, scope: { type: 'array', items: { type: 'string' } }, symbols: { type: 'boolean' }, hash: { type: 'boolean' } } },
+    output: { type: 'object', properties: { indexed: { type: 'boolean' }, schema_version: { type: 'string' }, output_path: { type: 'string' }, files_indexed: { type: 'integer' }, git_commit: { type: ['string', 'null'] }, symbols: { type: 'boolean' }, limitations: { type: 'array' } } },
+  },
   'index': {
     input:  { type: 'object', properties: { cwd: { type: 'string' }, patterns: { type: 'string' }, scope: { type: 'array', items: { type: 'string' } }, phase: { type: 'string' } } },
     output: { type: 'object', properties: { files_parsed: { type: 'integer' }, lang_coverage: { type: 'object' }, repo_map_size_kb: { type: 'number' }, total_symbols: { type: 'integer' }, output_path: { type: ['string', 'null'] }, skipped_reason: { type: ['string', 'null'] } } },
   },
-  'repo-map search': {
+  'map search': {
     input:  { type: 'object', required: ['cwd', 'query'], properties: { cwd: { type: 'string' }, query: { type: 'string' }, 'max-results': { type: 'integer' }, path: { type: 'string' } } },
     output: { type: 'object', properties: { query: { type: 'string' }, max_results: { type: 'integer' }, total_matches: { type: 'integer' }, repo_map_size_kb: { type: ['number', 'null'] }, matches: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, language: { type: ['string', 'null'] }, matched_path: { type: 'boolean' }, matched_functions: { type: 'array' }, matched_classes: { type: 'array' }, matched_includes: { type: 'array' } } } } } },
   },

@@ -32,7 +32,9 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.1.1"
+  },
+  "optionalDependencies": {
     "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "^0.20.8"
   }

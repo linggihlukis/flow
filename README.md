@@ -690,31 +690,36 @@ This merges with the built-in map — any language name here overrides the defau
 
 ### Indexer settings
 
-By default, `flow-tools` skips `node_modules`, `.git`, `.flow`, and `vendor` during indexing. Everything else is scanned. For non-standard or legacy codebases, use `skip_mapping` to exclude directories or files by name.
+By default, `flow-tools` skips `node_modules`, `.git`, `.flow`, and `vendor` during indexing. Everything else is scanned. For non-standard or legacy codebases, use `skip_mapping` to exclude directories or files by name, project-relative path, or name substring.
 
 #### `skip_mapping` — exclude directories and files from indexing
 
-Uses `.gitignore`-style syntax:
+Supported entry formats:
 
 | Entry format | Effect |
 |---|---|
 | `"folder_name/"` | Skip any directory named exactly `folder_name` at any depth |
 | `"file_name.ext"` | Skip any file named exactly `file_name.ext` at any depth |
+| `"path/to/folder/"` | Skip the directory at that exact project-relative path |
+| `"path/to/file.ext"` | Skip the file at that exact project-relative path |
+| `"*substring*"` | Skip any file or directory whose name contains `substring`, case-insensitively |
 
-Matching is **case-sensitive** and **exact** — no wildcards, no path separators. The four always-skipped directories (`node_modules`, `.git`, `.flow`, `vendor`) cannot be overridden.
+Exact name and path entries are **case-sensitive**. Only the `*substring*` form is case-insensitive; the `*` characters must wrap one non-empty substring and cannot appear inside it. The four always-skipped directories (`node_modules`, `.git`, `.flow`, `vendor`) cannot be overridden.
 
 ```json
 {
   "skip_mapping": [
     "storage/",
-    "cache/",
-    "tmp/",
-    "legacy_bootstrap.php"
+    "legacy/reports/",
+    "tmp/debug.log",
+    "legacy_bootstrap.php",
+    "*cache*",
+    "*fontawesome*"
   ]
 }
 ```
 
-Invalid entries (wildcards, path separators mid-entry, `..`, empty strings) are silently ignored.
+Invalid entries (`..`, empty strings, unmatched or embedded wildcards, and wildcard substrings containing path separators) are silently ignored.
 
 #### `php_parser` — higher-accuracy PHP indexing (opt-in)
 

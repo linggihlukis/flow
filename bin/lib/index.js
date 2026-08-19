@@ -1,23 +1,22 @@
 'use strict';
 
+// DEBT: legacy .flow/codebase path; remove in 0.6 — prefer map.json via flow-map.js
+// This module is now a deprecated shim: default path delegates to flow-map.js (no WASM).
+// Kept only for backward compatibility with callers using `index` route or --phase shim.
 const fs = require('node:fs');
 const path = require('node:path');
-const { getConfigValue } = require('./config');
-const { readStateFile } = require('./state');
-const { Platform } = require('./platform');
-const { extractFromFile, findWasmDir, KB, MAX_AST_DEPTH, isParserAvailable, createLanguageParsers } = require('./ts-extractor');
 const { output, exitErr, getCwd, collectFlagValues } = require('./_cli-utils');
-const { readConfig } = require('./config');
 
+// DEBT: dead helpers below — unreachable since cmdIndex delegates to flow-map.js. Remove in 0.6.
 function isMinified(filePath, source) {
   if (path.extname(filePath) !== '.js') return false;
   if (path.basename(filePath).includes('.min.')) return true;
   const lineCount = source.split('\n').length;
-  const sizeKb = Buffer.byteLength(source) / KB;
+  const sizeKb = Buffer.byteLength(source) / 1024;
   return lineCount <= 15 && sizeKb >= 1;
 }
 
-function loadFlaggedPatterns(patternsPath) {
+function loadFlaggedPatterns(patternsPath) { // DEBT: dead — see above
   if (!fs.existsSync(patternsPath)) return [];
   const content = fs.readFileSync(patternsPath, 'utf8');
   const patterns = [];
@@ -34,6 +33,22 @@ function loadFlaggedPatterns(patternsPath) {
 }
 
 async function cmdIndex(args, progress = false) {
+  // DEBT: shim — delegate to flow-map.js for file-level behaviour; keep WASM fallback only when needed
+  const cwd = getCwd(args);
+  const wantsSymbols = args.includes('--symbols')
+  // If no --symbols, use flow-map directly (no WASM needed)
+  if (!wantsSymbols) {
+    const flowMap = require('./flow-map')
+    // Map legacy --phase to scope if present (dead shim)
+    return flowMap.execute(['index', ...args])
+  }
+  // With --symbols: fall through to flow-map which handles WASM internally
+  const flowMap2 = require('./flow-map')
+  return flowMap2.execute(['index', ...args])
+}
+
+async function __legacyCmdIndex_dead(args, progress = false) {
+  // DEBT: dead code — unreachable; `cmdIndex` now delegates to flow-map.js. Remove in 0.6 with task 5.
   const cwd = getCwd(args);
   const scopeDirs = collectFlagValues(args, '--scope');
   const phaseIdx = args.indexOf('--phase');
@@ -41,6 +56,7 @@ async function cmdIndex(args, progress = false) {
   const patternsIdx = args.indexOf('--patterns');
   const patternsPath = patternsIdx >= 0 ? args[patternsIdx + 1] : '.flow/codebase/patterns.md';
 
+  const { findWasmDir, isParserAvailable } = require('./ts-extractor')
   const wasmDir = findWasmDir();
   if (!wasmDir || !isParserAvailable()) {
     return output({ files_parsed: 0, lang_coverage: {}, repo_map_size_kb: 0, total_symbols: 0, output_path: null, skipped_reason: 'WASM_NOT_FOUND' });
@@ -62,11 +78,23 @@ async function cmdIndex(args, progress = false) {
   const skipFileBasenames = new Set();
   const skipDirRelPaths   = new Set();
   const skipFileRelPaths  = new Set();
+  const skipNameSubstrings = new Set();
 
   for (const entry of rawSkipMapping) {
     if (typeof entry !== 'string') continue;
-    if (entry.includes('..') || entry.includes('*') || entry === '') continue;
     const normalized = entry.replace(/\\/g, '/');
+    if (entry.includes('..') || normalized === '') continue;
+
+    const isFilenameSubstring = normalized.startsWith('*') &&
+      normalized.endsWith('*') &&
+      normalized.length > 2 &&
+      !normalized.slice(1, -1).includes('*') &&
+      !normalized.slice(1, -1).includes('/');
+    if (isFilenameSubstring) {
+      skipNameSubstrings.add(normalized.slice(1, -1).toLowerCase());
+      continue;
+    }
+    if (normalized.includes('*')) continue;
     const isDir = normalized.endsWith('/');
     const namePart = isDir ? normalized.slice(0, -1) : normalized;
     const isPathBased = namePart.includes('/');
@@ -83,8 +111,16 @@ async function cmdIndex(args, progress = false) {
     return path.relative(cwd, absPath).replace(/\\/g, '/');
   }
 
+  function hasSkipNameSubstring(name) {
+    const normalizedName = name.toLowerCase();
+    for (const substring of skipNameSubstrings) {
+      if (normalizedName.includes(substring)) return true;
+    }
+    return false;
+  }
+
   function shouldSkipDir(name, absPath) {
-    if (SKIP_ALWAYS_DIRS.has(name)) return true;
+    if (SKIP_ALWAYS_DIRS.has(name) || hasSkipNameSubstring(name)) return true;
     if (skipDirBasenames.has(name)) return true;
     if (absPath) {
       const rel = getRelativePath(absPath);
@@ -94,12 +130,23 @@ async function cmdIndex(args, progress = false) {
   }
 
   function shouldSkipFile(name, absPath) {
-    if (skipFileBasenames.has(name)) return true;
+    if (hasSkipNameSubstring(name) || skipFileBasenames.has(name)) return true;
     if (absPath) {
       const rel = getRelativePath(absPath);
       if (skipFileRelPaths.has(rel)) return true;
     }
     return false;
+  }
+
+  function shouldSkipPath(absPath) {
+    const relativePath = getRelativePath(absPath);
+    const segments = relativePath.split('/').filter(Boolean);
+    let currentPath = cwd;
+    for (const segment of segments.slice(0, -1)) {
+      currentPath = path.join(currentPath, segment);
+      if (shouldSkipDir(segment, currentPath)) return true;
+    }
+    return shouldSkipFile(path.basename(absPath), absPath);
   }
 
   function buildLanguageMap(cwd) {
@@ -189,7 +236,7 @@ async function cmdIndex(args, progress = false) {
         if (currentMtime !== undefined && currentMtime === prevMtime) {
           const prefix = normDir.endsWith('/') ? normDir : normDir + '/';
           for (const [filePath, entry] of Object.entries(prevMap.files || {})) {
-            if (filePath.startsWith(prefix)) {
+            if (filePath.startsWith(prefix) && !shouldSkipPath(filePath)) {
               carryOverFiles[filePath] = entry;
               carryOverCount++;
             }
