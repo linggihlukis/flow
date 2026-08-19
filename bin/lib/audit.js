@@ -2,7 +2,7 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const { parseFrontmatter } = require('./frontmatter');
-const { output, exitErr, getCwd } = require('./_cli-utils');
+const { output, getCwd } = require('./_cli-utils');
 
 function cmdAuditOpen(args) {
   const cwd = getCwd(args);
@@ -12,17 +12,25 @@ function cmdAuditOpen(args) {
   const stateContent = fs.readFileSync(statePath, 'utf8');
   const fm = parseFrontmatter(stateContent);
   if (!fm) { drift.push({ field: 'state.md', expected: 'valid frontmatter', actual: 'parse error' }); return output({ valid: false, drift }); }
-  const requiredFields = ['active_milestone', 'active_phase', 'status'];
-  for (const field of requiredFields) { if (fm[field] === undefined || fm[field] === null) drift.push({ field: `state.${field}`, expected: 'present', actual: 'missing' }); }
-  const mName = fm.active_milestone;
-  if (!mName) { console.error('Warning: active_milestone not set in state.md'); return output({ valid: false, drift: [{ field: 'active_milestone', expected: 'present', actual: 'missing' }] }); }
-  const milestoneDir = path.join(cwd, '.flow', 'milestones', String(mName));
-  if (!fs.existsSync(milestoneDir)) drift.push({ field: 'milestone_dir', expected: `milestones/${mName} exists`, actual: 'not found' });
-  const roadmapPath = path.join(cwd, '.flow', 'milestones', String(mName), 'roadmap.md');
-  if (fs.existsSync(roadmapPath)) {
-    const roadmapContent = fs.readFileSync(roadmapPath, 'utf8');
-    const phaseMatches = roadmapContent.match(/^###\s+Phase\s+(\d+)/gm);
-    if (phaseMatches) { for (const match of phaseMatches) { const num = match.match(/Phase\s+(\d+)/)[1]; const padded = String(num).padStart(2, '0'); const phaseDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`); if (!fs.existsSync(phaseDir)) drift.push({ field: `phase-${padded}`, expected: 'directory exists', actual: 'not found' }); else { const cp = path.join(phaseDir, 'CONTEXT.md'); if (!fs.existsSync(cp)) drift.push({ field: `phase-${padded}/CONTEXT.md`, expected: 'exists', actual: 'not found' }); } } }
+  // Work-item lifecycle: active_work_item + status (ready|planned|in-progress|in-review|complete)
+  // DEBT: also accept legacy active_milestone/active_phase via normalizeStateFm compat until migration
+  const wi = fm.active_work_item || fm.active_milestone;
+  if (wi === undefined || wi === null) drift.push({ field: 'state.active_work_item', expected: 'present', actual: 'missing' });
+  if (fm.status === undefined || fm.status === null) drift.push({ field: 'state.status', expected: 'present', actual: 'missing' });
+  if (wi) {
+    const wiName = fm.active_work_item ? String(fm.active_work_item) : `work-item-${String(fm.active_phase || '0').padStart(3, '0')}`;
+    const wiDir = path.join(cwd, '.flow', 'work-items', wiName);
+    if (!fs.existsSync(wiDir)) drift.push({ field: 'work_item_dir', expected: `work-items/${wiName} exists`, actual: 'not found' });
+  }
+  const mapPath = path.join(cwd, '.flow', 'map.json');
+  if (!fs.existsSync(mapPath)) drift.push({ field: 'map.json', expected: 'exists', actual: 'not found' });
+  else {
+    try {
+      const map = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+      if (!map.schema_version) drift.push({ field: 'map.schema_version', expected: 'present', actual: 'missing' });
+    } catch {
+      drift.push({ field: 'map.json', expected: 'valid JSON', actual: 'parse error' });
+    }
   }
   return output({ valid: drift.length === 0, drift });
 }

@@ -69,9 +69,9 @@ function sanitizeStateValue(raw) {
 }
 
 const KNOWN_VALUED_FLAGS = new Set([
-  '--cwd', '--field', '--set', '--file', '--phase', '--section',
-  '--patterns', '--query', '--n', '--type', '--body-filter',
-  '--newer', '--max-results', '--path', '--zone',
+  '--cwd', '--field', '--set', '--file', '--work-item', '--phase', // DEBT: --phase kept for task compat shim; remove with legacy commands in Task 5
+  '--max-results', '--path', '--scope', '--symbols', '--hash',
+  '--newer', '--line-count', '--touch', '--dry-run',
 ]);
 
 function extractPositionalArg(args, knownFlags = KNOWN_VALUED_FLAGS) {

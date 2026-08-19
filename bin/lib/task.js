@@ -2,7 +2,6 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const { resolveSafePath } = require('./path-resolver');
-const { readStateFile } = require('./state');
 const { output, exitErr, getCwd } = require('./_cli-utils');
 const { parseFrontmatter } = require('./frontmatter');
 
@@ -36,10 +35,10 @@ function cmdTaskValidate(args) {
   const cwd = getCwd(args);
   const fileIdx = args.indexOf('--file');
   const singleFile = fileIdx >= 0 ? args[fileIdx + 1] : null;
-  const phaseIdx = args.indexOf('--phase');
-  const phaseNum = phaseIdx >= 0 ? args[phaseIdx + 1] : null;
-  if (singleFile && phaseNum) exitErr('UNKNOWN_COMMAND', 'Provide either --file or --phase, not both');
-  if (!singleFile && !phaseNum) exitErr('UNKNOWN_COMMAND', 'Either --file or --phase is required');
+  const wiIdx = args.indexOf('--work-item');
+  const wiNum = wiIdx >= 0 ? args[wiIdx + 1] : null;
+  if (singleFile && wiNum) exitErr('UNKNOWN_COMMAND', 'Provide either --file or --work-item, not both');
+  if (!singleFile && !wiNum) exitErr('UNKNOWN_COMMAND', 'Either --file or --work-item is required');
 
   function validateFile(filePath) {
     const resolved = resolveSafePath(cwd, filePath);
@@ -102,13 +101,11 @@ function cmdTaskValidate(args) {
 
   if (singleFile) return output(validateFile(singleFile));
 
-  const { fm } = readStateFile(cwd);
-  const mName = fm.active_milestone || 'milestone-01';
-  const padded = String(phaseNum).padStart(2, '0');
-  const tasksDir = path.join(cwd, '.flow', 'milestones', String(mName), 'phases', `phase-${padded}`, 'tasks');
-  if (!fs.existsSync(tasksDir)) return output({ valid: false, file: null, errors: [`Phase ${phaseNum} tasks directory not found`] });
+  const padded = String(wiNum).padStart(3, '0');
+  const tasksDir = path.join(cwd, '.flow', 'work-items', `work-item-${padded}`, 'tasks');
+  if (!fs.existsSync(tasksDir)) return output({ valid: false, file: null, errors: [`Work item ${wiNum} tasks directory not found`] });
   const files = fs.readdirSync(tasksDir).filter(f => /\.md$/.test(f));
-  if (files.length === 0) return output({ valid: false, file: null, errors: [`No task files found in phase ${phaseNum}`] });
+  if (files.length === 0) return output({ valid: false, file: null, errors: [`No task files found in work-item ${wiNum}`] });
   const allResults = files.map(f => validateFile(path.join(tasksDir, f)));
   const valid = allResults.every(r => r.valid);
   const allErrors = allResults.filter(r => !r.valid).flatMap(r => r.errors);

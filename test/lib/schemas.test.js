@@ -11,20 +11,12 @@ const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; }
 // ─── All expected subcommands exist ──────────────────────────────────────────
 const REQUIRED = [
   "state get", "state patch", "state validate", "state sync",
-  "config get",
   "frontmatter get", "frontmatter set",
   "files check",
-  "context estimate", "context trace-avg",
-  "lessons recent", "kb search",
-  "history digest",
-  "patterns extract",
   "extract field",
-  "phase list", "wave resolve",
-  "statusline show",
   "audit open",
   "task validate",
-  "index", "repo-map search",
-  "batch",
+  "map index", "map search",
 ];
 
 for (const key of REQUIRED) {
@@ -39,10 +31,14 @@ for (const [key, schema] of Object.entries(SCHEMAS)) {
 }
 pass(`all ${Object.keys(SCHEMAS).length} entries have input + output`);
 
-// ─── Batch schema uses array input ───────────────────────────────────────────
-console.assert(Array.isArray(SCHEMAS.batch.input) || SCHEMAS.batch.input.type === "array",
-  "batch input should be array");
-pass("batch input schema is array");
+// ─── 6 primitives only — banned workflow-policy routes must be absent ───────
+const BANNED = ['config get', 'context estimate', 'context trace-avg', 'lessons recent', 'kb search', 'history digest', 'patterns extract', 'phase list', 'wave resolve', 'statusline show', 'index', 'repo-map search', 'batch'];
+for (const b of BANNED) console.assert(SCHEMAS[b] == null, `${b} should be deleted — not a primitive`);
+pass('banned routes absent (6 primitives only)');
+
+// ─── Duplicate-guard: repo-map must not reappear ───────────────────────────
+console.assert(SCHEMAS['repo-map search'] == null, 'repo-map search is duplicate of map search — must stay deleted');
+pass('repo-map duplicate absent');
 
 // ─── State patch requires cwd and sets ───────────────────────────────────────
 const statePatchInput = SCHEMAS["state patch"].input;

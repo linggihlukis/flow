@@ -10,6 +10,7 @@ const ERROR_CODES = {
   UNKNOWN_COMMAND:  'UNKNOWN_COMMAND',
   STATE_NOT_FOUND:  'STATE_NOT_FOUND',
   STATE_PARSE_ERROR:'STATE_PARSE_ERROR',
+  // DEBT: PHASE_NOT_FOUND kept for compat shim in state/task compat; remove in Task 5 with phase commands
   PHASE_NOT_FOUND:  'PHASE_NOT_FOUND',
   PATH_NOT_FOUND:   'PATH_NOT_FOUND',
   FRONTMATTER_NOT_FOUND: 'FRONTMATTER_NOT_FOUND',
@@ -17,8 +18,6 @@ const ERROR_CODES = {
 };
 
 const KB = 1024;
-const MODEL_CONTEXT_LIMIT_DEFAULT = 200000;
-const MAX_AST_DEPTH = 200;
 
 function exitErr(code, message) {
   if (require.main === module) {
@@ -57,11 +56,7 @@ function collectFlagValues(args, flagName) {
   return values;
 }
 
-const VALID_STATUSES = new Set([
-  'active', 'planned', 'in-progress', 'paused', 'executed',
-  'verified', 'needs-fixes', 'milestone-complete', 'complete',
-  'not-started', 'ready',
-]);
+const VALID_STATUSES = new Set(['ready', 'planned', 'in-progress', 'in-review', 'complete']);
 
 function showHelp() {
   output({
@@ -116,18 +111,18 @@ const _libRoutes = {
   'extract': './lib/task',
   'index': './lib/index',
 };
+// DEBT: `extract`/`index` kept for compat; `index` delegates to flow-map (canonical)
 
 const _FIELD_TO_FLAG = {
-  // Only fields where the flag is genuinely required and has no default.
-  // Most fields default to process.cwd() or work with empty values.
   sets: '--set',
   'max-results': '--max-results',
-  'count-only': '--count-only',
-  'body-filter': '--body-filter',
   'dry-run': '--dry-run',
   'line-count': '--line-count',
   touch: '--touch',
   newer: '--newer',
+  // DEBT: count-only/body-filter/type/n kept for deleted routes compat guards; remove when all routes migrated
+  'count-only': '--count-only',
+  'body-filter': '--body-filter',
   type: '--type',
   n: '--n',
 };
@@ -157,9 +152,7 @@ function _dispatchLib(cmd, args) {
     _validateRequired(args, schema);
     const subArgs = args.slice(1);
     const mod = require(modPath);
-    const result = cmd === 'batch'
-      ? mod.execute(subArgs, Object.fromEntries(Object.entries(_libRoutes).map(([k, v]) => [k, path.resolve(__dirname, v)])))
-      : mod.execute(subArgs);
+    const result = mod.execute(subArgs);
 
     if (result && typeof result.then === 'function') {
       result.then(data => output(data)).catch(e => {

@@ -145,7 +145,8 @@ function getGitCommit(root) {
 }
 
 function metadataRecord(absolute, relative, options) {
-  const stat = fs.lstatSync(absolute)
+  let stat
+  try { stat = fs.lstatSync(absolute) } catch (e) { if (e && e.code === 'ENOENT') return { skipped: { path: relative, reason: 'missing-file' } }; throw e }
   if (isSensitive(relative)) return { skipped: { path: relative, reason: 'sensitive-file' } }
   if (stat.isSymbolicLink()) {
     try {
