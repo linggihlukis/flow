@@ -126,87 +126,63 @@ async function run() {
     fail("flow-verifier.md frontmatter no longer matches the read-only verifier contract");
   }
 
-  // Suite 11
-  suite("Suite 11 — Updater Hardening");
+  // Suite 11 — Updated for Task 3 minimal scaffold
+  suite("Suite 11 — Scaffold updater (minimal shape)");
   const installModule = require("../bin/install.js");
-  const { deepMergeConfig, updateScaffold, createRuntimeBridge } = installModule;
+  const { updateScaffold, createRuntimeBridge, installScaffold } = installModule;
   (function () {
-    const scaffoldConfig = {
-      flow_version: "x.x.x",
-      workflow: { research: true, plan_check: true },
-      models: {},
-      git: {},
-      destructive_tier: {},
-    };
-    const userConfig = {
-      flow_version: "0.9.0",
-      workflow: { research: false, deprecated_flag: true },
-      old_feature: true,
-      models: {},
-      git: {},
-      destructive_tier: {},
-    };
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11a-"));
     try {
-      const result = deepMergeConfig(userConfig, scaffoldConfig);
+      const r = installScaffold(tmpDir, { yes: true });
       let ok = true;
-      if ("old_feature" in result) { fail("11a: stale top-level key 'old_feature' should be pruned"); ok = false; }
-      if (result.workflow && "deprecated_flag" in result.workflow) { fail("11a: stale nested key 'deprecated_flag' should be pruned"); ok = false; }
-      if (result.workflow && result.workflow.research !== false) { fail("11a: user value workflow.research should be preserved"); ok = false; }
-      if (typeof result.flow_version !== "string" || result.flow_version === "0.9.0") { fail("11a: flow_version should be updated to pkg.version"); ok = false; }
-      if (ok) pass("11a: deepMergeConfig prunes stale keys correctly");
-    } catch (e) {
-      fail("11a: deepMergeConfig threw: " + e.message);
-    }
+      if (!fs.existsSync(path.join(tmpDir, ".flow", "state.md"))) { fail("11a: state.md not created"); ok = false; }
+      if (!fs.existsSync(path.join(tmpDir, ".flow", "memory.md"))) { fail("11a: memory.md not created"); ok = false; }
+      if (!fs.existsSync(path.join(tmpDir, ".flow", "map.json"))) { fail("11a: map.json not created"); ok = false; }
+      if (!fs.existsSync(path.join(tmpDir, ".flow", "work-items"))) { fail("11a: work-items/ not created"); ok = false; }
+      if (!fs.existsSync(path.join(tmpDir, "AGENTS.md"))) { fail("11a: AGENTS.md not created"); ok = false; }
+      if (fs.existsSync(path.join(tmpDir, ".flow", "config.json"))) { fail("11a: config.json should not be created"); ok = false; }
+      if (fs.existsSync(path.join(tmpDir, ".flow", "state.json"))) { fail("11a: state.json should not be created"); ok = false; }
+      if (fs.existsSync(path.join(tmpDir, ".flow", "codebase"))) { fail("11a: codebase/ should not be created"); ok = false; }
+      if (fs.existsSync(path.join(tmpDir, ".flow", "milestones"))) { fail("11a: milestones/ should not be created"); ok = false; }
+      if (ok) pass("11a: installScaffold creates minimal shape only");
+    } catch (e) { fail("11a: installScaffold threw: " + e.message); }
+    finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11b-"));
     try {
-      const oldPhaseDir = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "1");
-      fs.mkdirSync(oldPhaseDir, { recursive: true });
-      fs.writeFileSync(path.join(oldPhaseDir, "task-01.md"), "# Task 01", "utf8");
-      fs.writeFileSync(path.join(oldPhaseDir, "task-02.md"), "# Task 02", "utf8");
-      fs.writeFileSync(path.join(oldPhaseDir, "summary-01.md"), "# Summary 01", "utf8");
-      fs.writeFileSync(path.join(oldPhaseDir, "context.md"), "# Context", "utf8");
-      const flowDir = path.join(tmpDir, ".flow");
-      if (!fs.existsSync(flowDir)) fs.mkdirSync(flowDir, { recursive: true });
-      const report = updateScaffold(tmpDir);
-      const newTask01 = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks", "task-01.md");
-      const newTask02 = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks", "task-02.md");
-      const newSum01  = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "summaries", "summary-01.md");
-      const newCtx    = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "context.md");
-      const oldDir    = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "1");
-      let ok = true;
-      if (!fs.existsSync(newTask01)) { fail("11b: task-01.md not migrated"); ok = false; }
-      if (!fs.existsSync(newTask02)) { fail("11b: task-02.md not migrated"); ok = false; }
-      if (!fs.existsSync(newSum01))  { fail("11b: summary-01.md not migrated"); ok = false; }
-      if (!fs.existsSync(newCtx))    { fail("11b: context.md not migrated to phase root"); ok = false; }
-      if (fs.existsSync(oldDir))     { fail("11b: old phases/1/ directory not removed"); ok = false; }
-      if (!Array.isArray(report.migrated) || report.migrated.length === 0) { fail("11b: report.migrated should be non-empty"); ok = false; }
-      if (ok) pass("11b: updateScaffold migrates old flat phase dirs");
-    } catch (e) {
-      fail("11b: updateScaffold migration threw or failed: " + e.message);
-    } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-    }
+      // Pre-create work-item to test --force guard
+      fs.mkdirSync(path.join(tmpDir, ".flow", "work-items", "work-item-001"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "work-item.md"), "# WI", "utf8");
+      const r = installScaffold(tmpDir, { yes: true });
+      if (!r.workItemsBlocked) { fail("11b: should block when work-items non-empty without --force"); return; }
+      pass("11b: installScaffold blocks when work-items non-empty");
+      const r2 = installScaffold(tmpDir, { yes: true, force: true });
+      if (r2.workItemsBlocked) { fail("11b: --force should bypass work-items guard"); return; }
+      pass("11b: --force bypasses work-items guard");
+    } catch (e) { fail("11b: threw: " + e.message); }
+    finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11c-"));
     try {
-      const newPhaseTasks = path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks");
-      fs.mkdirSync(newPhaseTasks, { recursive: true });
-      fs.writeFileSync(path.join(newPhaseTasks, "task-01.md"), "# Task 01", "utf8");
-      const flowDir = path.join(tmpDir, ".flow");
-      if (!fs.existsSync(flowDir)) fs.mkdirSync(flowDir, { recursive: true });
-      const report = updateScaffold(tmpDir);
+      // Seed with eosys-like AGENTS.md (has context-mapper block)
+      const eosysBlock = "<!-- context-mapper:generated:start -->\ncontext\n<!-- context-mapper:generated:end -->\n\n# User conventions\n";
+      fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), eosysBlock, "utf8");
+      installScaffold(tmpDir, { yes: true });
+      const out = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
       let ok = true;
-      if (Array.isArray(report.migrated) && report.migrated.length > 0) { fail("11c: report.migrated should be empty when structure already matches"); ok = false; }
-      if (!Array.isArray(report.warnings) || report.warnings.length === 0) { fail("11c: report.warnings should contain a message about structure already matching"); ok = false; }
-      if (ok) pass("11c: updateScaffold warns when structure already matches");
-    } catch (e) {
-      fail("11c: updateScaffold threw instead of warning: " + e.message);
-    } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
-    }
+      if (!out.includes("<!-- context-mapper:generated:start -->")) { fail("11c: context-mapper block lost"); ok = false; }
+      if (!out.includes("<!-- flow:generated:start -->")) { fail("11c: flow block not appended"); ok = false; }
+      if (!out.includes("# User conventions")) { fail("11c: user conventions lost"); ok = false; }
+      // Second install idempotent
+      const before = out;
+      installScaffold(tmpDir, { yes: true });
+      const after = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
+      if (before !== after) { fail("11c: second install not idempotent"); ok = false; }
+      if (ok) pass("11c: AGENTS.md marker co-existence preserved + idempotent");
+    } catch (e) { fail("11c: threw: " + e.message); }
+    finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11d-"));

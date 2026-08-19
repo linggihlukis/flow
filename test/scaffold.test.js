@@ -161,30 +161,51 @@ async function run() {
     }
   }
 
-  // Suite 6
-  suite("Suite 6 — scaffold config.json validation");
-  const configPath = path.join(SCAFFOLD, ".flow", "config.json");
-  try {
-    const config = JSON.parse(readFile(configPath));
-    for (const key of CONFIG_REQUIRED_KEYS) {
-      if (config[key] === undefined) {
-        fail(`config.json: missing required key '${key}'`);
-      } else {
-        pass(`config.json: '${key}' present`);
-      }
-    }
-    if (config.workflow) {
-      for (const key of CONFIG_WORKFLOW_KEYS) {
-        if (config.workflow[key] === undefined) {
-          fail(`config.json: missing workflow key '${key}'`);
-        } else {
-          pass(`config.json: 'workflow.${key}' present`);
+  // Suite 6 — scaffold shape: minimal .flow/{state,memory,map,work-items} + marker AGENTS.md
+  suite("Suite 6 — scaffold minimal shape (Task 3 gate)");
+  (function () {
+    const no = ["codebase", "milestones", "config.json", "state.json"];
+    let ok = true;
+    for (const bad of no) {
+      const hits = [];
+      const walk = d => {
+        if (!fs.existsSync(d)) return;
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          const p = path.join(d, e.name);
+          if (e.isDirectory()) walk(p);
+          else if (p.includes(bad)) hits.push(p);
         }
-      }
+      };
+      walk(path.join(SCAFFOLD, ".flow"));
+      if (hits.length !== 0) { fail(`scaffold should not contain ${bad}: ${hits.join(",")}`); ok = false; }
     }
-  } catch (e) {
-    fail(`config.json: invalid JSON — ${e.message}`);
-  }
+    if (ok) pass("scaffold .flow/ contains no codebase/milestones/config.json/state.json");
+  })();
+  (function () {
+    try {
+      const agents = readFile(AGENTS_MD);
+      if (!agents.includes("<!-- flow:generated:start -->")) { fail("AGENTS.md missing <!-- flow:generated:start --> marker"); return; }
+      if (!agents.includes("<!-- flow:generated:end -->")) { fail("AGENTS.md missing <!-- flow:generated:end --> marker"); return; }
+      const lines = agents.split("\n").length;
+      if (lines >= 80) { fail(`AGENTS.md scaffold should be <80 lines, got ${lines}`); return; }
+      pass(`AGENTS.md marker present, ${lines} lines (<80)`);
+    } catch (e) { fail(`AGENTS.md read failed: ${e.message}`); }
+  })();
+  (function () {
+    try {
+      const st = readFile(path.join(SCAFFOLD, ".flow", "state.md"));
+      if (!st.includes("active_work_item")) { fail("state.md scaffold should use active_work_item"); return; }
+      if (st.includes("active_milestone")) { fail("state.md scaffold should not have active_milestone"); return; }
+      pass("state.md uses active_work_item, no active_milestone");
+    } catch (e) { fail(`state.md read failed: ${e.message}`); }
+  })();
+  (function () {
+    const fp = path.join(SCAFFOLD, ".flow", "memory.md");
+    if (!fs.existsSync(fp)) { fail("scaffold .flow/memory.md missing"); return; }
+    const c = readFile(fp);
+    if (!c.includes("## Facts") || !c.includes("## Decisions") || !c.includes("## Lessons")) { fail("memory.md should have Facts/Decisions/Lessons headers"); return; }
+    pass("memory.md headers present");
+  })();
 
   return getFailures();
 }

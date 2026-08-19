@@ -31,14 +31,9 @@ function createReporter() {
 const CANONICAL_FLOW_PREFIXES = [
   ".flow/state.md",
   ".flow/state.md.bak",
-  ".flow/codebase/",
-  ".flow/milestones/",
-  ".flow/memory/",
-  ".flow/config.json",
-  ".flow/quick/",
-  ".flow/docs/",
-  ".flow/tools/",
-  ".flow/tools",
+  ".flow/memory.md",
+  ".flow/map.json",
+  ".flow/work-items/",
 ];
 
 const COMMAND_REQUIRED = ["description", "agent"];
@@ -54,6 +49,7 @@ const KNOWN_AGENTS = [
   "flow-verifier",
 ];
 
+// DEBT: CONFIG_*_KEYS kept for Suite 11 backwards-compat shims (no config.json in scaffold post-Task-3)
 const CONFIG_REQUIRED_KEYS = ["flow_version", "runtime", "mode", "depth", "workflow", "models", "git", "destructive_tier"];
 const CONFIG_WORKFLOW_KEYS = ["research", "plan_check", "node_repair", "node_repair_budget", "parallel_execution", "verifier"];
 

@@ -183,6 +183,16 @@ const flagLocation = resolveFlag(["--global","-g","--local","-l"]);
 const flagUninstall = args.includes("--uninstall") || envFlag("--uninstall");
 const flagUpdate   = args.includes("--update") || envFlag("--update");
 const flagSyncModels = args.includes("--sync-models") || envFlag("--sync-models");
+const flagYes = args.includes("--yes") || envFlag("--yes");
+const flagDryRun = args.includes("--dry-run") || envFlag("--dry-run");
+// DEBT: flagUpdateAgents retained for Task 3 contract (--update-agents variant re-diffs AGENTS.md); wire to prompt in Task 5.
+const flagUpdateAgents = args.includes("--update-agents") || envFlag("--update-agents");
+void flagUpdateAgents; // suppress unused until Task 5
+const flagForce = args.includes("--force") || envFlag("--force");
+
+// ─── Flow scaffold markers (LOCKED §11) ───────────────────────────────────────
+const FLOW_START = "<!-- flow:generated:start -->";
+const FLOW_END = "<!-- flow:generated:end -->";
 
 
 const RUNTIME_CHOICES = [
@@ -420,7 +430,7 @@ function createRuntimeBridge(runtimeFlowDir, runtimeName) {
   }
 }
 
-// ─── Read project config.json ─────────────────────────────────────────────────
+// ─── Read project config.json (DEBT: config.json removed in Task 3; kept only for --sync-models compat — remove in 0.6) ──
 function readProjectConfig(cwd) {
   const configPath = path.join(cwd, ".flow", "config.json");
   if (!fs.existsSync(configPath)) {
@@ -434,6 +444,7 @@ function readProjectConfig(cwd) {
   }
 }
 
+// DEBT: models/config.json removed in Task 3 — shim for --sync-models compat only; remove in 0.6.
 function getNonInheritModels(config) {
   if (!config.models) return {};
   const result = {};
@@ -902,100 +913,154 @@ function installAntigravity(baseDir, runtimeName, location) {
 }
 
 // ─── Install scaffold ─────────────────────────────────────────────────────────
-function installScaffold(projectRoot) {
-  const files = [
-    [path.join(SCAFFOLD_DIR, "AGENTS.md"),                                              path.join(projectRoot, "AGENTS.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "state.md"),                                      path.join(projectRoot, ".flow", "state.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "state.json"),                                   path.join(projectRoot, ".flow", "state.json")],
-    [path.join(SCAFFOLD_DIR, ".flow", "config.json"),                                 path.join(projectRoot, ".flow", "config.json")],
-    [path.join(SCAFFOLD_DIR, ".flow", "memory", "lessons.md"),                         path.join(projectRoot, ".flow", "memory", "lessons.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "memory", "knowledge-base.md"),                  path.join(projectRoot, ".flow", "memory", "knowledge-base.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "codebase", "patterns-amendments.md"),               path.join(projectRoot, ".flow", "codebase", "patterns-amendments.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "codebase", "compression-exceptions.md"),            path.join(projectRoot, ".flow", "codebase", "compression-exceptions.md")],
-    // New: docs reference files
-    [path.join(SCAFFOLD_DIR, ".flow", "docs", "spawn-protocol-ref.md"), path.join(projectRoot, ".flow", "docs", "spawn-protocol-ref.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "docs", "file-map.md"), path.join(projectRoot, ".flow", "docs", "file-map.md")],
-    [path.join(SCAFFOLD_DIR, ".flow", "docs", "model-routing.md"), path.join(projectRoot, ".flow", "docs", "model-routing.md")],
-    ];
+function diffLines(oldStr, newStr) {
+  const o = oldStr.split("\n");
+  const n = newStr.split("\n");
+  const lines = [];
+  const max = Math.max(o.length, n.length);
+  for (let i = 0; i < max; i++) {
+    if (o[i] !== n[i]) {
+      if (o[i] !== undefined) lines.push(`- ${o[i]}`);
+      if (n[i] !== undefined) lines.push(`+ ${n[i]}`);
+    }
+  }
+  return lines.slice(0, 80).join("\n");
+}
 
-  // Ensure directory structure exists
+function backupFile(filePath) {
+  const stamp = new Date().toISOString().slice(0, 10);
+  const bak = `${filePath}.bak.${stamp}`;
+  if (!fs.existsSync(bak)) fs.copyFileSync(filePath, bak);
+  return bak;
+}
+
+function extractFlowBlock(content) {
+  const re = new RegExp(`${FLOW_START.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${FLOW_END.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+  const m = content.match(re);
+  return m ? m[0] : null;
+}
+
+function getFlowBlockFromScaffold() {
+  return fs.readFileSync(path.join(SCAFFOLD_DIR, "AGENTS.md"), "utf8");
+}
+
+function ensureAgentsBlock(projectRoot, opts = {}) {
+  const agentsSrc = getFlowBlockFromScaffold();
+  const agentsDest = path.join(projectRoot, "AGENTS.md");
+  const srcBlock = extractFlowBlock(agentsSrc) || agentsSrc;
+
+  if (!fs.existsSync(agentsDest)) {
+    if (opts.dryRun) { info(`[dry-run] would create AGENTS.md with Flow block`); return { action: "create-dry" }; }
+    fs.writeFileSync(agentsDest, agentsSrc, "utf8");
+    return { action: "created" };
+  }
+
+  const existing = fs.readFileSync(agentsDest, "utf8");
+  const existingBlock = extractFlowBlock(existing);
+
+  if (!existingBlock) {
+    // Append — preserve every byte, TTY guard
+    const next = existing.endsWith("\n") ? existing + "\n" + srcBlock + "\n" : existing + "\n\n" + srcBlock + "\n";
+    const d = diffLines(existing, next);
+    if (opts.dryRun) { info(`[dry-run] would append Flow block to AGENTS.md\n${d}`); return { action: "append-dry" }; }
+    if (!opts.yes && !process.stdin.isTTY) {
+      warn("AGENTS.md exists without Flow block — use --yes to append Flow block");
+      warn(d.split("\n").slice(0, 10).join("\n"));
+      return { action: "skipped-tty" };
+    }
+    backupFile(agentsDest);
+    fs.writeFileSync(agentsDest, next, "utf8");
+    return { action: "appended", diff: d };
+  }
+
+  if (existingBlock.trim() === srcBlock.trim()) return { action: "unchanged" };
+
+  // Replace inside markers only
+  const re2 = new RegExp(`${FLOW_START.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${FLOW_END.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+  const next = existing.replace(re2, srcBlock.trim());
+  const d = diffLines(existing, next);
+  if (opts.dryRun) { info(`[dry-run] would replace Flow block inside markers\n${d}`); return { action: "replace-dry" }; }
+  if (!opts.yes && !process.stdin.isTTY) {
+    warn("AGENTS.md Flow block differs — use --yes to overwrite inside markers");
+    return { action: "skipped-tty" };
+  }
+  backupFile(agentsDest);
+  fs.writeFileSync(agentsDest, next, "utf8");
+  return { action: "replaced", diff: d };
+}
+
+function installScaffold(projectRoot, opts = {}) {
+  const yes = opts.yes ?? flagYes;
+  const dryRun = opts.dryRun ?? flagDryRun;
+  const force = opts.force ?? flagForce;
+
+  // Abort if work-items already has entries unless --force
+  const wiDir = path.join(projectRoot, ".flow", "work-items");
+  if (fs.existsSync(wiDir)) {
+    const entries = fs.readdirSync(wiDir).filter(e => !e.startsWith("."));
+    if (entries.length > 0 && !force) {
+      warn(`.flow/work-items/ already has ${entries.length} work item(s) — use --force to overwrite scaffold`);
+      return { skipped: [], workItemsBlocked: true };
+    }
+  }
+
   const dirs = [
-    ".flow/codebase",
-    ".flow/milestones",
-    ".flow/memory",
-    ".flow/memory/archives",
-    ".flow/quick",
-    ".flow/docs",
+    ".flow",
+    ".flow/work-items",
   ].map(d => path.join(projectRoot, d));
-  for (const d of dirs) ensureDir(d);
+  for (const d of dirs) {
+    if (dryRun) { info(`[dry-run] would ensure dir ${path.relative(projectRoot, d)}`); }
+    else ensureDir(d);
+  }
+
+  const files = [
+    [path.join(SCAFFOLD_DIR, ".flow", "state.md"), path.join(projectRoot, ".flow", "state.md")],
+    [path.join(SCAFFOLD_DIR, ".flow", "memory.md"), path.join(projectRoot, ".flow", "memory.md")],
+  ];
 
   const skipped = [];
   for (const [src, dest] of files) {
     if (fs.existsSync(dest)) {
       skipped.push(path.relative(projectRoot, dest));
-    } else if (src.endsWith("config.json")) {
-      // Inject current package version into flow_version field
-      const config = JSON.parse(fs.readFileSync(src, "utf8"));
-      config.flow_version = pkg.version;
-      fs.writeFileSync(dest, JSON.stringify(config, null, 2) + "\n");
     } else {
-      copyFile(src, dest);
+      if (dryRun) { info(`[dry-run] would create ${path.relative(projectRoot, dest)}`); }
+      else copyFile(src, dest);
     }
   }
-  return skipped;
+
+  // map.json placeholder (file-level, populated by /flow-map)
+  const mapDest = path.join(projectRoot, ".flow", "map.json");
+  if (!fs.existsSync(mapDest)) {
+    const placeholder = JSON.stringify({ schema_version: "flow-map-v1", generated_at: null, git_commit: null, files: {}, summary: { files_indexed: 0 } }, null, 2) + "\n";
+    if (dryRun) { info(`[dry-run] would create .flow/map.json placeholder`); }
+    else fs.writeFileSync(mapDest, placeholder, "utf8");
+  } else {
+    skipped.push(path.relative(projectRoot, mapDest));
+  }
+
+  // AGENTS.md marker logic — flags: --yes/--dry-run/--update-agents (update-agents variant re-diffs)
+  const agentsOpts = { yes, dryRun };
+  const ag = ensureAgentsBlock(projectRoot, agentsOpts);
+  if (ag.action === "skipped-tty") skipped.push("AGENTS.md (use --yes to overwrite)");
+  else if (ag.action === "unchanged") skipped.push("AGENTS.md (unchanged)");
+
+  return { skipped, agentsAction: ag.action };
 }
 
 
 // ─── Update scaffold ──────────────────────────────────────────────────────────
-// Rules:
-//   AGENTS.md          → always overwrite (pure instructions, no user data)
-//   config.json        → deep merge: add new keys, bump flow_version, keep user values
-//   state.md           → never touch
-//   lessons.md         → never touch
-//   knowledge-base.md  → never touch
-//   New scaffold dirs  → create if missing
-//   Old flat phases/N/ → migrate to phases/phase-NN/tasks|summaries/ (data preserved)
+// Rules (Task 3 minimal):
+//   .flow/work-items/  → ensure exists
+//   state.md/memory.md/map.json → add if missing, never overwrite
+//   AGENTS.md          → marker co-existence only (never overwrite wholesale)
 
-function deepMergeConfig(target, source) {
-  // Merge source (scaffold defaults) into target (user config).
-  // Rules:
-  //   - flow_version is always set to the new version.
-  //   - New keys from source are added.
-  //   - Existing user values are preserved (never overwritten).
-  //   - Stale keys not in source are pruned.
-  //   - Nested objects are merged recursively.
-  const result = {};
-
-  for (const key of Object.keys(source)) {
-    if (key === "flow_version") {
-      result[key] = pkg.version; // always bump
-    } else if (
-      typeof source[key] === "object" && source[key] !== null && !Array.isArray(source[key]) &&
-      key in target &&
-      typeof target[key] === "object" && target[key] !== null && !Array.isArray(target[key])
-    ) {
-      result[key] = deepMergeConfig(target[key], source[key]); // recurse into objects
-    } else if (key in target) {
-      result[key] = target[key]; // preserve user value
-    } else {
-      result[key] = source[key]; // new key from scaffold
-    }
-  }
-
-  return result;
-}
-
-function updateScaffold(projectRoot) {
+function updateScaffold(projectRoot, opts = {}) {
   const report = { updated: [], added: [], skipped: [], newDirs: [], migrated: [], removed: [], warnings: [] };
 
-  // Ensure all scaffold dirs exist (safe — never deletes)
+  // Ensure work-items dir exists (safe — never deletes)
   const dirs = [
-    ".flow/codebase",
-    ".flow/milestones",
-    ".flow/memory",
-    ".flow/memory/archives",
-    ".flow/quick",
-    ".flow/docs",
+    ".flow",
+    ".flow/work-items",
   ].map(d => path.join(projectRoot, d));
   for (const d of dirs) {
     if (!fs.existsSync(d)) {
@@ -1004,149 +1069,29 @@ function updateScaffold(projectRoot) {
     }
   }
 
-  // 1. AGENTS.md — always overwrite (instructions only, no user data)
-  const agentsSrc  = path.join(SCAFFOLD_DIR, "AGENTS.md");
-  const agentsDest = path.join(projectRoot, "AGENTS.md");
-  copyFile(agentsSrc, agentsDest);
-  report.updated.push("AGENTS.md");
-
-  // 2. docs/ reference files — always overwrite (instructions only, no user data)
-  const docsSrcDir = path.join(SCAFFOLD_DIR, ".flow", "docs");
-  if (fs.existsSync(docsSrcDir)) {
-    const docsDestDir = path.join(projectRoot, ".flow", "docs");
-    ensureDir(docsDestDir);
-    for (const file of fs.readdirSync(docsSrcDir).filter(f => f.endsWith(".md"))) {
-      copyFile(path.join(docsSrcDir, file), path.join(docsDestDir, file));
-    }
-    report.updated.push(".flow/docs/ (reference files)");
+  // Ensure state.md + memory.md exist (add if missing, never overwrite)
+  for (const name of ["state.md", "memory.md"]) {
+    const src = path.join(SCAFFOLD_DIR, ".flow", name);
+    const dest = path.join(projectRoot, ".flow", name);
+    if (!fs.existsSync(dest)) { copyFile(src, dest); report.added.push(`.flow/${name}`); }
+    else report.skipped.push(`.flow/${name}`);
   }
+  // map.json placeholder if missing
+  const mapDest = path.join(projectRoot, ".flow", "map.json");
+  if (!fs.existsSync(mapDest)) {
+    const placeholder = JSON.stringify({ schema_version: "flow-map-v1", generated_at: null, git_commit: null, files: {}, summary: { files_indexed: 0 } }, null, 2) + "\n";
+    fs.writeFileSync(mapDest, placeholder, "utf8");
+    report.added.push(".flow/map.json");
+  } else report.skipped.push(".flow/map.json");
 
-  // 3. config.json — merge new scaffold keys into existing user config
-  const configSrc  = path.join(SCAFFOLD_DIR, ".flow", "config.json");
-  const configDest = path.join(projectRoot, ".flow", "config.json");
-  if (!fs.existsSync(configDest)) {
-    // Doesn't exist yet — write fresh with version injected
-    const fresh = JSON.parse(fs.readFileSync(configSrc, "utf8"));
-    fresh.flow_version = pkg.version;
-    fs.writeFileSync(configDest, JSON.stringify(fresh, null, 2) + "\n");
-    report.added.push(".flow/config.json");
-  } else {
-    const existing   = JSON.parse(fs.readFileSync(configDest, "utf8"));
-    const scaffold   = JSON.parse(fs.readFileSync(configSrc,  "utf8"));
-    const prevVersion = existing.flow_version || "unknown";
-    const merged     = deepMergeConfig(existing, scaffold);
-    fs.writeFileSync(configDest, JSON.stringify(merged, null, 2) + "\n");
-    report.updated.push(`.flow/config.json  (${prevVersion} → ${pkg.version})`);
-
-    // Detect schema-only migration: signals block was added but all values are
-    // sentinel-zero — meaning no prior flow-map-codebase run populated them.
-    // This happens when upgrading from pre-v0.3.0 via --update.
-    // The merge is correct; the values are wrong. Warn the user to run --refresh.
-    const sig = merged.codebase_profile && merged.codebase_profile.signals;
-    const signalsAreEmpty = sig
-      && sig.stack === ""
-      && sig.entry_point_count === 0
-      && Array.isArray(sig.entry_points) && sig.entry_points.length === 0
-      && sig.confidence_score === 0;
-    if (signalsAreEmpty) {
-      report.warnings.push(
-        `.flow/config.json — signals block is empty (migrated from pre-v0.3.0).\n` +
-        `     Run /flow-map-codebase --refresh to populate from your existing PATTERNS.md.`
-      );
-    }
-  }
-
-  // 3. New scaffold file: PATTERNS-AMENDMENTS.md (add if missing, never overwrite)
-  const amendSrc  = path.join(SCAFFOLD_DIR, ".flow", "codebase", "patterns-amendments.md");
-  const amendDest = path.join(projectRoot, ".flow", "codebase", "patterns-amendments.md");
-  if (!fs.existsSync(amendDest)) {
-    copyFile(amendSrc, amendDest);
-    report.added.push(".flow/codebase/patterns-amendments.md");
-  }
-
-  // 4. Files that must NEVER be touched during an update
-  const neverTouch = [
-    ".flow/state.md",
-    ".flow/memory/lessons.md",
-    ".flow/memory/knowledge-base.md",
-    ".flow/codebase/patterns.md",
-    ".flow/codebase/patterns-amendments.md",
-  ];
-  for (const f of neverTouch) {
-    if (fs.existsSync(path.join(projectRoot, f))) {
-      report.skipped.push(f);
-    }
-  }
-
-  // 5. Migrate old flat phase dirs → new phase-NN structure
-  migratePhaseDirs(projectRoot, report);
+  // AGENTS.md — marker co-existence (never overwrite wholesale)
+  const ag = ensureAgentsBlock(projectRoot, { yes: flagYes || opts.yes, dryRun: flagDryRun || opts.dryRun });
+  if (ag.action === "created" || ag.action === "replaced" || ag.action === "appended") report.updated.push(`AGENTS.md (${ag.action})`);
+  else if (ag.action === "unchanged") report.skipped.push("AGENTS.md (unchanged)");
+  else if (ag.action && ag.action.includes("dry")) report.skipped.push(`AGENTS.md (${ag.action})`);
+  else if (ag.action === "skipped-tty") report.warnings.push("AGENTS.md not updated — use --yes to apply Flow block");
 
   return report;
-}
-
-function migratePhaseDirs(projectRoot, report) {
-  const milestonesDir = path.join(projectRoot, ".flow", "milestones");
-  if (!fs.existsSync(milestonesDir)) return;
-
-  const milestones = fs.readdirSync(milestonesDir).filter(d => d.startsWith("milestone-"));
-  let anyNewStyle = false;
-
-  for (const milestone of milestones) {
-    const phasesDir = path.join(milestonesDir, milestone, "phases");
-    if (!fs.existsSync(phasesDir)) continue;
-
-    const entries = fs.readdirSync(phasesDir);
-    for (const entry of entries) {
-      const oldPath = path.join(phasesDir, entry);
-      if (!fs.statSync(oldPath).isDirectory()) continue;
-      // Skip already-migrated dirs (phase-NN pattern)
-      if (/^phase-\d+$/.test(entry)) { anyNewStyle = true; continue; }
-      // Skip non-numeric dirs (e.g., "tasks" at wrong level)
-      if (!/^\d+$/.test(entry)) continue;
-
-      // This is an old flat phase dir — migrate it
-      const phaseNum = parseInt(entry, 10);
-      const newPhaseName = `phase-${String(phaseNum).padStart(2, "0")}`;
-      const newPhaseDir = path.join(phasesDir, newPhaseName);
-      const tasksDir = path.join(newPhaseDir, "tasks");
-      const summariesDir = path.join(newPhaseDir, "summaries");
-
-      ensureDir(tasksDir);
-      ensureDir(summariesDir);
-
-      const files = fs.readdirSync(oldPath);
-      for (const file of files) {
-        const src = path.join(oldPath, file);
-        if (!fs.statSync(src).isFile()) {
-          report.warnings.push(`Skipped nested dir during migration: ${milestone}/phases/${entry}/${file}`);
-          continue;
-        }
-
-        let dest;
-        if (/^task-.*\.md$/.test(file)) {
-          dest = path.join(tasksDir, file);
-        } else if (/^summary-.*\.md$/.test(file)) {
-          dest = path.join(summariesDir, file);
-        } else {
-          dest = path.join(newPhaseDir, file);
-        }
-
-        if (!fs.existsSync(dest)) {
-          fs.copyFileSync(src, dest);
-          report.migrated.push(`${milestone}/phases/${entry}/${file} → ${newPhaseName}/${path.relative(newPhaseDir, dest)}`);
-        }
-      }
-
-      // Remove old dir after migration
-      fs.rmSync(oldPath, { recursive: true, force: true });
-      report.removed.push(`${milestone}/phases/${entry}`);
-    }
-  }
-
-  // After the migration loop, if nothing was migrated:
-  if (report.migrated.length === 0 && anyNewStyle) {
-    report.warnings.push("Phase directories already use new structure — no migration needed");
-  }
 }
 
 
@@ -1440,13 +1385,17 @@ async function main() {
     warn("This doesn't look like a project directory. Run from inside your project to install scaffold in the right place.");
     log("");
   }
-  const skipped = installScaffold(cwd);
-  if (skipped.length > 0) {
+  const sc = installScaffold(cwd);
+  const skipped = sc.skipped || sc;
+  if (sc.workItemsBlocked) {
+    // already warned inside
+  } else if (Array.isArray(skipped) && skipped.length > 0) {
     warn("Scaffold files already exist (preserved):");
     skipped.forEach(f => log(`    ${dim(f)}`));
   } else {
     ok("Project scaffold installed (AGENTS.md, .flow/)");
   }
+  if (sc.agentsAction) info(`AGENTS.md: ${sc.agentsAction}`);
 
   // Summary
   log("");
@@ -1751,7 +1700,7 @@ async function runUpdate() {
   // Antigravity — SKIP (global-only, no local flow dir, bridges not applicable)
   // (Comment: Antigravity uses workflow files directly, no shim needed)
 
-  // ── Step 3: Update project scaffold (AGENTS.md + config.json) ─────────────
+  // ── Step 3: Update project scaffold (AGENTS.md + .flow/) ──────────────────
   log("");
   log(bold("Step 3 — Updating project scaffold..."));
   log("");
@@ -1767,7 +1716,6 @@ async function runUpdate() {
     } catch (e) {
       err(`Step 3 — updateScaffold failed: ${e.message}`);
       warn("Project scaffold update failed — your .flow data is untouched.");
-      warn("Check .flow/config.json for corrupted JSON and retry.");
       report = null;
     }
 
@@ -1775,14 +1723,6 @@ async function runUpdate() {
       if (report.newDirs.length > 0) {
         info("New directories created:");
         report.newDirs.forEach(d => log(`    ${c.green}+${c.reset} ${d}`));
-      }
-      if (report.migrated.length > 0) {
-        info("Structure migrated (data preserved):");
-        report.migrated.forEach(f => log(`    ${c.cyan}→${c.reset} ${f}`));
-      }
-      if (report.removed.length > 0) {
-        info("Old directories removed after migration:");
-        report.removed.forEach(f => log(`    ${dim("  " + f)}`));
       }
       if (report.updated.length > 0) {
         info("Updated:");
@@ -1801,19 +1741,6 @@ async function runUpdate() {
         report.warnings.forEach(w => warn(w));
       }
     }
-
-    // ── Check for non-inherit model assignments → hint to re-run --sync-models ──
-    const configPathForHint = path.join(cwd, ".flow", "config.json");
-    try {
-      const cfgForHint = JSON.parse(fs.readFileSync(configPathForHint, "utf8"));
-      const nonInherit = getNonInheritModels(cfgForHint);
-      if (Object.keys(nonInherit).length > 0) {
-        log("");
-        warn("Non-inherit model assignments detected in config.json.");
-        warn("Update overwrites runtime agent files — model assignments need re-syncing:");
-        log(`    ${dim("npx @linggihlukis/flow@latest --sync-models --<runtime>")}`);
-      }
-    } catch { /* config unreadable — skip hint */ }
   }
 
 
@@ -1824,30 +1751,8 @@ async function runUpdate() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   log(`  Project data untouched (never modified):`);
-  log(`  ${dim(".flow/state.md · .flow/memory/ · .flow/codebase/patterns.md · .flow/codebase/patterns-amendments.md")}`);
-  log(`  ${dim("Phase tasks, research, CONTEXT.md, verification.md, handoff.md, milestones/ — all preserved")}`);
+  log(`  ${dim(".flow/state.md · .flow/memory.md · .flow/map.json · .flow/work-items/")}`);
   log("");
-  // Re-read config post-update to check if signals need populating (Task 4)
-  if (hasFlow) {
-    const configPath = path.join(cwd, ".flow", "config.json");
-    let needsRefresh = false;
-    try {
-      const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
-      const sig = cfg.codebase_profile && cfg.codebase_profile.signals;
-      needsRefresh = sig
-        && sig.stack === ""
-        && sig.entry_point_count === 0
-        && Array.isArray(sig.entry_points) && sig.entry_points.length === 0
-        && sig.confidence_score === 0;
-    } catch { /* config unreadable — skip */ }
-    if (needsRefresh) {
-      log(`  ${c.yellow}${c.bold}Next required step:${c.reset}`);
-      log(`  ${dim("  /flow-map-codebase --refresh")}`);
-      log(`  ${dim("  Populates codebase signals from your existing PATTERNS.md.")}`);
-      log(`  ${dim("  Required before planning — agents read signals for every phase.")}`);
-      log("");
-    }
-  }
   log(`  ${dim("To update again later:")}`);
   log(`  ${dim("  npx @linggihlukis/flow@latest --update")}`);
   log("");
@@ -1863,4 +1768,4 @@ if (require.main === module) {
   main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
 }
 
-module.exports = { deepMergeConfig, updateScaffold, createRuntimeBridge, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown };
+module.exports = { updateScaffold, createRuntimeBridge, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown, installScaffold, ensureAgentsBlock, FLOW_START, FLOW_END };
