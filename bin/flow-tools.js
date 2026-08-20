@@ -10,8 +10,6 @@ const ERROR_CODES = {
   UNKNOWN_COMMAND:  'UNKNOWN_COMMAND',
   STATE_NOT_FOUND:  'STATE_NOT_FOUND',
   STATE_PARSE_ERROR:'STATE_PARSE_ERROR',
-  // DEBT: PHASE_NOT_FOUND kept for compat shim in state/task compat; remove in Task 5 with phase commands
-  PHASE_NOT_FOUND:  'PHASE_NOT_FOUND',
   PATH_NOT_FOUND:   'PATH_NOT_FOUND',
   FRONTMATTER_NOT_FOUND: 'FRONTMATTER_NOT_FOUND',
   WRITE_FAILED:        'WRITE_FAILED',
@@ -108,10 +106,7 @@ const _libRoutes = {
   'map': './lib/flow-map',
   'audit': './lib/audit',
   'task': './lib/task',
-  'extract': './lib/task',
-  'index': './lib/index',
 };
-// DEBT: `extract`/`index` kept for compat; `index` delegates to flow-map (canonical)
 
 const _FIELD_TO_FLAG = {
   sets: '--set',
@@ -120,11 +115,6 @@ const _FIELD_TO_FLAG = {
   'line-count': '--line-count',
   touch: '--touch',
   newer: '--newer',
-  // DEBT: count-only/body-filter/type/n kept for deleted routes compat guards; remove when all routes migrated
-  'count-only': '--count-only',
-  'body-filter': '--body-filter',
-  type: '--type',
-  n: '--n',
 };
 
 function _validateRequired(args, schema) {

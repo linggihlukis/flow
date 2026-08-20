@@ -28,7 +28,7 @@ body:
     attributes:
       label: What happened?
       description: Describe the bug clearly. Include the Flow command you ran.
-      placeholder: "When I ran `/flow-plan-phase 3`, the schema gate..."
+      placeholder: "When I ran `/flow \"add pagination to /flow-status\"`, the Reviewer..."
     validations:
       required: true
   - type: textarea
@@ -44,8 +44,9 @@ body:
       label: Steps to reproduce
       description: Minimal steps to reproduce the issue.
       placeholder: |
-        1. Run `/flow-new-project`
-        2. ...
+        1. Run `/flow-init --dry-run`
+        2. Run `/flow "your Work Item goal"`
+        3. ...
     validations:
       required: false
   - type: textarea

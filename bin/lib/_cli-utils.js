@@ -5,7 +5,6 @@ const ERROR_CODES = {
   UNKNOWN_COMMAND:        'UNKNOWN_COMMAND',
   STATE_NOT_FOUND:        'STATE_NOT_FOUND',
   STATE_PARSE_ERROR:      'STATE_PARSE_ERROR',
-  PHASE_NOT_FOUND:        'PHASE_NOT_FOUND',
   PATH_NOT_FOUND:         'PATH_NOT_FOUND',
   FRONTMATTER_NOT_FOUND:  'FRONTMATTER_NOT_FOUND',
   WRITE_FAILED:           'WRITE_FAILED',
@@ -69,7 +68,7 @@ function sanitizeStateValue(raw) {
 }
 
 const KNOWN_VALUED_FLAGS = new Set([
-  '--cwd', '--field', '--set', '--file', '--work-item', '--phase', // DEBT: --phase kept for task compat shim; remove with legacy commands in Task 5
+  '--cwd', '--field', '--set', '--file', '--work-item',
   '--max-results', '--path', '--scope', '--symbols', '--hash',
   '--newer', '--line-count', '--touch', '--dry-run',
 ]);

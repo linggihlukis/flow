@@ -7,7 +7,7 @@
 
 Files: `.flow/{state.md,memory.md,map.json}` + `.flow/work-items/work-item-NNN/{work-item.md,plan.md,tasks/task-XX.md}`; `AGENTS.md` outside `.flow/`.
 
-Agents (3 — DEBT: `flow-help.md` still lists 6 legacy commands; full help rewrite in Task 5):
+Agents (3):
 - `@flow-planner` (research is part of planning → generates `plan.md` + `tasks/task-XX.md` with 8-rule self-check)
 - `@flow-executor` (one task: Read → Change → Verify → Report)
 - `@flow-reviewer` (8-rule + verifier gap check + debugger fix-task; single writer of `.flow/memory.md` at `accepted`)

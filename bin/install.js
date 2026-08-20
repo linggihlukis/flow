@@ -182,12 +182,9 @@ const flagRuntime  = resolveFlag(["--opencode","--claude","--codex","--antigravi
 const flagLocation = resolveFlag(["--global","-g","--local","-l"]);
 const flagUninstall = args.includes("--uninstall") || envFlag("--uninstall");
 const flagUpdate   = args.includes("--update") || envFlag("--update");
-const flagSyncModels = args.includes("--sync-models") || envFlag("--sync-models");
 const flagYes = args.includes("--yes") || envFlag("--yes");
 const flagDryRun = args.includes("--dry-run") || envFlag("--dry-run");
-// DEBT: flagUpdateAgents retained for Task 3 contract (--update-agents variant re-diffs AGENTS.md); wire to prompt in Task 5.
 const flagUpdateAgents = args.includes("--update-agents") || envFlag("--update-agents");
-void flagUpdateAgents; // suppress unused until Task 5
 const flagForce = args.includes("--force") || envFlag("--force");
 
 // ─── Flow scaffold markers (LOCKED §11) ───────────────────────────────────────
@@ -344,7 +341,7 @@ function installNodeDeps(toolsDir) {
     return true;
   } catch (e) {
     warn(`flow-tools dep install failed: ${e.message}`);
-    warn("Repo-map generation will be unavailable until deps are installed manually.");
+    warn("map index search will be unavailable until deps are installed manually.");
     warn(` cd "${toolsDir}" && npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms`);
     return false;
   }
@@ -430,338 +427,11 @@ function createRuntimeBridge(runtimeFlowDir, runtimeName) {
   }
 }
 
-// ─── Read project config.json (DEBT: config.json removed in Task 3; kept only for --sync-models compat — remove in 0.6) ──
-function readProjectConfig(cwd) {
-  const configPath = path.join(cwd, ".flow", "config.json");
-  if (!fs.existsSync(configPath)) {
-    return { error: `No .flow/config.json found in: ${cwd}\n     Run from inside a Flow project directory.` };
-  }
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    return { config };
-  } catch (e) {
-    return { error: `Failed to parse .flow/config.json: ${e.message}` };
-  }
-}
-
-// DEBT: models/config.json removed in Task 3 — shim for --sync-models compat only; remove in 0.6.
-function getNonInheritModels(config) {
-  if (!config.models) return {};
-  const result = {};
-  for (const [agent, model] of Object.entries(config.models)) {
-    if (model && model !== "inherit") {
-      result[agent] = model;
-    }
-  }
-  return result;
-}
-
-// ─── Sync Models ──────────────────────────────────────────────────────────────
-
-function syncOpenCode(models, location) {
-  const results = { synced: [], skipped: [], errors: [] };
-  const cwd = process.cwd();
-
-  // Determine the opencode.json path based on location
-  const configDir = location === "global"
-    ? getGlobalOpenCodeDir()
-    : path.join(cwd, ".opencode");
-
-  if (!fs.existsSync(configDir)) {
-    results.errors.push(`OpenCode directory not found: ${configDir}`);
-    return results;
-  }
-
-  const configPath = path.join(configDir, "opencode.json");
-  let config = {};
-
-  // Read existing config if it exists
-  if (fs.existsSync(configPath)) {
-    try {
-      config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    } catch (e) {
-      results.errors.push(`Failed to parse ${configPath}: ${e.message}`);
-      return results;
-    }
-  }
-
-  // Ensure agent block exists (OpenCode uses singular "agent", not "agents")
-  if (!config.agent) config.agent = {};
-
-  for (const [agentName, model] of Object.entries(models)) {
-    // Agent names are Planner, Executor, Reviewer (flow-planner, flow-executor, flow-reviewer).
-    if (!config.agent[agentName]) config.agent[agentName] = {};
-    config.agent[agentName].model = model;
-  }
-
-  // Write back — only mark as synced after successful write
-  try {
-    ensureDir(path.dirname(configPath));
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
-    for (const [agent, model] of Object.entries(models)) {
-      results.synced.push({ agent, model });
-    }
-  } catch (e) {
-    results.errors.push(`Failed to write ${configPath}: ${e.message}`);
-    return results;
-  }
-
-  return results;
-}
-
-function syncClaudeCode(models, location) {
-  const results = { synced: [], skipped: [], errors: [] };
-  const cwd = process.cwd();
-
-  const agentsDir = location === "global"
-    ? path.join(getGlobalClaudeDir(), "agents")
-    : path.join(cwd, ".claude", "agents");
-
-  if (!fs.existsSync(agentsDir)) {
-    results.errors.push(`Claude Code agents directory not found: ${agentsDir}`);
-    return results;
-  }
-
-  for (const [agent, model] of Object.entries(models)) {
-    const agentFile = path.join(agentsDir, `${agent}.md`);
-    if (!fs.existsSync(agentFile)) {
-      results.skipped.push({ agent, reason: `${agent}.md not found in ${agentsDir}` });
-      continue;
-    }
-
-    try {
-      let content = fs.readFileSync(agentFile, "utf8");
-
-      // Check if frontmatter exists
-      const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-      if (!fmMatch) {
-        results.errors.push(`${agent}.md: no frontmatter found`);
-        continue;
-      }
-
-      let frontmatter = fmMatch[1];
-
-      // Check if model: field already exists in frontmatter
-      if (/^model:\s*.+$/m.test(frontmatter)) {
-        // Update existing model field
-        frontmatter = frontmatter.replace(/^model:\s*.+$/m, `model: ${model}`);
-      } else {
-        // Insert model: after description: line (or at the top of frontmatter)
-        const descMatch = frontmatter.match(/^description:\s*.+$/m);
-        if (descMatch) {
-          const descEnd = frontmatter.indexOf(descMatch[0]) + descMatch[0].length;
-          frontmatter = frontmatter.slice(0, descEnd) + `\nmodel: ${model}` + frontmatter.slice(descEnd);
-        } else {
-          // No description line — prepend
-          frontmatter = `model: ${model}\n` + frontmatter;
-        }
-      }
-
-      // Reconstruct the file
-      content = `---\n${frontmatter}\n---` + content.slice(fmMatch[0].length);
-      fs.writeFileSync(agentFile, content);
-      results.synced.push({ agent, model });
-    } catch (e) {
-      results.errors.push(`${agent}.md: ${e.message}`);
-    }
-  }
-
-  return results;
-}
-
-function syncCodex(models, location) {
-  const results = { synced: [], skipped: [], errors: [] };
-  const cwd = process.cwd();
-
-  const agentsDir = location === "global"
-    ? getGlobalCodexAgentsDir()
-    : path.join(cwd, ".codex", "agents");
-
-  if (!fs.existsSync(agentsDir)) {
-    results.errors.push(`Codex agents directory not found: ${agentsDir}`);
-    return results;
-  }
-
-  for (const [agent, model] of Object.entries(models)) {
-    const agentFile = path.join(agentsDir, `${agent}.toml`);
-    if (!fs.existsSync(agentFile)) {
-      results.skipped.push({ agent, reason: `${agent}.toml not found in ${agentsDir}` });
-      continue;
-    }
-
-    try {
-      let content = fs.readFileSync(agentFile, "utf8");
-      const escapedModel = escapeTomlBasicString(model);
-
-      // Check if model = "..." already exists
-      if (/^model\s*=\s*"[^"]*"$/m.test(content)) {
-        // Update existing model field
-        content = content.replace(/^model\s*=\s*"[^"]*"$/m, `model = "${escapedModel}"`);
-      } else {
-        // Insert model = "..." after description = "..." line
-        const descMatch = content.match(/^description\s*=\s*"[^"]*"$/m);
-        if (descMatch) {
-          const descEnd = content.indexOf(descMatch[0]) + descMatch[0].length;
-          content = content.slice(0, descEnd) + `\nmodel = "${escapedModel}"` + content.slice(descEnd);
-        } else {
-          // No description line — prepend after name line
-          const nameMatch = content.match(/^name\s*=\s*"[^"]*"$/m);
-          if (nameMatch) {
-            const nameEnd = content.indexOf(nameMatch[0]) + nameMatch[0].length;
-            content = content.slice(0, nameEnd) + `\nmodel = "${escapedModel}"` + content.slice(nameEnd);
-          } else {
-            // Fallback — prepend
-            content = `model = "${escapedModel}"\n` + content;
-          }
-        }
-      }
-
-      fs.writeFileSync(agentFile, content);
-      results.synced.push({ agent, model });
-    } catch (e) {
-      results.errors.push(`${agent}.toml: ${e.message}`);
-    }
-  }
-
-  return results;
-}
-
-
-function runSyncModels(runtime, location) {
-  log(""); log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  log(bold("  FLOW — Sync Model Assignments              "));
-  log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  log(dim(`  v${pkg.version} · syncing config.json → runtime config`));
-  log("");
-
-  const cwd = process.cwd();
-
-  // Step 1: Read project config.json
-  const { config, error: configError } = readProjectConfig(cwd);
-  if (configError) {
-    err(configError);
-    return;
-  }
-
-  // Step 2: Extract non-inherit model assignments
-  const models = getNonInheritModels(config);
-  if (Object.keys(models).length === 0) {
-    warn("All model assignments in config.json are \"inherit\" — nothing to sync.");
-    warn("Set specific model IDs in .flow/config.json → models, then re-run.");
-    return;
-  }
-
-  log(bold("Model assignments from config.json:"));
-  for (const [agent, model] of Object.entries(models)) {
-    info(`${agent}: ${model}`);
-  }
-  log("");
-
-  // Step 3: Guard — Antigravity explicit
-  if (runtime === "antigravity") {
-    err("Antigravity does not support per-agent model assignment.");
-    err("Models are selected per-message via the UI dropdown.");
-    err("Leave models as \"inherit\" in config.json for Antigravity.");
-    return;
-  }
-
-  // Step 4: Determine location if not provided
-  // For --sync-models, prefer local if both exist
-  if (!location) {
-    // Auto-detect: check local first, then global
-    const installed = detectInstalledRuntimes(cwd);
-    // Default to local if any local runtime is detected
-    const hasLocal = installed.opencode.local || installed.claude.local
-      || installed.codex.local.skills || installed.codex.local.agents;
-    const hasGlobal = installed.opencode.global || installed.claude.global
-      || installed.codex.global.skills || installed.codex.global.agents;
-    if (hasLocal) {
-      location = "local";
-      info(`Auto-detected: local install ${dim("(use --global to target global)")}`);
-    } else if (hasGlobal) {
-      location = "global";
-      info(`Auto-detected: global install ${dim("(use --local to target local)")}`);
-    } else {
-      location = "local";
-      info("No existing install detected — defaulting to local");
-    }
-    log("");
-  }
-
-  log(bold(`Syncing to ${runtime === "all" ? "all runtimes" : runtime} (${location})...`));
-  log("");
-
-  let totalSynced = 0;
-  let totalErrors = 0;
-
-  // OpenCode
-  if (runtime === "opencode" || runtime === "all") {
-    const results = syncOpenCode(models, location);
-    if (results.errors.length > 0) {
-      results.errors.forEach(e => err(`OpenCode: ${e}`));
-      totalErrors += results.errors.length;
-    }
-    if (results.synced.length > 0) {
-      ok(`OpenCode (${location}): ${results.synced.length} agent(s) synced`);
-      results.synced.forEach(s => log(`    ${dim(`${s.agent} → ${s.model}`)}`));
-      totalSynced += results.synced.length;
-    }
-  }
-
-  // Claude Code
-  if (runtime === "claude" || runtime === "all") {
-    const results = syncClaudeCode(models, location);
-    if (results.errors.length > 0) {
-      results.errors.forEach(e => err(`Claude Code: ${e}`));
-      totalErrors += results.errors.length;
-    }
-    if (results.skipped.length > 0) {
-      results.skipped.forEach(s => warn(`Claude Code: ${s.agent} skipped — ${s.reason}`));
-    }
-    if (results.synced.length > 0) {
-      ok(`Claude Code (${location}): ${results.synced.length} agent(s) synced`);
-      results.synced.forEach(s => log(`    ${dim(`${s.agent} → ${s.model}`)}`));
-      totalSynced += results.synced.length;
-    }
-  }
-
-  // Codex
-  if (runtime === "codex" || runtime === "all") {
-    const results = syncCodex(models, location);
-    if (results.errors.length > 0) {
-      results.errors.forEach(e => err(`Codex: ${e}`));
-      totalErrors += results.errors.length;
-    }
-    if (results.skipped.length > 0) {
-      results.skipped.forEach(s => warn(`Codex: ${s.agent} skipped — ${s.reason}`));
-    }
-    if (results.synced.length > 0) {
-      ok(`Codex (${location}): ${results.synced.length} agent(s) synced`);
-      results.synced.forEach(s => log(`    ${dim(`${s.agent} → ${s.model}`)}`));
-      totalSynced += results.synced.length;
-    }
-  }
-
-
-  // Antigravity in --all mode — skip silently
-  // (explicit --antigravity is caught above)
-
-  // Summary
-  log("");
-  log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  if (totalErrors > 0) {
-    log(`${c.yellow}${c.bold}  ⚠️  Sync completed with errors${c.reset}`);
-  } else if (totalSynced > 0) {
-    log(`${c.green}${c.bold}  ✅ Model sync complete${c.reset}`);
-  } else {
-    log(`${c.yellow}${c.bold}  ⚠️  No runtimes synced${c.reset}`);
-  }
-  log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  log("");
-  log(`  ${dim("Restart your runtime to apply the new model assignments.")}`);
-  log(`  ${dim("Run this again after every --update (update overwrites agent files).")}`);
-  log("");
-}
+// ─── Sync Models — removed in Task 5 (config.json / per-runtime model tiers deleted; §12/§18)
+// DEBT: historical helpers readProjectConfig/getNonInheritModels/sync* kept as no-ops for --sync-models compat until 0.6; warn and no-op.
+function readProjectConfig() { return { error: 'config.json removed — Flow is model-agnostic (§18)' } }
+function getNonInheritModels() { return {} }
+function runSyncModels() { warn('--sync-models removed in 0.6 — Flow is model-agnostic (see §18)') }
 
 
 // ─── Install commands ─────────────────────────────────────────────────────────
@@ -990,7 +660,7 @@ function ensureAgentsBlock(projectRoot, opts = {}) {
 }
 
 function installScaffold(projectRoot, opts = {}) {
-  const yes = opts.yes ?? flagYes;
+  const yes = opts.yes ?? (flagYes || flagUpdateAgents);
   const dryRun = opts.dryRun ?? flagDryRun;
   const force = opts.force ?? flagForce;
 
@@ -1038,8 +708,8 @@ function installScaffold(projectRoot, opts = {}) {
     skipped.push(path.relative(projectRoot, mapDest));
   }
 
-  // AGENTS.md marker logic — flags: --yes/--dry-run/--update-agents (update-agents variant re-diffs)
-  const agentsOpts = { yes, dryRun };
+  // AGENTS.md marker logic — flags: --yes/--dry-run/--update-agents (update-agents forces yes)
+  const agentsOpts = { yes: yes || flagUpdateAgents, dryRun };
   const ag = ensureAgentsBlock(projectRoot, agentsOpts);
   if (ag.action === "skipped-tty") skipped.push("AGENTS.md (use --yes to overwrite)");
   else if (ag.action === "unchanged") skipped.push("AGENTS.md (unchanged)");
@@ -1084,8 +754,8 @@ function updateScaffold(projectRoot, opts = {}) {
     report.added.push(".flow/map.json");
   } else report.skipped.push(".flow/map.json");
 
-  // AGENTS.md — marker co-existence (never overwrite wholesale)
-  const ag = ensureAgentsBlock(projectRoot, { yes: flagYes || opts.yes, dryRun: flagDryRun || opts.dryRun });
+  // AGENTS.md — marker co-existence (never overwrite wholesale) — --update-agents forces yes
+  const ag = ensureAgentsBlock(projectRoot, { yes: (flagYes || flagUpdateAgents || opts.yes), dryRun: flagDryRun || opts.dryRun });
   if (ag.action === "created" || ag.action === "replaced" || ag.action === "appended") report.updated.push(`AGENTS.md (${ag.action})`);
   else if (ag.action === "unchanged") report.skipped.push("AGENTS.md (unchanged)");
   else if (ag.action && ag.action.includes("dry")) report.skipped.push(`AGENTS.md (${ag.action})`);
@@ -1268,15 +938,8 @@ async function main() {
     return;
   }
 
-  if (flagSyncModels) {
-    if (!flagRuntime) {
-      err("--sync-models requires a runtime flag: --opencode, --claude, --codex, or --all");
-      err("Example: npx @linggihlukis/flow --sync-models --opencode");
-      return;
-    }
-    const rt = flagRuntime.replace("--", "");
-    const loc = flagLocation ? (["--global","-g"].includes(flagLocation) ? "global" : "local") : null;
-    runSyncModels(rt, loc);
+  if (args.includes("--sync-models") || envFlag("sync-models")) {
+    warn('--sync-models removed in 0.6 — Flow is model-agnostic (§18)');
     return;
   }
 
@@ -1411,9 +1074,9 @@ async function main() {
   log(`  Agents:    ${agentCount} (@flow-planner, @flow-executor, @flow-reviewer)`);
   log("");
   log(bold("  Getting started:"));
-  log(`  ${dim("New project:")}      /flow-new-project`);
-  log(`  ${dim("Existing code:")}    /flow-map-codebase  →  /flow-new-project`);
-  log(`  ${dim("All commands:")}     /flow-help`);
+  log(`  ${dim("New project:")}      /flow-init`);
+  log(`  ${dim("Existing code:")}    /flow-map  →  /flow "your goal"`);
+  log(`  ${dim("Status:")}            /flow-status`);
   log("");
   if (runtime === "opencode" || runtime === "all") {
     log(dim("  Restart OpenCode to load the new commands."));

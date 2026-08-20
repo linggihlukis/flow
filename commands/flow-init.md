@@ -1,0 +1,68 @@
+---
+description: Initialise Flow in a repo — scaffold .flow/ + propose starter memory from map
+agent: build
+subtask: false
+---
+
+# /flow-init $ARGUMENTS
+
+One-time setup. Proposes, never overwrites wholesale. Interactive, reviewable, idempotent.
+
+Flags: `--yes` (CI, non-interactive), `--dry-run` (preview), `--update-agents` (re-diff AGENTS.md), `--hash` (opt-in SHA-256), `--scope <dir>` (scoped map).
+
+## Step 1 — Detect
+
+Check: git root? `.flow/` exists? `AGENTS.md` exists? Threshold: if `git ls-files --others --exclude-standard` or tracked files finds >0 non-ignored source files, treat as brownfield; otherwise greenfield.
+
+```bash
+git rev-parse --show-toplevel 2>/dev/null || echo "no git"
+ls .flow/state.md 2>/dev/null && echo ".flow exists" || echo "greenfield"
+ls AGENTS.md 2>/dev/null && echo "AGENTS.md exists"
+```
+
+## Step 2 — Map
+
+Run file-level indexer (no symbols, no hash by default):
+
+```bash
+node bin/flow-tools.js map index --cwd . --scope .  # add --symbols --hash only if requested
+```
+
+Writes `.flow/map.json` (`flow-map-v1`, `indexer.symbols:false` by default). Sensitive files skipped (`sensitive-file`).
+
+## Step 3 — Infer
+
+Derive 1–3 starter facts from `map.json` manifests + entrypoints only — never present inference as fact:
+
+- Workspaces / package manifests found
+- Entrypoint candidates
+- Language summary
+
+Mark every bullet `[unverified, from map YYYY-MM-DD]`.
+
+## Step 4 — Propose
+
+Show, don't write yet:
+
+a) `AGENTS.md` — create or diff inside `<!-- flow:generated:start/end -->` — preserve other tools' blocks (e.g. `context-mapper:generated`), backup `AGENTS.md.bak.<date>`, show `diff` when replacing.
+
+b) `.flow/memory.md` starter — 1–3 bullets above, under `## Facts`, still `[unverified, from map ...]`.
+
+c) `.flow/{state.md, memory.md, map.json}` scaffold — `state.md` (`active_work_item: null`, `status: ready`), `memory.md` headers only, `map.json` placeholder if missing.
+
+Prompt: `Write .flow/{state.md, memory.md, map.json} + update AGENTS.md? [y/N/diff]` — respect `--yes` / `--dry-run` / TTY guard.
+
+## Step 5 — Write (only on confirm)
+
+```bash
+node bin/install.js --yes   # or run scaffold helpers directly
+# ensures .flow/work-items/ exists, never overwrites existing state.md/memory.md, never wholesale-overwrites AGENTS.md
+```
+
+Idempotent: re-running without `--force` preserves existing `state.md`/`memory.md` and only replaces the Flow marker block in `AGENTS.md`. Use `--force` to reset `work-items/` guard.
+
+After first accepted Work Item, only `@flow-reviewer` at `accepted` writes `memory.md` (see `flow.md` Review).
+
+## What /flow-init will NOT do
+
+Questions/research/roadmap generation, `config.json` creation, PATTERNS.md prose, silent map refresh, auto-writing `memory.md` without proposal.
