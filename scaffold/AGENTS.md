@@ -6,4 +6,9 @@
 > Executor: Read → Change → Verify → Report per `task-*.md`. Reviewer is single writer of `memory.md` (at `accepted`).
 
 Files: `.flow/{state.md,memory.md,map.json}` + `.flow/work-items/work-item-NNN/{work-item.md,plan.md,tasks/task-XX.md}`; `AGENTS.md` outside `.flow/`.
+
+Agents (3 — DEBT: `flow-help.md` still lists 6 legacy commands; full help rewrite in Task 5):
+- `@flow-planner` (research is part of planning → generates `plan.md` + `tasks/task-XX.md` with 8-rule self-check)
+- `@flow-executor` (one task: Read → Change → Verify → Report)
+- `@flow-reviewer` (8-rule + verifier gap check + debugger fix-task; single writer of `.flow/memory.md` at `accepted`)
 <!-- flow:generated:end -->

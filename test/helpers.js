@@ -41,12 +41,9 @@ const AGENT_REQUIRED   = ["description", "mode", "temperature", "tools"];
 const AGENT_TOOL_KEYS  = ["write", "edit", "bash"];
 
 const KNOWN_AGENTS = [
-  "flow-critic",
-  "flow-debugger",
   "flow-executor",
   "flow-planner",
-  "flow-researcher",
-  "flow-verifier",
+  "flow-reviewer",
 ];
 
 // DEBT: CONFIG_*_KEYS kept for Suite 11 backwards-compat shims (no config.json in scaffold post-Task-3)

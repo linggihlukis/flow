@@ -218,11 +218,11 @@ Check `.flow/config.json` → `workflow.research`. If false, skip to Stage 2.
 - For each file, get size via `node [flow-tools-path] context estimate [file] --cwd .` (returns JSON with `total_chars` — use `total_chars ÷ 4` for token estimate)
 - Calculate: `sum_of_all_chars ÷ 4`, round to nearest 100
 - If `M/phases/phase-$ARGUMENTS/context-log.md` does not exist, create it with the table header (see AGENTS.md §21)
-- Append one row: `| [now ISO 8601] | [agent] | [est_tokens] | [file list] |` (agent: `orchestrator-inline` for inline mode, `flow-researcher` for spawn mode)
+- Append one row: `| [now ISO 8601] | [agent] | [est_tokens] | [file list] |` (agent: `orchestrator-inline` for inline mode, `flow-planner` for spawn mode)
 
 **Inline Mode Check:** Read `.flow/config.json` → `workflow.inline_research`.
 If `true` (or absent — default is `true`), proceed with **Inline Evidence Collection** below.
-If `false`, proceed with **Spawn Fallback: Spawn @flow-researcher** below.
+If `false`, proceed with **Spawn Fallback: Spawn @flow-planner** below.
 
 ---
 
@@ -262,7 +262,7 @@ For each overlapping Module Zone in PATTERNS.md:
 3. If files deviate from PATTERNS.md claims, record the deviation under `## PATTERNS.md Staleness` and in the `patterns_stale` list in the Return block.
 
 **Step 4: Build and write research.md**
-Write the results directly to `M/phases/phase-$ARGUMENTS/research.md`. Use this structure (see `[flow-tools-dir]/agents/flow-researcher.md` for the full reference):
+Write the results directly to `M/phases/phase-$ARGUMENTS/research.md`. Use this structure (see `[flow-tools-dir]/agents/flow-planner.md` for the full reference):
 
 ```markdown
 # Phase $ARGUMENTS Research — [Phase Name]
@@ -319,8 +319,8 @@ If ≥ low → apply §16 Context Discipline, then proceed.
    ```
    ⚠️  Context-size advisory: researcher pre-spawn load is [estimated_tokens] tokens
        ([pct]% of [model_context_limit] limit).
-       If using a smaller-context model for flow-researcher, consider assigning a
-       large-context model in config.json → models.flow-researcher.
+       If using a smaller-context model for flow-planner, consider assigning a
+       large-context model in config.json → models.flow-planner.
        This is advisory only — proceeding with current model.
    ```
 4. If `estimated_tokens ≤ (model_context_limit × 0.60)` → proceed silently.
@@ -328,7 +328,7 @@ If ≥ low → apply §16 Context Discipline, then proceed.
 
 **Context limit check:** Run pre-spawn context limit check per AGENTS.md §21 Step 3.
 
-Spawn `@flow-researcher` with the following brief:
+Spawn `@flow-planner` with the following brief:
 ```
 Phase: $ARGUMENTS
 CONTEXT.md: M/phases/phase-$ARGUMENTS/CONTEXT.md
@@ -337,7 +337,7 @@ requirements.md: M/requirements.md
 Repo-map: .flow/codebase/repo-map.json (if exists — use for file/function discovery before reading source files)
 depth: [quick | standard | comprehensive — from config]
 Output: M/phases/phase-$ARGUMENTS/research.md
-model: [value of models.flow-researcher from config.json — omit this line entirely if "inherit"]
+model: [value of models.flow-planner from config.json — omit this line entirely if "inherit"]
 ```
 
 Wait for the researcher to complete.
@@ -417,7 +417,7 @@ If any row has "N/A" file paths or is missing:
     3. Update the rows directly in the `research.md` Evidence Summary table.
     4. Repeat completeness check (maximum 1 inline re-investigation round).
   Else:
-    Re-spawn `@flow-researcher` with a targeted re-investigation brief listing exactly which rows lack evidence.
+    Re-run `@flow-planner` with a targeted re-investigation brief listing exactly which rows lack evidence.
     Instruct the researcher to append updated rows to the Evidence Summary table — not rewrite it.
     Repeat completeness check (maximum 1 re-investigation round).
 
@@ -462,7 +462,7 @@ For each locked decision in CONTEXT.md's "Locked Decisions" table:
     Update the findings directly in the research.md file.
     Repeat completeness check (maximum 2 inline re-investigation rounds).
   Else:
-    Re-spawn `@flow-researcher` with a targeted re-investigation brief listing exactly which files or decisions lack evidence.
+    Re-run `@flow-planner` with a targeted re-investigation brief listing exactly which files or decisions lack evidence.
     Instruct the researcher to append findings to research.md.
     Repeat completeness check (maximum 2 re-investigation rounds).
 
@@ -641,7 +641,7 @@ Note on `workflow.plan_check`: this gate runs unconditionally — even when
 the critic does not bypass schema checks. To skip the gate explicitly, a developer
 may set `workflow.schema_gate: false` in config.json (absent = gate runs).
 
-After the planner writes all task files and before spawning `@flow-critic`, run a
+After the planner writes all task files and before running Reviewer checks, run a
 machine-checkable structural validation on every task file.
 
 **Field exemptions (do NOT fail a task for these being absent):**
@@ -664,7 +664,7 @@ node [flow-tools-path] task validate --phase $ARGUMENTS
 ```
 
 **If ANY check fails:**
-- Do NOT spawn `@flow-critic`
+- Do NOT run Reviewer checks
 - Print all failed checks grouped by task file
 - **Repair inline** — the orchestrator rewrites only the failing sections directly.
   Do NOT re-spawn `@flow-planner` for a schema repair; a full planner re-spawn
@@ -682,7 +682,7 @@ node [flow-tools-path] task validate --phase $ARGUMENTS
   Failed checks: [list]
   Please review the task file manually and fix before proceeding.
   ```
-  Stop. Do not spawn `@flow-critic`.
+  Stop. Do not run Reviewer checks.
 
 **If ALL checks pass for ALL task files:**
 ```
@@ -707,11 +707,11 @@ Check `.flow/config.json` → `workflow.plan_check`. If false, skip to Completio
 **Trace entry:** Before starting, estimate the token load:
 - Identify files: all task files (task-NN.md) + CONTEXT.md
 - Calculate: `sum_of_all_chars ÷ 4`, round to nearest 100
-- Append row to `M/phases/phase-$ARGUMENTS/context-log.md` with agent name: `orchestrator-inline-critic` for inline mode, `flow-critic` for spawn mode
+- Append row to `M/phases/phase-$ARGUMENTS/context-log.md` with agent name: `orchestrator-inline-reviewer` for inline mode, `flow-reviewer` for spawn mode
 
 **Inline Mode Check:** Read `.flow/config.json` → `workflow.inline_critic`.
 If `true` (or absent — default is `true`), proceed with **Inline Critic Pass** below.
-If `false`, proceed with **Spawn Fallback: Spawn @flow-critic** below.
+If `false`, proceed with **Spawn Fallback: Spawn @flow-reviewer** below.
 
 ---
 
@@ -800,17 +800,17 @@ fi
 If `runtime_mode: sequential` is set in state.md (Claude Code fallback),
 prepend the following to the critic invocation:
 
-CRITIC ISOLATION ACTIVE: You are now @flow-critic operating in isolation.
+REVIEWER ISOLATION ACTIVE: You are now @flow-reviewer operating in isolation.
 Discard all context from this session accumulated before this point.
 You have access ONLY to the task files listed in your brief.
 No AGENTS.md, no state.md, no PATTERNS.md, no CONTEXT.md, no session history.
 
-Spawn `@flow-critic` with the following brief:
+Spawn `@flow-reviewer` with the following brief:
 ```
 Phase: $ARGUMENTS
 Tasks: [list every task file path written by the planner — e.g. M/phases/phase-$ARGUMENTS/tasks/task-01.md, task-02.md, ...]
 [PATTERNS_CONTEXT — inline text from extraction step above, or empty if no global sections found]
-model: [value of models.flow-critic from config.json — omit this line entirely if "inherit"]
+model: [value of models.flow-reviewer from config.json — omit this line entirely if "inherit"]
 ```
 
 Wait for the critic report.
@@ -822,7 +822,7 @@ If any tasks fail — rewrite each failing task using the critic's annotations:
 - Do not re-read the tasks wholesale — use the annotations as precise instructions
 - Do not re-spawn the critic on tasks that already passed
 
-Re-spawn `@flow-critic` with only the rewritten and any newly created task files.
+Re-run `@flow-reviewer` with only the rewritten and any newly created task files.
 Maximum 3 critic loops total across all tasks. If a task still fails after 3 loops:
 ```
 ⚠️  Critic could not resolve: M/phases/phase-$ARGUMENTS/tasks/task-NN
@@ -881,7 +881,7 @@ Reached only via the Pre-flight step 0 gate (`.refresh-paused` sentinel exists).
         - Append corrections to research.md using the same `## Evidence Summary` table format (Locked Decision, File Path(s), Key Finding, Verbatim Anchor columns)
         - Do not rewrite the whole file — only append new findings for contradicted zones
       Else:
-        Re-spawn @flow-researcher for the affected zones only, with a brief that:
+        Re-run @flow-planner for the affected zones only, with a brief that:
           - Includes the existing research.md
           - Asks it to update only the contradicted zones
           - Instructs it to append corrections in place (not rewrite the whole file)

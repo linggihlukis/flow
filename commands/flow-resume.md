@@ -184,8 +184,8 @@ If all `models` values are `"inherit"` → skip silently.
 
 For each agent in `models` where the value is not `"inherit"`:
   1. Determine the agent's expected tier from AGENTS.md §13 Cognitive Tier table:
-     - Reasoning: flow-researcher, flow-planner, flow-debugger
-     - Instruction: flow-executor, flow-verifier, flow-critic
+     - Reasoning: flow-planner, flow-reviewer
+     - Instruction: flow-executor
   2. Check if the assigned model appears in the opposite tier array:
      - Reasoning agent assigned a model from `model_tiers.instruction` → mismatch
      - Instruction agent assigned a model from `model_tiers.reasoning` → mismatch

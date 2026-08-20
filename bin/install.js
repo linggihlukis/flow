@@ -489,7 +489,7 @@ function syncOpenCode(models, location) {
   if (!config.agent) config.agent = {};
 
   for (const [agentName, model] of Object.entries(models)) {
-    // Agent name is "flow-researcher", "flow-planner", etc.
+    // Agent names are Planner, Executor, Reviewer (flow-planner, flow-executor, flow-reviewer).
     if (!config.agent[agentName]) config.agent[agentName] = {};
     config.agent[agentName].model = model;
   }
@@ -1408,7 +1408,7 @@ async function main() {
   } else {
     log(`  Commands:  ${commandCount} (all prefixed /flow-)`);
   }
-  log(`  Agents:    ${agentCount} (@flow-researcher, @flow-planner, @flow-critic, @flow-executor, @flow-debugger, @flow-verifier)`);
+  log(`  Agents:    ${agentCount} (@flow-planner, @flow-executor, @flow-reviewer)`);
   log("");
   log(bold("  Getting started:"));
   log(`  ${dim("New project:")}      /flow-new-project`);

@@ -146,9 +146,9 @@ Read `depth` from config:
 - `standard` (default): 4 research briefs as below, run in parallel
 - `comprehensive`: 4 research briefs as below, with deeper investigation
 
-Also read `models.flow-researcher` from config. If not `"inherit"`, include a `model:` line in every researcher spawn brief.
+Also read `models.flow-planner` from config. If not `"inherit"`, include a `model:` line in every Planner brief.
 
-Spawn `@flow-researcher` for each brief (parallel if depth is standard/comprehensive):
+Run each research brief through `@flow-planner` (parallel if depth is standard/comprehensive); research is part of planning:
 
 **Brief 1 — Stack & Ecosystem:** Best practices and conventions for the chosen stack, common pitfalls, recommended libraries, testing approach.
 

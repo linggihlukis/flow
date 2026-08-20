@@ -35,11 +35,11 @@ The developer must use the feature. This cannot be automated.
 - Identify files: verification.md + all task summary files (summary-NN.md)
 - Calculate: `sum_of_all_chars ÷ 4`, round to nearest 100
 - If `M/phases/phase-$ARGUMENTS/context-log.md` does not exist, create with table header
-- Append row to `M/phases/phase-$ARGUMENTS/context-log.md` with agent name: `orchestrator-inline-verifier` for inline mode, `flow-verifier` for spawn mode
+- Append row to `M/phases/phase-$ARGUMENTS/context-log.md` with agent name: `orchestrator-inline-reviewer` for inline mode, `flow-reviewer` for spawn mode
 
 **Inline Mode Check:** Read `.flow/config.json` → `workflow.inline_verifier`.
 If `true` (or absent — default is `true`), proceed with **Inline Verifier Pass** below.
-If `false`, proceed with **Spawn Fallback: Spawn @flow-verifier** below.
+If `false`, proceed with **Spawn Fallback: Spawn @flow-reviewer** below.
 
 ---
 
@@ -76,12 +76,12 @@ If ≥ low → apply §16 Context Discipline, then proceed.
 
 **Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
 
-Spawn `@flow-verifier` with this brief:
+Spawn `@flow-reviewer` with this brief:
 ```
 Phase: $ARGUMENTS
 CONTEXT.md: M/phases/phase-$ARGUMENTS/CONTEXT.md
 Tasks: all files matching M/phases/phase-$ARGUMENTS/tasks/task-*.md
-model: [value of models.flow-verifier from config.json — omit this line entirely if "inherit"]
+model: [value of models.flow-reviewer from config.json — omit this line entirely if "inherit"]
 ```
 
 Wait for verifier to complete. Proceed to **Pre-check Completion** below.
@@ -204,7 +204,7 @@ If ≥ low → apply §16 Context Discipline, then proceed.
 
 **Context limit check:** Run pre-spawn context limit check per AGENTS.md §23.
 
-For each failed deliverable, spawn `@flow-debugger` with the following brief:
+For each failed deliverable, invoke `@flow-reviewer` debugger behavior with the following brief:
 
 ```
 Phase: $ARGUMENTS

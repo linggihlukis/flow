@@ -61,9 +61,9 @@ Ask until satisfied. Then confirm: "Does this capture the milestone correctly?"
 
 Check `.flow/config.json` → `workflow.research`. If false, skip to Stage 3.
 
-Read `models.flow-researcher` from config. If not `"inherit"`, include a `model:` line in the researcher spawn brief.
+Read `models.flow-planner` from config. If not `"inherit"`, include a `model:` line in the Planner brief.
 
-Spawn `@flow-researcher` with brief:
+Spawn `@flow-planner` with brief; research is part of planning:
 
 ```
 Context: New milestone for existing project
@@ -72,7 +72,7 @@ PATTERNS.md: .flow/codebase/patterns.md
 Focus: new features being added in this milestone
 depth: [from config]
 Output: .flow/quick/milestone-[N+1]-research.md
-model: [value of models.flow-researcher from config.json — omit this line entirely if "inherit"]
+model: [value of models.flow-planner from config.json — omit this line entirely if "inherit"]
 ```
 
 Wait for the researcher to complete before proceeding to Stage 3.

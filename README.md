@@ -173,7 +173,7 @@ The updater auto-detects every runtime where Flow is installed and updates all o
        ↓
 /flow-discuss-phase N  →  capture intent, surface codebase conflicts, lock decisions
        ↓
-/flow-plan-phase N     →  research → atomic tasks → critic verification pass
+/flow-plan-phase N     →  Planner research + atomic tasks → Reviewer verification
        ↓
 /flow-execute-phase N  →  wave execution, one commit per task, auto handoff
        ↓
@@ -198,7 +198,7 @@ repeat per phase → /flow-complete-milestone → /flow-new-milestone
 
 **patterns.md** is your codebase reality map. Not a list of conventions that *should* apply — a map of what your code *actually does*. Coverage percentages, deviation notes per zone, agent rules for each area. Written once by `flow-map-codebase`, read by every planning and execution agent.
 
-**patterns-amendments.md** is the live correction layer. When an executor or debugger discovers that patterns.md is wrong for a zone, they append a structured entry instead of rewriting patterns.md directly. Planning agents treat amendments as current truth for their zone until the next `--refresh` merges them permanently.
+**patterns-amendments.md** is the live correction layer. When an executor or Reviewer discovers that patterns.md is wrong for a zone, they append a structured entry instead of rewriting patterns.md directly. Planning agents treat amendments as current truth for their zone until the next `--refresh` merges them permanently.
 
 **state.md** is the source of truth for where you are. YAML frontmatter that every agent reads at session start. Every command updates it with a precise template — no freeform rewrites.
 
@@ -259,9 +259,9 @@ Before asking domain questions, Flow reads `patterns.md` and surfaces any codeba
 
 Three stages in sequence:
 
-1. **Research** — `@flow-researcher` investigates the implementation approach for your specific stack, surfaces edge cases, identifies dependencies and known pitfalls. If it finds that patterns.md has gone stale for any zone this phase will touch, it flags it before planning proceeds.
-2. **Task generation** — `@flow-planner` writes atomic task files. Each task has one deliverable, one verify command, and an explicit `Depends on:` field for wave ordering. If test infrastructure exists, a failing-test task is generated before any feature tasks.
-3. **Critic pass** — `@flow-critic` reads every task cold in a fresh context with no session history. It checks each task against 8 rules. Tasks that fail get rewritten. The Nyquist rule is non-negotiable: the verify field must be a real runnable shell command that exits non-zero on failure.
+1. **Plan** — `@flow-planner` researches implementation evidence, surfaces edge cases, identifies dependencies and known pitfalls, then writes atomic task files. Research is part of planning.
+2. **Execute** — `@flow-executor` implements one task at a time, runs its Verify command, and reports the result.
+3. **Review** — `@flow-reviewer` reads tasks cold, checks all 8 rules, verifies must-deliver evidence, and diagnoses failures. The Nyquist rule is non-negotiable: Verify must be a runnable command that exits non-zero on failure.
 
 **3. Execute — `/flow-execute-phase N`**
 
@@ -269,7 +269,7 @@ Reads all tasks, builds execution waves from the dependency graph, runs parallel
 
 **4. Verify — `/flow-verify-work N`**
 
-This is UAT. Flow extracts testable deliverables from the tasks and walks you through each one. You use the feature. You report what you see. On failures, `@flow-debugger` is spawned with the failure description, traces the code path, forms a root cause hypothesis, and writes a fix task. The lesson from every failure is appended to `lessons.md`. Enable the optional pre-check (`workflow.verifier: true`) to run an automated evidence scan before manual testing begins.
+This is UAT. Flow extracts testable deliverables from the tasks and walks you through each one. You use the feature. You report what you see. On failures, `@flow-reviewer` uses its debugger behavior with the failure description, traces the code path, forms a root cause hypothesis, and writes a fix task. At `accepted`, Reviewer curates durable facts, decisions, and lessons into `.flow/memory.md`. Reviewer also owns optional pre-check evidence verification.
 
 ---
 
@@ -279,16 +279,13 @@ Every intensive operation is handled by a subagent with a focused context window
 
 | Agent | When spawned | What it does |
 |---|---|---|
-| `@flow-researcher` | `flow-plan-phase` Stage 1 | Implementation approach, edge cases, staleness detection |
-| `@flow-planner` | `flow-plan-phase` Stage 2 | Atomic task files, TDD detection, dependency graph |
-| `@flow-critic` | `flow-plan-phase` Stage 3 | 8-rule check, fresh context, no session history |
-| `@flow-executor` | Per task in `flow-execute-phase` | Implements one task, verifies, commits — nothing else |
-| `@flow-debugger` | UAT failure in `flow-verify-work` | Root cause diagnosis, fix task, knowledge-base.md update |
-| `@flow-verifier` | Pre-UAT in `flow-verify-work` (opt-in) | Evidence scan for every must-deliver item |
+| `@flow-planner` | Plan stage | Research evidence + atomic task files + dependency graph |
+| `@flow-executor` | Execute stage per task | Implements one task, verifies, commits, reports |
+| `@flow-reviewer` | Review stage | 8-rule check + evidence verification + failure diagnosis; single writer of `.flow/memory.md` |
 
-### The critic is the quality gate
+### Reviewer is the quality gate
 
-`@flow-critic` reads every task cold — no AGENTS.md, no state.md, no patterns.md, no session history. Just the task files. This is intentional. Its value is a fresh perspective uncorrupted by what the planner believed.
+`@flow-reviewer` reads every task cold — no session history. It combines 8-rule plan review, must-deliver evidence verification, and debugger diagnosis. This preserves a fresh perspective without maintaining separate critic, verifier, and debugger agents.
 
 It checks 8 atomic rules, strictly:
 
@@ -314,7 +311,7 @@ Flow adapts to the capabilities of the runtime it is installed in.
 | Claude Code | ⚠️ Sequential fallback | Stages run in the current context; `runtime_mode: sequential` noted in state.md |
 | Other | ⚠️ Sequential fallback | Flow does not fail — it adapts |
 
-Sequential fallback mode produces the same structured output — all the same phases, tasks, critic checks, commits, and handoffs. Execution is sequential rather than parallel, which is slower but not lower quality.
+Sequential fallback mode produces the same structured output — all the same phases, tasks, Reviewer checks, commits, and handoffs. Execution is sequential rather than parallel, which is slower but not lower quality.
 
 ---
 
@@ -376,9 +373,9 @@ Flow is designed to be model-agnostic. The structural guarantees — state on di
 
 **What scales with model capability:**
 
-The quality of task generation, critic enforcement, and verify command precision improves with stronger models. The Nyquist rule, Extended Checks A/B in the critic, and VERIFY_DEPTH calibration all require careful reasoning. A frontier model applies them reliably. A capable mid-tier model follows the structure; some nuances may be enforced less precisely.
+The quality of task generation, Reviewer enforcement, and Verify command precision improves with stronger models. The Nyquist rule, Extended Checks A/B, and VERIFY_DEPTH calibration all require careful reasoning. A frontier model applies them reliably. A capable mid-tier model follows the structure; some nuances may be enforced less precisely.
 
-**Per-agent model routing** — each of Flow's 6 agents can be assigned a different model via the `models` block in `config.json`. The recommended pattern: use your strongest available model for planning agents (researcher, planner, critic) where reasoning quality matters most. Execution agents are more instruction-following in nature and tolerate mid-tier models well. When all values are `"inherit"`, every agent uses the runtime's default model.
+**Per-agent model routing** — each of Flow's 3 agents can be assigned a different model via the `models` block in `config.json`. Use strong reasoning models for Planner and Reviewer; Executor can use a cheaper instruction-following model. When all values are `"inherit"`, every agent uses the runtime's default model.
 
 **Cognitive tier awareness** — Flow classifies models as `reasoning` or `instruction` tier via `model_tiers` in `config.json`. When a reasoning-tier model is assigned to an instruction role (or vice versa), Flow surfaces an advisory warning. For sensitive tasks, the planner auto-upgrades verification depth when the executor model is instruction-tier.
 
@@ -394,10 +391,10 @@ The spec-driven agentic workflow space has grown quickly. Flow is one of several
 |---|---|---|---|---|
 | Legacy codebase support | ✅ Deep (zone-aware, amendment layer) | Partial | Partial | ❌ |
 | Cross-session memory | ✅ lessons.md + knowledge-base.md | ✅ | ❌ | ❌ |
-| Cold-read critic pass | ✅ 8-rule + Extended Checks A/B | ✅ plan-checker | ✅ reviewer | ❌ |
+| Cold-read Reviewer pass | ✅ 8-rule + Extended Checks A/B | ✅ plan-checker | ✅ reviewer | ❌ |
 | Autonomous walk-away mode | ⚠️ Single-phase (`--auto`) | ✅ GSD v2 | Partial | ❌ |
 | Self-improving heuristics | ✅ ERL distillation | ❌ | ❌ | ❌ |
-| Per-agent model routing | ✅ 6 agents configurable | ✅ model profiles | ❌ | ❌ |
+| Per-agent model routing | ✅ 3 agents configurable | ✅ model profiles | ❌ | ❌ |
 | Architecture | Instruction-layer | Instruction-layer (v1) / TypeScript SDK (v2) | Instruction-layer | Instruction-layer |
 | Runtime support | 4 | 14+ | 8 | 3 |
 
@@ -414,7 +411,7 @@ Flow wins on legacy codebase depth, cross-session memory, and self-improving heu
 | `/flow-new-project` | Questions, research, requirements, roadmap |
 | `/flow-map-codebase` | Analyse existing codebase → patterns.md + repo-map index + service detection |
 | `/flow-discuss-phase N` | Capture intent, surface codebase conflicts, lock decisions |
-| `/flow-plan-phase N` | Research + atomic tasks + critic verification pass |
+| `/flow-plan-phase N` | Planner research + atomic tasks + Reviewer verification pass |
 | `/flow-execute-phase N` | Wave execution + commits + auto handoff |
 | `/flow-verify-work N` | UAT walkthrough + debug + fix tasks |
 | `/flow-complete-milestone` | Archive milestone, distill heuristics, summary |
@@ -475,12 +472,9 @@ Edit `.flow/config.json`:
     "inline_verifier": true
   },
   "models": {
-    "flow-researcher": "inherit",
     "flow-planner": "inherit",
-    "flow-critic": "inherit",
     "flow-executor": "inherit",
-    "flow-debugger": "inherit",
-    "flow-verifier": "inherit"
+    "flow-reviewer": "inherit"
   }
 }
 ```
@@ -492,20 +486,20 @@ Edit `.flow/config.json`:
 | `mode` | `interactive`, `yolo` | `interactive` | `yolo` skips developer confirmations, keeps intent echo |
 | `depth` | `quick`, `standard`, `comprehensive` | `standard` | Research depth per phase |
 | `workflow.research` | bool | `true` | Performs research stage in plan-phase |
-| `workflow.plan_check` | bool | `true` | Runs critic pass after task generation |
+| `workflow.plan_check` | bool | `true` | Runs Reviewer plan check after task generation |
 | `workflow.node_repair` | bool | `true` | Auto-retries failed tasks |
 | `workflow.node_repair_budget` | number | `2` | Max retries before escalating |
 | `workflow.parallel_execution` | bool | `true` | Wave execution vs sequential |
 | `workflow.verifier` | bool | `false` | Pre-UAT automated evidence check |
-| `workflow.always_commit` | bool | `false` | Commit even when verify fails (marks commit as `wip`) |
-| `workflow.schema_gate` | bool | `true` | Run structural validation on every task file before critic pass |
-| `workflow.inline_research` | bool | `true` | Run research inline in orchestrator instead of spawning `@flow-researcher` |
-| `workflow.inline_critic` | bool | `true` | Run critic inline in orchestrator instead of spawning `@flow-critic` |
-| `workflow.inline_verifier` | bool | `true` | Run verifier inline in orchestrator instead of spawning `@flow-verifier` |
+| `workflow.always_commit` | bool | `false` | Legacy compatibility setting; Executor commits successful tasks after Verify and never commits failed tasks |
+| `workflow.schema_gate` | bool | `true` | Run structural validation on every task file before Reviewer checks |
+| `workflow.inline_research` | bool | `true` | Run Planner research inline in orchestrator |
+| `workflow.inline_critic` | bool | `true` | Run Reviewer plan check inline in orchestrator |
+| `workflow.inline_verifier` | bool | `true` | Run Reviewer evidence check inline in orchestrator |
 
 ### Model routing
 
-Each of Flow's 6 agents can be assigned a different model. This lets you use strong reasoning models for planning and cheaper instruction-following models for execution — reducing token costs without sacrificing quality.
+Each of Flow's 3 agents can be assigned a different model. This lets you use strong reasoning models for planning/review and cheaper instruction-following models for execution — reducing token costs without sacrificing quality.
 
 **Three-step process:**
 
@@ -546,12 +540,9 @@ OpenCode uses the `provider-id/model-id` format. Run `opencode models` to see al
 ```json
 {
   "models": {
-    "flow-researcher": "ollama-cloud/deepseek-v4-pro",
     "flow-planner": "ollama-cloud/kimi-k2.6:cloud",
-    "flow-critic": "ollama-cloud/deepseek-v4-flash",
     "flow-executor": "ollama-cloud/qwen3-coder-next",
-    "flow-debugger": "ollama-cloud/deepseek-v4-pro",
-    "flow-verifier": "ollama-cloud/deepseek-v4-flash"
+    "flow-reviewer": "ollama-cloud/deepseek-v4-pro"
   },
   "model_tiers": {
     "reasoning": ["ollama-cloud/deepseek-v4-pro", "ollama-cloud/kimi-k2.6:cloud"],
@@ -572,12 +563,9 @@ Claude Code uses model aliases (e.g. `sonnet`, `haiku`, `opus`) or full model na
 ```json
 {
   "models": {
-    "flow-researcher": "claude-sonnet-4-6",
     "flow-planner": "claude-sonnet-4-6",
-    "flow-critic": "claude-haiku-4-5",
     "flow-executor": "claude-haiku-4-5",
-    "flow-debugger": "claude-sonnet-4-6",
-    "flow-verifier": "claude-haiku-4-5"
+    "flow-reviewer": "claude-sonnet-4-6"
   },
   "model_tiers": {
     "reasoning": ["claude-sonnet-4-6"],
@@ -596,12 +584,9 @@ Codex uses bare model names without a provider prefix. Set the default model in 
 ```json
 {
   "models": {
-    "flow-researcher": "gpt-5.5",
     "flow-planner": "gpt-5.5",
-    "flow-critic": "gpt-5.4-mini",
     "flow-executor": "gpt-5.4-mini",
-    "flow-debugger": "gpt-5.5",
-    "flow-verifier": "gpt-5.4-mini"
+    "flow-reviewer": "gpt-5.5"
   },
   "model_tiers": {
     "reasoning": ["gpt-5.5"],
@@ -623,8 +608,8 @@ Agents fall into two tiers based on what they do. Use this when deciding which m
 
 | Tier | Agents | What they do | Model needs |
 |---|---|---|---|
-| **Reasoning** | `flow-researcher`, `flow-planner`, `flow-debugger` | Multi-hop analysis, tradeoff evaluation, novel task sequences | Strong reasoning, large context window |
-| **Instruction** | `flow-executor`, `flow-verifier`, `flow-critic` | Follow step-by-step plans, pattern matching, rule checking | Reliable instruction-following, speed |
+| **Reasoning** | `flow-planner`, `flow-reviewer` | Multi-hop analysis, tradeoff evaluation, novel task sequences | Strong reasoning, large context window |
+| **Instruction** | `flow-executor` | Follow step-by-step plans, pattern matching, reliable task execution | Reliable instruction-following, speed |
 
 #### What `model_tiers` enables
 
@@ -801,7 +786,7 @@ project-root/
     │   │   └── phases/
     │   │       └── phase-NN/
     │   │           ├── context.md         ← locked implementation decisions
-    │   │           ├── research.md        ← written by @flow-researcher
+    │   │           ├── research.md        ← written during @flow-planner planning
     │   │           ├── research-brief.md  ← auto-generated token-optimized extract
     │   │           ├── verification.md    ← testable deliverables (written by flow-verify-work)
     │   │           ├── handoff.md         ← written by flow-execute-phase

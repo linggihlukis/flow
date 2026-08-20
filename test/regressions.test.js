@@ -12,17 +12,17 @@ async function run() {
   const { pass, fail, suite, getFailures } = createReporter();
 
   // Suite 12
-  suite("Suite 12 — B-01 always_commit: false regression");
+  suite("Suite 12 — Executor verify-before-commit contract");
   (function () {
     const executorPath = path.join(AGENTS, "flow-executor.md");
     const executePath = path.join(COMMANDS, "flow-execute-phase.md");
     const executorContent = readFile(executorPath);
-    if (executorContent.includes("NOT staged and NOT committed")) { pass("12a: flow-executor.md uses correct 'NOT staged and NOT committed' phrasing"); } else { fail("12a: flow-executor.md missing 'NOT staged and NOT committed' — B-01 regression"); }
-    if (executorContent.includes("Do not run") && executorContent.includes("git add")) { pass("12b: flow-executor.md has explicit 'Do not run git add' guard"); } else { fail("12b: flow-executor.md missing 'Do not run git add' guard — B-01 regression"); }
     const executeContent = readFile(executePath);
-    if (executeContent.includes("not staged and not committed")) { pass("12c: flow-execute-phase.md uses correct 'not staged and not committed' phrasing"); } else { fail("12c: flow-execute-phase.md missing 'not staged and not committed' — B-01 regression"); }
-    if (!executorContent.includes("changes staged but not committed")) { pass("12d: flow-executor.md no longer contains misleading 'changes staged but not committed'"); } else { fail("12d: flow-executor.md still contains 'changes staged but not committed' — B-01 not fixed"); }
-    if (!executeContent.includes("Changes remain staged")) { pass("12e: flow-execute-phase.md no longer contains misleading 'Changes remain staged'"); } else { fail("12e: flow-execute-phase.md still contains 'Changes remain staged' — B-01 not fixed"); }
+    if (executorContent.includes("If it passes — proceed to commit")) { pass("12a: executor commits only after Verify passes"); } else { fail("12a: executor missing verify-before-commit rule"); }
+    if (executorContent.includes("do not stage or commit")) { pass("12b: executor blocks staging and commit after failed retries"); } else { fail("12b: executor missing failed-verify commit guard"); }
+    if (executeContent.includes("Executor commit policy: every successful task commits")) { pass("12c: execute command matches Executor commit policy"); } else { fail("12c: execute command has stale commit policy"); }
+    if (executeContent.includes("**Commit after each successful task:**")) { pass("12d: execute command commits successful tasks"); } else { fail("12d: execute command missing successful-task commit rule"); }
+    if (executeContent.includes("Never batch multiple tasks into one commit")) { pass("12e: execute command preserves one-task-one-commit rule"); } else { fail("12e: execute command missing one-task-one-commit rule"); }
   })();
 
   // Suite 13

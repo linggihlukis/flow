@@ -71,9 +71,7 @@ If `--auto` is absent: `auto_mode = false`. Proceed normally. No escalation.
    - `workflow.node_repair`: if false, do not auto-retry failed tasks — escalate immediately
    - `workflow.node_repair_budget`: use this value as the retry limit (default 2) instead of hardcoded 2
    - `mode`: if `yolo`, skip developer confirmations
-    - `workflow.always_commit`:
-       - If `true`, print once at start: `⚠️  always_commit is ON — tasks will commit on success (or on verify failure with wip prefix). Disable in config.json when ready for clean execution.`
-        - If `false`, print once at start: `ℹ️  always_commit is OFF — tasks will NOT auto-commit on success. Changes are not staged and not committed. Do not run 'git add' or 'git commit'.`
+   - Executor commit policy: every successful task commits after its Verify command passes; failed tasks do not commit.
    - `models`: read the `models` object. If `models.flow-executor` is not "inherit", include a `model:` line in every executor spawn brief.
 6. **Zone-scoped PATTERNS.md extraction** — if `.flow/codebase/patterns.md` exists AND
    `M/phases/phase-$ARGUMENTS/patterns-scope.md` does NOT already exist
@@ -304,7 +302,7 @@ The executor will:
 4. Run the task's `<verify>` command — this must pass
 5. Run `git diff --name-only` to confirm scope wasn't exceeded
 6. Run the task's `## Verify` command and linter. If `VERIFY_DEPTH: deep`, also run the full test suite (baseline-aware: only failures not in `.flow/codebase/test-baseline.md` are regressions). Do NOT run the full test suite for shallow tasks.
-7. Write task summary to `M/phases/phase-$ARGUMENTS/summaries/summary-NN.md`. Commit if `workflow.always_commit` is `true`, then report back
+7. Write task summary to `M/phases/phase-$ARGUMENTS/summaries/summary-NN.md` after the task commit, then report back
 
 If the executor reports a task error (task assumes something that isn't true):
 - Stop all execution
@@ -378,20 +376,18 @@ After each executor completes (success or failure), check whether escalation app
       Falling through to standard recovery.
    ```
 
-**Commit after each successful task (only if `workflow.always_commit` is `true`):**
+**Commit after each successful task:**
 ```bash
 git add [only files modified by this task]
 git status  # verify staged files
 git commit -m "type(milestone-phase-task): description"
 ```
 
-If `workflow.always_commit` is `false`, skip the commit. Do not run `git add` or `git commit`. Changes are not staged and not committed. The executor still writes the task summary and reports `committed: false`. The orchestrator notes this in the handoff.
-
 Never batch multiple tasks into one commit. Never commit broken code.
 
 Report after each task:
 ```
-✅ task-NN complete: [title] — commit [hash] (or staged-only if always_commit: false)
+✅ task-NN complete: [title] — commit [hash]
 ```
 
 Wait for all plans in a wave to complete before starting the next wave.

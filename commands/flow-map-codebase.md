@@ -612,9 +612,9 @@ If the tool/script does not exist or fails:
 
 ## Stage 1: Parallel Codebase Analysis
 
-Read `models.flow-researcher` from `.flow/config.json`. If not `"inherit"`, include a `model:` line in every researcher spawn brief below.
+Read `models.flow-planner` from `.flow/config.json`. If not `"inherit"`, include a `model:` line in every Planner brief below.
 
-Spawn 4 parallel `@flow-researcher` agents with the following briefs:
+Run four parallel Planner research briefs with the following scopes. Use one `@flow-planner` invocation per brief only when runtime requires subagents; otherwise keep research inline:
 
 **⚠️ No active phase exists during flow-map-codebase.** Agents are spawned outside
 phase context — `M` and `N` path variables are undefined. Do not write any files.
@@ -1165,7 +1165,7 @@ Starter template to write into `.flow/codebase/service-map.md`:
 > Written by: developer
 > Update when: any service API changes, a new service is added,
 >              or a cross-service dependency changes.
-> Read by: flow-researcher, flow-planner, flow-executor on phases
+> Read by: flow-planner, flow-executor, flow-reviewer on Work Items
 >          that touch service boundaries.
 
 ---

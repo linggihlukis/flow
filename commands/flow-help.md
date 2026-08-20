@@ -60,12 +60,9 @@ UTILITIES
 
 AGENTS  (subagents — fresh context per invocation)
 ───────────────────────────────────────────────────
-  @flow-researcher           Plan-phase Stage 1 — investigates implementation (inline by default)
-  @flow-planner              Plan-phase Stage 2 — generates atomic task files
-  @flow-critic               Plan-phase Stage 3 — checks tasks against 8 rules (inline by default)
-  @flow-executor             Spawned per task by execute-phase — implements + commits
-  @flow-debugger             Spawned by verify-work on failure — diagnoses + fix task
-  @flow-verifier             Verify-work Stage 0 (opt-in) — pre-UAT gap check (inline by default)
+  @flow-planner              Plan stage — research + evidence + atomic task files + 8-rule self-check
+  @flow-executor             Execute stage — one task: Read → Change → Verify → Report
+  @flow-reviewer             Review stage — 8-rule check + evidence verification + failure diagnosis; writes memory.md at accepted
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

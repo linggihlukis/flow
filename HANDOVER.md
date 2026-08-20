@@ -1,6 +1,6 @@
 # Handover: Flow Rebuild
 
-> **Date:** 2026-08-19 | **Branch:** dev | **Next:** `go` → execute `docs/plans/2026-05-14-flow-rebuild.md` Task 4 | **Last:** Task 3 committed (`4d796a0`)
+> **Date:** 2026-08-20 | **Branch:** dev | **Next:** `go` → execute `docs/plans/2026-05-14-flow-rebuild.md` Task 5 | **Last:** Task 4 staged/committed after deep audit
 
 ## What We Did
 - **Task 1 DONE — Fork indexer `flow-map-v1`** (`0a32b8c`): `flow/bin/lib/flow-map.js` (CJS port of `context-mapper/index-repository.mjs` ~456 lines: git-aware, `SENSITIVE_PATTERNS`/`PROTECTED_DIRECTORIES`/POSIX/atomic/8 KiB NUL/manifests/entrypoints, `git_commit` null outside git), default `.flow/map.json`, `indexer.symbols:false` file-level only, `--symbols` opt-in via WASM (fallback `limitations: "symbols requested but WASM unavailable"`), `--scope/--hash` pass-through, `.flow/*` self-skip, `.agents` protected. Deleted duplicate `flow/bin/lib/repo-map.js` (merged into `flow-map.js`; canonical `map search`), retargeted `flow/bin/flow-tools.js` `_libRoutes` → `map`, `flow/bin/lib/schemas.js` `repo-map search` → `map search` + added `map index`, moved `tree-sitter-wasms`/`web-tree-sitter` to `optionalDependencies`, shimmed `flow/bin/lib/index.js` → `flow-map.js` with `DEBT:`.
@@ -17,16 +17,18 @@
 - **Review & audit (Task 3):** Deep 4-phase + 11-shortcut adversarial + secret-scan (false positive `task-.*\.md` only; no real secret), install helpers `eosys` round-trip + idempotent + `dry-run` + TTY guard + `map.json` `flow-map-v1` placeholder all PASS. Fixes (amended `4d796a0`): removed dead `escaped`/`void escaped` in `ensureAgentsBlock`, corrected `updateScaffold` header comment (was documenting old `config.json`/`phases` rules), removed duplicate `work-items` (no slash) from `CANONICAL_FLOW_PREFIXES`, added `DEBT:` markers for `flagUpdateAgents` + `config.json` compat.
 - Fixed `.gitignore` (`/docs/designs/` + `/docs/plans/` were ignored — removed) so locked docs are tracked; removed stray `flow/index.js` that was overwriting `bin/lib/index.js` on disk.
 - Locked doc: `docs/designs/2026-05-14-flow-redesign-locked.md` §17 notes `map via flow-map.js; delete legacy repo-map.js — duplicate`. Plan patch: Task 2 deletes dead `__legacyCmdIndex_dead` body + `isMinified` dead-mark, Task 5 `README.md` `map --help` refresh.
-- Gates: `node test/lib/flow-map.test.js` PASS, `node test/lib/primitives.test.js` PASS, `node test/lib/schemas.test.js` + `node test/contract-tests.js` PASS, `node test/scaffold.test.js` Suite 6 PASS (10 lines), `node test/install.test.js` Suite 11 11a-d PASS + `eosys` marker co-existence + `work-items` guard + `dry-run` + TTY guard, `node bin/flow-tools.js --help` shows only 6 primitives, `map index/search` live, deleted `context`/`repo-map` → `UNKNOWN_COMMAND`.
+- Gates: `node test/lib/flow-map.test.js` PASS, `node test/lib/primitives.test.js` PASS, `node test/lib/schemas.test.js` + `node test/contract-tests.js` PASS, `node test/scaffold.test.js` PASS, `node test/install.test.js` PASS, `node test/regressions.test.js` PASS, all three agent frontmatter blocks parse, `ls agents/*.md` shows exactly Planner/Executor/Reviewer. `npm test` still fails on legacy command/path suites (deleted routes and pre-Task-5 phase/milestone references); no new Task 4 agent-routing failures remain.
 
 ## Code State
 ```
 Branch: dev (ahead of origin/dev)
-Last commit:
+Last commits:
+- 9500e00: refactor(agents): collapse to Planner/Executor/Reviewer
 - 4d796a0: refactor(scaffold): collapse .flow to state+memory+map+work-items, marker AGENTS.md (amended — dead code + DEBT markers)
 
-Uncommitted:
- (none — .flow/map.json is gitignored; run rm .flow/map.json if present)
+Working tree:
+- clean after Task 4 commit
+- `.flow/map.json` remains gitignored; remove it if generated
 
 Tracked after commit:
 - flow/bin/lib/flow-map.js, flow/test/lib/flow-map.test.js
@@ -68,7 +70,7 @@ Tracked after commit:
    - Gate: `node test/scaffold.test.js` Suite 6 PASS + `node test/install.test.js` Suite 11 11a-d PASS + manual empty/eosys/dry-run/TTY checks PASS
 
 ### This Week
-- [ ] Task 4: Agents 6→3 (+ Reviewer)
+- [x] Task 4: Agents 6→3 (+ Reviewer) — deep audit fixed stale callers, frontmatter, installer output, README, and regression tests
 - [ ] Task 5: Commands 24→4 (+ `README.md` `map --help` refresh)
 - [ ] Task 6: Migration `archive` default + `docs/adr/001-migration.md`
 - [ ] Final verification + `npm pack --dry-run` + version bump + publish
@@ -76,8 +78,8 @@ Tracked after commit:
 ## Blockers & Risks
 - **Context window:** New session should read this file + `docs/designs/2026-05-14-flow-redesign-locked.md` + `docs/plans/2026-05-14-flow-rebuild.md` only.
 - **State compat:** `state.js`/`audit.js` `DEBT:` shims (`normalizeStateFm` + legacy `work_item_dir` check) remain until milestone `milestones/` references fully removed in Task 4–5; scaffold itself is now locked shape.
-- **Phase callers:** `flow/commands/flow-*.md` still call `repo-map search` / `index --phase` — cleaned in Tasks 4–5, not now.
-- **flow-test.js:** ~126 failures remain (Suite 3 missing AGENTS agents list + Suite 5 non-canonical `.flow/codebase/config.json/milestones` references + legacy suites) — expected before Task 4/5; Suites 6/7/11 (Task 3 gates) PASS.
+- **Legacy command paths:** remaining `flow/commands/flow-*.md` use phase/milestone/config/codebase paths and deleted primitives such as `repo-map search`; Task 5 rewrites commands 24→4. Do not reintroduce deleted agent names.
+- **npm test:** remains red on legacy deleted-route/path suites (100 checks in last full run, plus Windows libuv runner assertion after failures); Task 5 owns cleanup. Focused Task 4 gates pass.
 
 ## Environment
 ```bash
@@ -110,7 +112,7 @@ npm pack --dry-run
 - [x] Task 1: `flow-map-v1` file-level, `map search` canonical, `repo-map.js` deleted, WASM optional, `flow-map.test.js` PASS
 - [x] Task 2: 6 primitives (`state/frontmatter/files/map/task/audit`), `primitives.test.js` + `schemas.test.js` + `contract-tests.js` PASS, `audit.js` legacy bypass fixed
 - [x] Task 3: `.flow/{state,memory,map,work-items}` + marker `AGENTS.md` (10 lines) — `scaffold.test.js` Suite 6 + `install.test.js` Suite 11 11a-d + eosys/empty/dry-run/TTY manual checks PASS, `map.json` placeholder `flow-map-v1`
-- [ ] 4 commands, 3 agents, `.flow/{state,memory,map,work-items}` + marker `AGENTS.md`
-- [ ] Fresh install on empty + `eosys`-like dir both pass manual checks
+- [x] 3 agents (`flow-planner`, `flow-executor`, `flow-reviewer`), `.flow/{state,memory,map,work-items}` + marker `AGENTS.md`; command count remains 24 until Task 5
+- [x] Fresh install on empty + `eosys`-like dir both pass manual checks (Task 3 gate)
 - [ ] `npm test` green, no WASM required for default install
-- [ ] Locked docs merged, no duplicate truth files
+- [x] Locked docs merged, no duplicate truth files; Task 4 deleted agent duplicates and retargeted active callers

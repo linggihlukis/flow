@@ -57,7 +57,9 @@ async function run() {
   // Suite 8
   suite("Suite 8 — Codex runtime install coverage");
   const installSource = readFile(path.join(ROOT, "bin", "install.js"));
-  const verifierSource = readFile(path.join(AGENTS, "flow-verifier.md"));
+  // Retired 6-agent verifier contract is now absorbed into flow-reviewer.md
+  // Validate that the single writer agent exists and is not write-restricted
+  const reviewerSource = readFile(path.join(AGENTS, "flow-reviewer.md"));
   if (
     installSource.includes("--opencode") &&
     installSource.includes("--claude") &&
@@ -119,11 +121,20 @@ async function run() {
   } else {
     fail("Codex sandbox mode detection is still order-sensitive or tied to bash");
   }
-  const verifierFm = parseFrontmatter(verifierSource);
-  if (verifierFm && verifierFm.tools && verifierFm.tools.write === false && verifierFm.tools.edit === false && verifierFm.tools.bash === true) {
-    pass("flow-verifier.md is read-only for write/edit but still has bash access");
+  const reviewerFm = parseFrontmatter(reviewerSource);
+  // Reviewer absorbed the old read-only verifier behavior but is the single writer of memory.md — it must be writable
+  if (reviewerFm && reviewerFm.tools && reviewerFm.tools.write === true && reviewerFm.tools.edit === true && reviewerFm.tools.bash === true) {
+    pass("flow-reviewer.md is writable (single writer of memory.md) plus bash");
   } else {
-    fail("flow-verifier.md frontmatter no longer matches the read-only verifier contract");
+    fail("flow-reviewer.md frontmatter should be write/edit/bash:true (single writer of memory.md)");
+  }
+  // Retired 6-agent files must not exist
+  const retired = ["flow-researcher.md", "flow-critic.md", "flow-verifier.md", "flow-debugger.md"];
+  const stillPresent = retired.filter(f => { try { readFile(path.join(AGENTS, f)); return true; } catch { return false; } });
+  if (stillPresent.length === 0) {
+    pass("retired 6-agent files deleted (researcher/critic/verifier/debugger)");
+  } else {
+    fail("retired 6-agent files still present: " + stillPresent.join(", "));
   }
 
   // Suite 11 — Updated for Task 3 minimal scaffold
@@ -233,10 +244,10 @@ async function run() {
   (function () {
     try {
       const planPhaseContent = fs.readFileSync(path.join(COMMANDS, "flow-plan-phase.md"), "utf8");
-      if (planPhaseContent.includes("[flow-tools-dir]/agents/flow-researcher.md")) {
-        pass("16b: flow-plan-phase.md references subagent via absolute [flow-tools-dir]");
+      if (planPhaseContent.includes("[flow-tools-dir]/agents/flow-planner.md")) {
+        pass("16b: flow-plan-phase.md references Planner via absolute [flow-tools-dir]");
       } else {
-        fail("16b: flow-plan-phase.md is missing absolute [flow-tools-dir] subagent reference");
+        fail("16b: flow-plan-phase.md is missing absolute Planner reference");
       }
     } catch (e) {
       fail("16b: flow-tools-dir path test failed — " + e.message);
@@ -264,12 +275,16 @@ async function run() {
       if (!fs.existsSync(agentsDestDir)) { fail("16c: installFlowHome did not create tools/agents directory"); ok = false; }
       else {
         const copiedAgents = fs.readdirSync(agentsDestDir);
-        if (!copiedAgents.includes("flow-researcher.md")) { fail("16c: installFlowHome did not copy flow-researcher.md to tools/agents"); ok = false; }
+        if (!copiedAgents.includes("flow-planner.md")) { fail("16c: installFlowHome did not copy flow-planner.md to tools/agents"); ok = false; }
+        if (!copiedAgents.includes("flow-executor.md")) { fail("16c: installFlowHome did not copy flow-executor.md to tools/agents"); ok = false; }
+        if (!copiedAgents.includes("flow-reviewer.md")) { fail("16c: installFlowHome did not copy flow-reviewer.md to tools/agents"); ok = false; }
       }
       if (!fs.existsSync(manifestPath)) { fail("16c: installFlowHome did not create manifest.json"); ok = false; }
       else {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-        if (!manifest["agents/flow-researcher.md"]) { fail("16c: manifest.json is missing hash for agents/flow-researcher.md"); ok = false; }
+        for (const agent of ["flow-planner.md", "flow-executor.md", "flow-reviewer.md"]) {
+          if (!manifest[`agents/${agent}`]) { fail(`16c: manifest.json is missing hash for agents/${agent}`); ok = false; }
+        }
       }
       if (ok) pass("16c: installFlowHome copies agents directory and generates manifest hashes correctly");
     } catch (e) {

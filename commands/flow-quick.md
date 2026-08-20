@@ -54,7 +54,7 @@ Note: `--research` is removed as a flag — a scoped file-impact scan is now alw
 Restate the task in one sentence to confirm understanding.
 If $ARGUMENTS is ambiguous, ask ONE clarifying question before proceeding.
 
-Read `.flow/config.json` → `models`. Store `models.flow-researcher` and `models.flow-executor` for use in Steps 4 and 8.
+Read `.flow/config.json` → `models`. Store `models.flow-planner` and `models.flow-executor` for use in Steps 4 and 8.
 
 ---
 

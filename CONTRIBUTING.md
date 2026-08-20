@@ -51,7 +51,7 @@ Flow is an **instruction-layer system** — the product is Markdown files, not t
 - `scaffold/AGENTS.md` is authoritative — if you add agents, update §2 and §5.
 - `bin/install.js` scaffold dirs must match `AGENTS.md` §2 file tree exactly.
 - `test/flow-test.js` has inline canonical data — update both the test and the source when paths change.
-- Never add file reads to `agents/flow-critic.md` — context isolation is the point.
+- Keep `agents/flow-reviewer.md` task reads cold — context isolation is the point.
 - Executor summary write step order: between Commit and Report. Do not move it.
 
 ## Testing

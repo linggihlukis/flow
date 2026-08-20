@@ -1,5 +1,5 @@
 ---
-description: Debug any issue outside of UAT — a mid-session failure, a production bug, unexpected behaviour. Spawns @flow-debugger with a freeform symptom description.
+description: Debug any issue outside of UAT — a mid-session failure, a production bug, unexpected behaviour. Spawns @flow-reviewer with a freeform symptom description.
 agent: build
 subtask: false
 ---
@@ -18,7 +18,7 @@ Symptom: **$ARGUMENTS**
 
 `flow-verify-work` handles debugging inside UAT. This command handles everything else — something breaks mid-execution, a bug is discovered while browsing code, a production issue needs investigation.
 
-It spawns `@flow-debugger` directly with whatever you describe.
+It spawns `@flow-reviewer` directly with whatever you describe. Reviewer uses its debugger behavior for diagnosis and fix-task creation.
 
 ---
 
@@ -44,13 +44,13 @@ If $ARGUMENTS is specific enough — proceed immediately.
 Before spawning the debugger, determine:
 - Which phase and plan is most likely related (from state.md and ROADMAP.md)
 - Which source files are most likely involved (from symptom description)
-- Which model to use: read `.flow/config.json` → `models.flow-debugger`
+- Which model to use: read `.flow/config.json` → `models.flow-reviewer`
 
 ---
 
-## Step 3: Spawn @flow-debugger
+## Step 3: Spawn @flow-reviewer
 
-Spawn `@flow-debugger` with brief:
+Spawn `@flow-reviewer` with brief:
 
 ```
 Symptom: [developer's description]
@@ -58,7 +58,7 @@ Context: Phase [N] — [phase name] (or "outside phase context")
 Likely relevant files: [list from Step 2]
 Knowledge base: .flow/memory/knowledge-base.md
 Fix task output: .flow/quick/adhoc-fix-[date]-NN.md
-model: [value of models.flow-debugger from config.json — omit this line entirely if "inherit"]
+model: [value of models.flow-reviewer from config.json — omit this line entirely if "inherit"]
 ```
 
 Wait for the debugger to complete.

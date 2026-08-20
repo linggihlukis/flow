@@ -24,7 +24,7 @@ body:
       description: What part of Flow does this affect?
       options:
         - Command (flow-*)
-        - Agent (flow-researcher, flow-planner, etc.)
+        - Agent (flow-planner, flow-executor, flow-reviewer)
         - Installer (bin/install.js)
         - Scaffold (AGENTS.md, config.json, STATE.md)
         - Documentation
