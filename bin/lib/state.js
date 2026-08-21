@@ -114,13 +114,17 @@ function cmdStateValidate(args) {
   const drift = [];
   const required = ['active_work_item', 'status', 'updated_at'];
   for (const field of required) {
-    if (fm[field] === undefined || fm[field] === null) {
+    if (fm[field] === undefined || (fm[field] === null && !(field === 'active_work_item' && fm.status === 'ready'))) {
       drift.push({ field, expected: 'present', actual: 'missing' });
     }
   }
 
   if (fm.status && !VALID_STATUSES.has(fm.status)) {
     drift.push({ field: 'status', expected: `one of ${[...VALID_STATUSES].join(', ')}`, actual: fm.status });
+  }
+
+  if (fm.active_work_item === null && fm.status !== 'ready') {
+    drift.push({ field: 'active_work_item', expected: 'work-item-NNN when status is not ready', actual: null });
   }
 
   return output({ valid: drift.length === 0, drift });
