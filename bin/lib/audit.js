@@ -13,12 +13,11 @@ function cmdAuditOpen(args) {
   const fm = parseFrontmatter(stateContent);
   if (!fm) { drift.push({ field: 'state.md', expected: 'valid frontmatter', actual: 'parse error' }); return output({ valid: false, drift }); }
   // Work-item lifecycle: active_work_item + status (ready|planned|in-progress|in-review|complete)
-  // DEBT: also accept legacy active_milestone/active_phase via normalizeStateFm compat until migration
-  const wi = fm.active_work_item || fm.active_milestone;
+  const wi = fm.active_work_item;
   if (wi === undefined || wi === null) drift.push({ field: 'state.active_work_item', expected: 'present', actual: 'missing' });
   if (fm.status === undefined || fm.status === null) drift.push({ field: 'state.status', expected: 'present', actual: 'missing' });
   if (wi) {
-    const wiName = fm.active_work_item ? String(fm.active_work_item) : `work-item-${String(fm.active_phase || '0').padStart(3, '0')}`;
+    const wiName = String(fm.active_work_item);
     const wiDir = path.join(cwd, '.flow', 'work-items', wiName);
     if (!fs.existsSync(wiDir)) drift.push({ field: 'work_item_dir', expected: `work-items/${wiName} exists`, actual: 'not found' });
   }

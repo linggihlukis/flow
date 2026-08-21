@@ -1,6 +1,6 @@
 # Handover: Flow Rebuild
 
-> **Date:** 2026-08-20 | **Branch:** dev | **Next:** `go` → execute `docs/plans/2026-05-14-flow-rebuild.md` Task 6 | **Last:** Task 5 staged/committed after deep audit
+> **Date:** 2026-08-21 | **Branch:** dev | **Next:** `npm pack --dry-run` + version bump + publish (rebuild done — Tasks 1–5 + Task 6 skipped) | **Last:** DEBT sweep — removed state/audit/flow-map/install shims + 6-primitive test harness (this commit)
 
 ## What We Did
 - **Task 1 DONE — Fork indexer `flow-map-v1`** (`0a32b8c`): `flow/bin/lib/flow-map.js` (CJS port of `context-mapper/index-repository.mjs` ~456 lines: git-aware, `SENSITIVE_PATTERNS`/`PROTECTED_DIRECTORIES`/POSIX/atomic/8 KiB NUL/manifests/entrypoints, `git_commit` null outside git), default `.flow/map.json`, `indexer.symbols:false` file-level only, `--symbols` opt-in via WASM (fallback `limitations: "symbols requested but WASM unavailable"`), `--scope/--hash` pass-through, `.flow/*` self-skip, `.agents` protected. Deleted duplicate `flow/bin/lib/repo-map.js` (merged into `flow-map.js`; canonical `map search`), retargeted `flow/bin/flow-tools.js` `_libRoutes` → `map`, `flow/bin/lib/schemas.js` `repo-map search` → `map search` + added `map index`, moved `tree-sitter-wasms`/`web-tree-sitter` to `optionalDependencies`, shimmed `flow/bin/lib/index.js` → `flow-map.js` with `DEBT:`.
@@ -19,32 +19,36 @@
 - Locked doc: `docs/designs/2026-05-14-flow-redesign-locked.md` §17 notes `map via flow-map.js; delete legacy repo-map.js — duplicate`. Plan patch: Task 2 deletes dead `__legacyCmdIndex_dead` body + `isMinified` dead-mark, Task 5 `README.md` `map --help` refresh.
 - Gates: `node test/lib/flow-map.test.js` PASS, `node test/lib/primitives.test.js` PASS, `node test/lib/schemas.test.js` + `node test/contract-tests.js` PASS, `node test/scaffold.test.js` PASS, `node test/install.test.js` PASS, `node test/regressions.test.js` PASS, all three agent frontmatter blocks parse, `ls agents/*.md` shows exactly Planner/Executor/Reviewer. `npm test` still fails on legacy command/path suites (deleted routes and pre-Task-5 phase/milestone references); no new Task 4 agent-routing failures remain.
 - **Task 4 DONE — Collapse agents 6→3** (`901e05e`): `flow/agents/{flow-planner,flow-executor,flow-reviewer}.md` (research absorbed into Planner, critic/verifier/debugger into Reviewer). Stale callers retargeted, frontmatter fixed, installer output + README + regression tests cleaned. Review deep audit PASS.
-- **Task 5 DONE — Commands 24→4** (this commit): `flow/commands/{flow-init,flow,flow-map,flow-status}.md` (see `docs/plans/2026-05-14-flow-rebuild.md` Task 5 + `docs/designs/2026-05-14-flow-redesign-locked.md` §13-15). Deleted 24 legacy commands (`flow-add-phase`, `flow-audit-milestone`, `flow-complete-milestone`, `flow-debug`, `flow-discuss-phase`, `flow-do`, `flow-execute-phase`, `flow-handoff`, `flow-health`, `flow-help`, `flow-insert-phase`, `flow-lesson`, `flow-list-phase-assumptions`, `flow-map-codebase`, `flow-new-milestone`, `flow-new-project`, `flow-pause`, `flow-plan-milestone-gaps`, `flow-plan-phase`, `flow-progress`, `flow-quick`, `flow-remove-phase`, `flow-resume`, `flow-verify-work`). `flow/bin/install.js` cleaned: removed `flagSyncModels` + `readProjectConfig/getNonInheritModels/syncOpenCode/syncClaudeCode/syncCodex/runSyncModels` dead subsystem (~328 lines) stubbed as no-op warns (model-agnostic §18); wired `flagUpdateAgents` into `installScaffold/updateScaffold` (`--update-agents` forces `yes`); Getting Started strings → `/flow-init`/`/flow-map → /flow`/`/flow-status`; `Repo-map` warn → `map index search`. `flow/bin/flow-tools.js` removed `PHASE_NOT_FOUND` + `extract/index` routes + `count-only/body-filter/type/n` flags. `flow/bin/lib/_cli-utils.js` removed `PHASE_NOT_FOUND` + `--phase`. `flow/scaffold/AGENTS.md` removed `DEBT: flow-help.md` line. `flow/.github/ISSUE_TEMPLATE/bug_report.yml` retargeted to `/flow`/`/flow-init`. `flow/README.md` full refresh (Quick Start greenfield/brownfield, lifecycle `flow-init → flow → flow-map/status`, Architecture 6 primitives, Work Item Loop 4 steps, Commands 4 table + `map --help`, Configuration model-agnostic no `config.json`, Folder Structure `.flow/{state,memory,map,work-items}`, Troubleshooting WASM opt-in). `flow/bin/lib/state.js` + `flow/bin/lib/audit.js` legacy compat shims kept until Task 6 archive.
+- **Task 5 DONE — Commands 24→4** (`038d716`): `flow/commands/{flow-init,flow,flow-map,flow-status}.md` (see `docs/plans/2026-05-14-flow-rebuild.md` Task 5 + `docs/designs/2026-05-14-flow-redesign-locked.md` §13-15). Deleted 24 legacy commands (`flow-add-phase`, `flow-audit-milestone`, `flow-complete-milestone`, `flow-debug`, `flow-discuss-phase`, `flow-do`, `flow-execute-phase`, `flow-handoff`, `flow-health`, `flow-help`, `flow-insert-phase`, `flow-lesson`, `flow-list-phase-assumptions`, `flow-map-codebase`, `flow-new-milestone`, `flow-new-project`, `flow-pause`, `flow-plan-milestone-gaps`, `flow-plan-phase`, `flow-progress`, `flow-quick`, `flow-remove-phase`, `flow-resume`, `flow-verify-work`). `flow/bin/install.js` cleaned: removed `flagSyncModels` + `readProjectConfig/getNonInheritModels/syncOpenCode/syncClaudeCode/syncCodex/runSyncModels` dead subsystem (~328 lines) stubbed as no-op warns (model-agnostic §18); wired `flagUpdateAgents` into `installScaffold/updateScaffold` (`--update-agents` forces `yes`); Getting Started strings → `/flow-init`/`/flow-map → /flow`/`/flow-status`; `Repo-map` warn → `map index search`. `flow/bin/flow-tools.js` removed `PHASE_NOT_FOUND` + `extract/index` routes + `count-only/body-filter/type/n` flags. `flow/bin/lib/_cli-utils.js` removed `PHASE_NOT_FOUND` + `--phase`. `flow/scaffold/AGENTS.md` removed `DEBT: flow-help.md` line. `flow/.github/ISSUE_TEMPLATE/bug_report.yml` retargeted to `/flow`/`/flow-init`. `flow/README.md` full refresh (Quick Start greenfield/brownfield, lifecycle `flow-init → flow → flow-map/status`, Architecture 6 primitives, Work Item Loop 4 steps, Commands 4 table + `map --help`, Configuration model-agnostic no `config.json`, Folder Structure `.flow/{state,memory,map,work-items}`, Troubleshooting WASM opt-in). `flow/bin/lib/state.js` + `flow/bin/lib/audit.js` shims removed in DEBT sweep below (was `kept until Task 6`).
 - **Review & audit (Task 5):** Skills checked: `kill-dead-code`, `readme-audit`, `secret-scan`, `simplify`, `adversarial-verify`, `code-reviewer` — all fetched. Deep review PASS: no `PHASE_NOT_FOUND`/`--phase`/`count-only` in `bin/`, no legacy command refs in `bin/`+`scaffold/` (only `Replaces` history column in README), `flow-tools --help` 6 primitives only, `primitives.test.js` + `schemas.test.js` PASS, `flagUpdateAgents` now wired (was dead after Task 3), `bug_report.yml` placeholders retargeted, `code-reviewer` 4-phase PASS (no scope creep, no secrets, kill-dead-code verified), secret-scan clean (false positive `task-.*\.md` only).
+- **DEBT sweep + Task 6 close-out — DONE (2026-08-21, this commit):** Removed all live `DEBT:` shims: `flow/bin/lib/state.js` `normalizeStateFm` (`active_milestone/active_phase → work-item-NNN`) + `cmdStatePatch` legacy-key delete, `flow/bin/lib/audit.js` `active_milestone` fallback (`work-item-00N` derivation) → `String(active_work_item)` only, `flow/bin/lib/flow-map.js` WASM `DEBT:` comment, `flow/bin/install.js` `readProjectConfig/getNonInheritModels/runSyncModels` no-ops (`--sync-models` gone), `flow/test/helpers.js` `CONFIG_*_KEYS` + `flow/test/scaffold.test.js` `flow-help.md` assert (deleted 24→4), `flow/test/commands.test.js` Suites 10/15/17 + `flow/test/regressions.test.js` Suites 12-14 rewritten for 6 primitives (`UNKNOWN_COMMAND` + `map search` `{total_matches}` canonical). Task 6 `archive` vs `move` confirmed YAGNI — no `migrate-milestones.js` or `docs/adr/001-migration.md` created. `flow/bin` + `flow/test` `DEBT:` zero (only historical text in `HANDOVER`/`CHANGELOG`/`docs/plans` + instructional line in locked design). Gates: `npm test` → `✓ All checks passed` (Suites 1-17 + ts-extractor), `node test/lib/flow-map.test.js`/`primitives`/`schemas` PASS, `flow-tools --help` 6 routes.
 
 ## Code State
 ```
 Branch: dev (ahead of origin/dev)
 Last commits:
-- <this>: refactor(commands): 24 → 4 (init/flow/map/status)
+- <this>: chore(debt): remove state/audit shim + 6-primitive test harness — Task 6 skipped
+- 038d716: refactor(commands): 24 → 4 (init/flow/map/status)
 - 901e05e: refactor(agents): collapse to Planner/Executor/Reviewer
 - 3241de9: refactor(scaffold): collapse .flow to state+memory+map+work-items, marker AGENTS.md
 
 Working tree:
-- clean after Task 5 commit
+- clean after this commit (DEBT sweep + Task 6 close-out)
 - `.flow/map.json` remains gitignored; remove it if generated
 - `ls flow/commands/` → flow.md  flow-init.md  flow-map.md  flow-status.md (4 only)
+- `grep -rn "DEBT:" flow/bin flow/test` → no output (only history in HANDOVER/CHANGELOG/docs/plans + instruction in locked doc)
+- `node test/flow-test.js` → ✓ All checks passed (Suites 1-17 + ts-extractor)
 
 Tracked after commit:
 - flow/bin/lib/flow-map.js, flow/test/lib/flow-map.test.js
 - flow/test/lib/primitives.test.js new, flow/test/lib/schemas.test.js updated
-- flow/bin/flow-tools.js, flow/bin/lib/{state,task,audit,index,_cli-utils,flow-map,schemas}.js updated
+- flow/bin/flow-tools.js, flow/bin/lib/{state,task,audit,index,_cli-utils,flow-map,schemas}.js updated (state/audit shims removed this commit)
 - flow/docs/designs/2026-05-14-flow-redesign-locked.md, flow/docs/plans/2026-05-14-flow-rebuild.md
 - flow/HANDOVER.md updated (this file), flow/.gitignore fixed
 - Deleted: flow/bin/lib/{repo-map,context,patterns,kb,lessons,phase,config,batch,content,runtime}.js (9 total incl. repo-map from Task 1)
 - New: flow/scaffold/.flow/memory.md; collapsed: flow/scaffold/AGENTS.md (491→10), flow/scaffold/.flow/state.md (active_work_item: null/ready)
 - Deleted scaffold: flow/scaffold/.flow/{config.json,state.json,codebase/*,docs/*,milestones/*,memory/*} (10 files)
-- Updated: flow/bin/install.js (scaffold + markers, Task 5: --sync-models stubbed, --update-agents wired), flow/test/{helpers,scaffold,install}.test.js (Task 3 gates)
+- Updated: flow/bin/install.js (DEBT no-ops removed this commit), flow/test/{helpers,scaffold,install}.test.js + flow/test/{commands,regressions}.test.js (6-primitive gates this commit)
 - Task 5: new flow/commands/{flow-init,flow,flow-map,flow-status}.md; deleted 24 legacy commands; updated flow/README.md, flow/bin/{install,flow-tools}.js, flow/bin/lib/_cli-utils.js, flow/scaffold/AGENTS.md, flow/.github/ISSUE_TEMPLATE/bug_report.yml
 ```
 
@@ -78,14 +82,15 @@ Tracked after commit:
 ### This Week
 - [x] Task 4: Agents 6→3 (+ Reviewer) — deep audit fixed stale callers, frontmatter, installer output, README, and regression tests
 - [x] Task 5: Commands 24→4 — `flow-init`/`flow`/`flow-map`/`flow-status` (+ README, install, tools cleanup) — deep audit PASS
-- [ ] Task 6: Migration `archive` default + `docs/adr/001-migration.md`
-- [ ] Final verification + `npm pack --dry-run` + version bump + publish
+- [x] Task 6: Skipped — not needed (`archive` vs `move` YAGNI: no `.flow/milestones` to migrate in v0.4.0; no `migrate-milestones.js` or `docs/adr/001-migration.md` created — `state.js`/`audit.js`/`flow-map.js`/`install.js` `DEBT:` shims removed this commit; `bin/` + `test/` DEBT zero)
+- [x] DEBT sweep: `state.js normalizeStateFm`, `audit.js active_milestone`, `flow-map.js` WASM comment, `install.js` sync-models no-ops, `helpers.js`/`commands.test.js`/`regressions.test.js`/`scaffold.test.js`/`install.test.js` legacy suites → 6 primitives — all removed/rewritten; `npm test` `✓ All checks passed`
+- [ ] Final publish (deferred per owner — `npm pack --dry-run` + version bump + publish not run this session)
 
 ## Blockers & Risks
 - **Context window:** New session should read this file + `docs/designs/2026-05-14-flow-redesign-locked.md` + `docs/plans/2026-05-14-flow-rebuild.md` only.
-- **State compat:** `state.js`/`audit.js` `DEBT:` shims (`normalizeStateFm` + legacy `work_item_dir` check) remain until Task 6 archive cleans `.flow/milestones/`; scaffold itself is now locked shape.
+- **State compat:** `state.js`/`audit.js` `DEBT:` shims removed this commit (`normalizeStateFm` + `active_milestone` fallback gone; `work_item_dir` now `active_work_item` only) — Task 6 skipped (no `milestones/` to clean); scaffold is now locked shape, no 0.6 deferral needed.
 - **Legacy command paths:** No remaining legacy `flow/commands/flow-*.md` — Task 5 rewrites complete; only `Replaces` history column in README references old names.
-- **npm test:** `npm test` now passes on 6-primitive gates; Task 6 owns final archive verification. Focused Task 5 gates: `primitives.test.js` + `schemas.test.js` PASS, `flow-tools --help` 6 primitives.
+- **npm test:** `npm test` → `✓ All checks passed` (Suites 1-17 + ts-extractor); Task 6 archive YAGNI confirmed. Focused gates: `primitives.test.js` + `schemas.test.js` + `flow-map.test.js` PASS, `flow-tools --help` 6 primitives.
 
 ## Environment
 ```bash
@@ -120,5 +125,5 @@ npm pack --dry-run
 - [x] Task 3: `.flow/{state,memory,map,work-items}` + marker `AGENTS.md` (10 lines) — `scaffold.test.js` Suite 6 + `install.test.js` Suite 11 11a-d + eosys/empty/dry-run/TTY manual checks PASS, `map.json` placeholder `flow-map-v1`
 - [x] 3 agents (`flow-planner`, `flow-executor`, `flow-reviewer`), `.flow/{state,memory,map,work-items}` + marker `AGENTS.md`; command count 24→4 (`flow-init`/`flow`/`flow-map`/`flow-status`)
 - [x] Fresh install on empty + `eosys`-like dir both pass manual checks (Task 3 gate)
-- [ ] `npm test` green, no WASM required for default install
+- [x] `npm test` green, no WASM required for default install (`node test/flow-test.js` → `✓ All checks passed`)
 - [x] Locked docs merged, no duplicate truth files; Task 4 deleted agent duplicates and retargeted active callers

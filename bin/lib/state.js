@@ -38,26 +38,11 @@ function readStateFile(cwd) {
   });
 }
 
-function normalizeStateFm(fm) {
-  // DEBT: compat shim for pre-migration state.md — map active_milestone/active_phase → active_work_item
-  if (fm.active_work_item === undefined || fm.active_work_item === null) {
-    if (fm.active_milestone !== undefined || fm.active_phase !== undefined) {
-      const m = fm.active_milestone || 'milestone-01';
-      const p = fm.active_phase || '0';
-      const num = String(p).match(/\d+/)?.[0] || String(p);
-      const padded = String(num).padStart(3, '0');
-      fm.active_work_item = `work-item-${padded}`;
-    }
-  }
-  return fm;
-}
-
 function cmdStateGet(args) {
   const cwd = getCwd(args);
   const { content, fm } = readStateFile(cwd);
-  const normalized = normalizeStateFm({ ...fm });
   const body = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim();
-  return output({ ...normalized, _prose_body: body });
+  return output({ ...fm, _prose_body: body });
 }
 
 function cmdStatePatch(args) {
@@ -86,13 +71,6 @@ function cmdStatePatch(args) {
     else if (/^\d+\.\d+$/.test(value)) value = parseFloat(value);
     fm[key] = value;
     patched.push(key);
-  }
-
-  // DEBT: drop legacy keys on patch — pre-migration state.md used active_milestone/active_phase
-  if (fm.active_work_item !== undefined) {
-    delete fm.active_milestone;
-    delete fm.active_phase;
-    delete fm.active_composite;
   }
 
   if (fm.status && !VALID_STATUSES.has(fm.status)) {
@@ -134,16 +112,15 @@ function cmdStateValidate(args) {
   }
 
   const drift = [];
-  const normalized = normalizeStateFm({ ...fm });
   const required = ['active_work_item', 'status', 'updated_at'];
   for (const field of required) {
-    if (normalized[field] === undefined || normalized[field] === null) {
+    if (fm[field] === undefined || fm[field] === null) {
       drift.push({ field, expected: 'present', actual: 'missing' });
     }
   }
 
-  if (normalized.status && !VALID_STATUSES.has(normalized.status)) {
-    drift.push({ field: 'status', expected: `one of ${[...VALID_STATUSES].join(', ')}`, actual: normalized.status });
+  if (fm.status && !VALID_STATUSES.has(fm.status)) {
+    drift.push({ field: 'status', expected: `one of ${[...VALID_STATUSES].join(', ')}`, actual: fm.status });
   }
 
   return output({ valid: drift.length === 0, drift });
@@ -161,12 +138,11 @@ function cmdStateSync(args) {
   const fm = parseFrontmatter(content);
   if (!fm) exitErr(ERROR_CODES.STATE_PARSE_ERROR, '.flow/state.md frontmatter is malformed');
 
-  const normalized = normalizeStateFm({ ...fm });
   const fieldsChecked = [];
   const inconsistencies = [];
 
-  if (normalized.active_work_item !== undefined && normalized.active_work_item !== null) {
-    const wi = String(normalized.active_work_item);
+  if (fm.active_work_item !== undefined && fm.active_work_item !== null) {
+    const wi = String(fm.active_work_item);
     const wiDir = path.join(cwd, '.flow', 'work-items', wi);
     if (!fs.existsSync(wiDir)) {
       inconsistencies.push({ field: 'work_item_dir', expected: wiDir, actual: 'not found' });

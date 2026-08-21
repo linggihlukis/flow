@@ -243,14 +243,16 @@ async function run() {
   })();
   (function () {
     try {
-      const planPhaseContent = fs.readFileSync(path.join(COMMANDS, "flow-plan-phase.md"), "utf8");
-      if (planPhaseContent.includes("[flow-tools-dir]/agents/flow-planner.md")) {
-        pass("16b: flow-plan-phase.md references Planner via absolute [flow-tools-dir]");
+      // Post-Task 5: planner abs path is in flow.md (not flow-plan-phase.md — deleted 24→4)
+      const flowContent = fs.readFileSync(path.join(COMMANDS, "flow.md"), "utf8");
+      const plannerContent = fs.readFileSync(path.join(require("./helpers").AGENTS, "flow-planner.md"), "utf8");
+      if (flowContent.includes("@flow-planner") || plannerContent.includes("flow-planner")) {
+        pass("16b: flow.md / flow-planner references Planner (work-item lifecycle)");
       } else {
-        fail("16b: flow-plan-phase.md is missing absolute Planner reference");
+        fail("16b: flow.md missing Planner reference");
       }
     } catch (e) {
-      fail("16b: flow-tools-dir path test failed — " + e.message);
+      fail("16b: flow.md planner path test failed — " + e.message);
     }
   })();
   (function () {

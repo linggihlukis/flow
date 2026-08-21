@@ -6,9 +6,6 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const { output, exitErr, getCwd, collectFlagValues } = require('./_cli-utils')
 
-// DEBT: WASM symbols path is optional; default install must not throw when WASM missing.
-// Upgrade: remove tree-sitter-wasms entirely when no consumer proves --symbols need.
-
 const SCHEMA_VERSION = 'flow-map-v1'
 const VERSION = (() => {
   try {

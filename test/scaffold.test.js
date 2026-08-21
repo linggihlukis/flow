@@ -12,8 +12,6 @@ const {
   AGENT_REQUIRED,
   AGENT_TOOL_KEYS,
   KNOWN_AGENTS,
-  CONFIG_REQUIRED_KEYS,
-  CONFIG_WORKFLOW_KEYS,
   readFile,
   getFiles,
   extractInlineYamlBlocks,
@@ -111,17 +109,16 @@ async function run() {
       fail(`@${agent}: NOT listed in AGENTS.md Section 5`);
     }
   }
-  const helpContent = readFile(path.join(COMMANDS, "flow-help.md"));
-  for (const agent of KNOWN_AGENTS) {
-    if (helpContent.includes(`@${agent}`)) {
-      pass(`@${agent}: listed in flow-help.md`);
-    } else {
-      fail(`@${agent}: NOT listed in flow-help.md`);
-    }
+  // flow-help.md deleted in Task 5 (24→4 commands) — no longer required; check AGENTS.md only
+  const helpPath = path.join(COMMANDS, "flow-help.md");
+  if (fs.existsSync(helpPath)) {
+    fail("flow-help.md should not exist — deleted in Task 5 (README suffices)");
+  } else {
+    pass("flow-help.md correctly absent (deleted in Task 5)");
   }
   for (const name of actualAgentNames) {
     if (!KNOWN_AGENTS.includes(name)) {
-      fail(`agents/${name}.md exists but is not in the known agents list — add it to AGENTS.md Section 5 and flow-help.md`);
+      fail(`agents/${name}.md exists but is not in the known agents list — add it to AGENTS.md Section 5`);
     }
   }
 

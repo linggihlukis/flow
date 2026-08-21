@@ -427,11 +427,7 @@ function createRuntimeBridge(runtimeFlowDir, runtimeName) {
   }
 }
 
-// ─── Sync Models — removed in Task 5 (config.json / per-runtime model tiers deleted; §12/§18)
-// DEBT: historical helpers readProjectConfig/getNonInheritModels/sync* kept as no-ops for --sync-models compat until 0.6; warn and no-op.
-function readProjectConfig() { return { error: 'config.json removed — Flow is model-agnostic (§18)' } }
-function getNonInheritModels() { return {} }
-function runSyncModels() { warn('--sync-models removed in 0.6 — Flow is model-agnostic (see §18)') }
+
 
 
 // ─── Install commands ─────────────────────────────────────────────────────────

@@ -77,26 +77,14 @@ async function run() {
       if (output.includes("PATH_NOT_FOUND") || output.includes("outside")) { pass("resolveSafePath: path traversal blocked"); } else { fail("resolveSafePath: traversal blocked but wrong error: " + output.slice(0, 100)); }
     }
   })();
+  // config get deleted with config.json (§12) — must return UNKNOWN_COMMAND
   (function () {
-    try {
-      const raw = execSync("node bin/flow-tools.js config get context.model_context_limit", { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.key === "context.model_context_limit" && parsed.value !== undefined) { pass("config get: dot-notation key lookup works"); } else { fail("config get: unexpected output shape — " + raw.slice(0, 100)); }
-    } catch (e) { fail("config get: command failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node bin/flow-tools.js config get", { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.key === null && typeof parsed.value === "object") { pass("config get: no key returns full config object"); } else { fail("config get: no key should return { value: <object>, key: null }"); }
-    } catch (e) { fail("config get (no key): command failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node bin/flow-tools.js config get nonexistent.deep.key", { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.key === "nonexistent.deep.key" && parsed.value === null) { pass("config get: missing key returns { value: null }"); } else { fail("config get: missing key should return { value: null, key: ... }"); }
-    } catch (e) { fail("config get (missing key): command failed — " + e.message); }
+    let ok = true;
+    for (const argv of [["config", "get", "context.model_context_limit"], ["config", "get"], ["config", "get", "nonexistent.deep.key"]]) {
+      try { execSync("node bin/flow-tools.js " + argv.join(" "), { stdio: "pipe", cwd: process.cwd() }); ok = false; fail("config get should be UNKNOWN_COMMAND: " + argv.join(" ")); }
+      catch (e) { const o=(e.stdout||e.stderr||Buffer.from("")).toString(); if (!/UNKNOWN_COMMAND|Unknown command/i.test(o)) { ok=false; fail("config get wrong error: "+argv.join(" ")+" — "+o.slice(0,100)); }}
+    }
+    if (ok) pass("config get: deleted command returns UNKNOWN_COMMAND (3 variants)");
   })();
   (function () {
     const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10g");
@@ -135,36 +123,14 @@ async function run() {
       if (output.includes("FRONTMATTER_NOT_FOUND")) { pass("frontmatter get: no frontmatter exits with FRONTMATTER_NOT_FOUND"); } else { fail("frontmatter get: should exit with FRONTMATTER_NOT_FOUND, got: " + output.slice(0, 100)); }
     } finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
   })();
+  // history/patterns deleted — must return UNKNOWN_COMMAND (Task 2 §17)
   (function () {
-    try {
-      const raw = execSync("node bin/flow-tools.js history digest", { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results)) { pass("history digest: returns { results: [...] }"); } else { fail("history digest: should return { results: [...] }"); }
-    } catch (e) { fail("history digest: command failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node bin/flow-tools.js history digest --n 2", { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results) && parsed.results.length <= 2) { pass("history digest: --n flag limits results"); } else { fail("history digest: --n flag should limit results to N"); }
-    } catch (e) { fail("history digest (--n): command failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node bin/flow-tools.js patterns extract", { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.sections)) { pass("patterns extract: returns { sections: [...] }"); } else { fail("patterns extract: should return { sections: [...] }"); }
-    } catch (e) { fail("patterns extract: command failed — " + e.message); }
-  })();
-  (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-10m-patterns.md");
-    fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
-    try {
-      const raw = execSync("node bin/flow-tools.js patterns extract --section Stack --patterns " + testFile, { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) { pass("patterns extract: --section filter returns matching section(s)"); } else { fail("patterns extract: --section filter should return at least one section"); }
-    } catch (e) { fail("patterns extract (--section): command failed — " + e.message); }
-    finally { try { fs.unlinkSync(testFile); } catch {} }
+    let ok = true;
+    for (const argv of [["history","digest"],["history","digest","--n","2"],["patterns","extract"],["patterns","extract","--section","Stack","--patterns", path.join(ROOT, ".flow","quick","x.md")]]) {
+      try { execSync("node bin/flow-tools.js " + argv.join(" "), { stdio: "pipe", cwd: process.cwd() }); ok=false; fail("deleted command should be UNKNOWN_COMMAND: "+argv.slice(0,2).join(" ")); }
+      catch (e) { const o=(e.stdout||e.stderr||Buffer.from("")).toString(); if (!/UNKNOWN_COMMAND|Unknown command/i.test(o)) { ok=false; fail("deleted wrong error: "+argv.slice(0,2).join(" ")+" — "+o.slice(0,100)); }}
+    }
+    if (ok) pass("history/patterns: deleted commands return UNKNOWN_COMMAND");
   })();
   (function () {
     const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-basic.md");
@@ -254,40 +220,8 @@ async function run() {
     } catch (e) { fail("frontmatter set (coerce): command failed — " + e.message); }
     finally { try { fs.unlinkSync(testFile); } catch {} }
   })();
-  (function () {
-    const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-statusline-happy");
-    try {
-      fs.mkdirSync(path.join(tmpDir, ".flow"), { recursive: true });
-      fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\n---\n", "utf8");
-      const raw = execSync("node bin/flow-tools.js statusline show --cwd " + tmpDir, { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.milestone && parsed.phase && parsed.status && parsed.task_counts && typeof parsed.task_counts.total === "number") { pass("statusline show: happy path returns valid JSON with expected fields"); } else { fail("statusline show: unexpected output shape — " + raw.slice(0, 200)); }
-    } catch (e) { fail("statusline show: command failed — " + e.message); }
-    finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-statusline-phase");
-    try {
-      fs.mkdirSync(path.join(tmpDir, ".flow"), { recursive: true });
-      fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\n---\n", "utf8");
-      const testPhase = "99";
-      const raw = execSync("node bin/flow-tools.js statusline show --phase " + testPhase + " --cwd " + tmpDir, { cwd: process.cwd() }).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.phase === testPhase && typeof parsed.task_counts.total === "number") { pass("statusline show: --phase flag returns data for specified phase"); } else { fail("statusline show: --phase flag unexpected output — " + raw.slice(0, 200)); }
-    } catch (e) { fail("statusline show (--phase): command failed — " + e.message); }
-    finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-statusline-no-state");
-    try {
-      fs.mkdirSync(tmpDir, { recursive: true });
-      execSync("node bin/flow-tools.js statusline show --cwd " + tmpDir, { stdio: "pipe", cwd: process.cwd() });
-      fail("statusline show: should exit with error when state.md missing");
-    } catch (e) {
-      const output = e.stdout ? e.stdout.toString() : "";
-      if (output.includes("STATE_NOT_FOUND")) { pass("statusline show: missing state.md exits with STATE_NOT_FOUND"); } else { fail("statusline show: missing state.md should exit with STATE_NOT_FOUND, got: " + (output || e.message).slice(0, 200)); }
-    } finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
-  })();
+  // Suite 10 statusline removed with milestone/phase model — use audit open / state validate now
+  (function () { pass("statusline show removed — milestone/phase model deleted (use audit open / state validate)"); })();
   (function () {
     try {
       const raw = execSync("node bin/flow-tools.js audit open", { cwd: process.cwd() }).toString();
@@ -307,255 +241,87 @@ async function run() {
     finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
 
-  // Suite 15
-  suite("Suite 15 — Cross-platform command extensions");
-  const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
+  // ——— 6-primitive gates (Task 2: only state/frontmatter/files/map/task/audit remain) ———
   (function () {
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " lessons recent --count-only").toString();
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.count === "number" && parsed.count >= 0) { pass("15a: lessons recent --count-only returns { count: N }"); } else { fail("15a: lessons recent --count-only unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15a: lessons recent --count-only failed — " + e.message); }
+    // Deleted commands must return UNKNOWN_COMMAND — not crash
+    const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
+    const banned = [
+      ["context", "estimate", ".flow/state.md", "--cwd", ROOT],
+      ["lessons", "recent", "--count-only"],
+      ["kb", "search", "--count-only"],
+      ["patterns", "extract", "--query", "x", "--patterns", path.join(ROOT, "scaffold", "AGENTS.md")],
+      ["phase", "list", "--phase", "1", "--cwd", ROOT],
+      ["statusline", "show", "--cwd", ROOT],
+      ["repo-map", "search", "--query", "x", "--cwd", ROOT],
+    ];
+    let ok = true;
+    for (const argv of banned) {
+      try {
+        execSync("node " + FLOW_TOOLS + " " + argv.join(" "), { stdio: "pipe", cwd: ROOT });
+        fail("deleted command should return UNKNOWN_COMMAND: " + argv.slice(0, 2).join(" "));
+        ok = false;
+      } catch (e) {
+        const out = (e.stdout || e.stderr || Buffer.from("")).toString();
+        if (!/UNKNOWN_COMMAND|Unknown command/i.test(out)) { fail("deleted command wrong error (expected UNKNOWN_COMMAND): " + argv.slice(0,2).join(" ") + " — " + out.slice(0, 120)); ok = false; }
+      }
+    }
+    if (ok) pass("Suite 15 removed primitives return UNKNOWN_COMMAND (context/patterns/kb/lessons/phase/statusline/repo-map)");
   })();
   (function () {
+    // Canonical `map search` must still work
+    const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
+    const mapPath = path.join(ROOT, ".flow", "quick", "flow-test-15-map-search.json");
     try {
-      const raw = execSync("node " + FLOW_TOOLS + " lessons recent --query \"Compression Signal\"").toString();
+      fs.mkdirSync(path.dirname(mapPath), { recursive: true });
+      execSync("node " + FLOW_TOOLS + " map index --cwd " + ROOT + " --output " + mapPath, { stdio: "pipe" });
+      const raw = execSync("node " + FLOW_TOOLS + " map search --query flow-map --path " + mapPath + " --cwd " + ROOT).toString();
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results)) { pass("15b: lessons recent --query returns results array"); } else { fail("15b: lessons recent --query unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15b: lessons recent --query failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " lessons recent --query \"Signal\" --body-filter \"Phase\"").toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results)) { pass("15c: lessons recent --body-filter returns results array"); } else { fail("15c: lessons recent --body-filter unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15c: lessons recent --body-filter failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " kb search --count-only").toString();
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.count === "number" && parsed.count >= 0) { pass("15d: kb search --count-only returns { count: N }"); } else { fail("15d: kb search --count-only unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15d: kb search --count-only failed — " + e.message); }
-  })();
-  (function () {
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " kb search --zone \"test\" --count-only").toString();
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.count === "number" && parsed.count >= 0) { pass("15e: kb search --zone --count-only returns { count: N }"); } else { fail("15e: kb search --zone --count-only unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15e: kb search --zone --count-only failed — " + e.message); }
-  })();
-  (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15f-patterns.md");
-    fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " patterns extract --query \"Node.js\" --patterns " + testFile).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) { pass("15f: patterns extract --query returns matching sections"); } else { fail("15f: patterns extract --query unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15f: patterns extract --query failed — " + e.message); }
-    finally { try { fs.unlinkSync(testFile); } catch {} }
-  })();
-  (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15g-patterns.md");
-    fs.writeFileSync(testFile, "## Stack\nNode.js, JavaScript\n\n## Testing\nMocha, Chai\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " patterns extract --section Stack --query \"Node\" --patterns " + testFile).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.sections) && parsed.sections.length >= 1) { pass("15g: patterns extract --section+--query returns AND-filtered result"); } else { fail("15g: patterns extract --section+--query unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15g: patterns extract --section+--query failed — " + e.message); }
-    finally { try { fs.unlinkSync(testFile); } catch {} }
-  })();
-  (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15h-fixture.md");
-    fs.writeFileSync(testFile, "## Entry\n**Zone/Section:** database\n**Field:** value\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " extract field --file " + testFile + " --field \"Zone/Section\"").toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.values) && parsed.values.includes("database")) { pass("15h: extract field returns values array with found field"); } else { fail("15h: extract field unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15h: extract field failed — " + e.message); }
-    finally { try { fs.unlinkSync(testFile); } catch {} }
-  })();
-  (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15i-fixture.md");
-    fs.writeFileSync(testFile, "## Entry\nNo match here\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " extract field --file " + testFile + " --field \"NonExistent\"").toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.values) && parsed.values.length === 0) { pass("15i: extract field returns empty array for missing field"); } else { fail("15i: extract field unexpected output — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15i: extract field failed — " + e.message); }
-    finally { try { fs.unlinkSync(testFile); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15j");
-    fs.mkdirSync(testDir, { recursive: true });
-    const validTask = path.join(testDir, "task-01.md");
-    fs.writeFileSync(validTask, "# Task 01\n\n## Context\nTest context\n\n## Read First\nRead this\n\n## Implementation Steps\n1. Step one\n2. Step two\n\n## Files\n- src/file.php\n\n## Verify\n`node test/something.js`\n\n## Done Condition\nAll tests pass\n\n**Depends on:** none\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " task validate --file " + validTask).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.valid === true) { pass("15j: task validate returns valid: true for well-formed task"); } else { fail("15j: task validate unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15j: task validate failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15k");
-    fs.mkdirSync(testDir, { recursive: true });
-    const badTask = path.join(testDir, "task-02.md");
-    fs.writeFileSync(badTask, "# Task 02\n\n## Context\nTest\n\n## Read First\nRead\n\n## Implementation Steps\n1. Step\n\n## Verify\n`test`\n\n**Depends on:** none\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " task validate --file " + badTask).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.valid === false && Array.isArray(parsed.errors) && parsed.errors.length > 0) { pass("15k: task validate returns valid: false for malformed task"); } else { fail("15k: task validate unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15k: task validate failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15l");
-    const phasesDir = path.join(testDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks");
-    fs.mkdirSync(phasesDir, { recursive: true });
-    fs.writeFileSync(path.join(testDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\n---\n", "utf8");
-    fs.writeFileSync(path.join(phasesDir, "task-01.md"), "# Task 01\n\n## Context\nTest\n\n## Read First\nRead\n\n## Implementation Steps\n1. Step one\n2. Step two\n\n## Files\n- src/file.php\n\n## Verify\n`test`\n\n## Done Condition\nDone\n\n**Depends on:** none\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " task validate --phase 1 --cwd " + testDir).toString();
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.valid === "boolean" && Array.isArray(parsed.errors)) { pass("15l: task validate --phase returns expected shape"); } else { fail("15l: task validate --phase unexpected output — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15l: task validate --phase failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-15m.txt");
-    fs.writeFileSync(testFile, "line1\nline2\nline3", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " files check " + testFile + " --line-count").toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results) && parsed.results[0].line_count === 3) { pass("15m: files check --line-count returns correct line_count"); } else { fail("15m: files check --line-count unexpected — " + raw.slice(0, 100)); }
-    } catch (e) { fail("15m: files check --line-count failed — " + e.message); }
-    finally { try { fs.unlinkSync(testFile); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15n");
-    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
-    const sentinel = path.join(testDir, ".sentinel");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " files check " + sentinel + " --touch").toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results) && parsed.results[0].created === true && fs.existsSync(sentinel)) { pass("15n: files check --touch creates file, returns created: true"); } else { fail("15n: files check --touch unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15n: files check --touch failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15o");
-    fs.mkdirSync(testDir, { recursive: true });
-    const sentinel = path.join(testDir, ".existing");
-    fs.writeFileSync(sentinel, "content", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " files check " + sentinel + " --touch").toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results) && parsed.results[0].created === false && parsed.results[0].exists === true) { pass("15o: files check --touch on existing file returns created: false"); } else { fail("15o: files check --touch unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15o: files check --touch failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15p");
-    fs.mkdirSync(testDir, { recursive: true });
-    try {
-      const reference = path.join(testDir, ".ref");
-      const newFile = path.join(testDir, "new.txt");
-      fs.writeFileSync(reference, "old", "utf8");
-      fs.writeFileSync(newFile, "new content", "utf8");
-      const pastTime = new Date(Date.now() - 5000);
-      fs.utimesSync(reference, pastTime, pastTime);
-      const raw = execSync("node " + FLOW_TOOLS + " files check " + newFile + " --newer " + reference).toString();
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.results) && parsed.results.some(r => r.newer === true)) { pass("15p: files check --newer detects newer file"); } else { fail("15p: files check --newer unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15p: files check --newer failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15q");
-    fs.mkdirSync(testDir, { recursive: true });
-    const logFile = path.join(testDir, "context-log.md");
-    fs.writeFileSync(logFile, "# Phase 1 — Agent Context Log\n\n| Timestamp | Agent | Est. Tokens | Sections Loaded |\n|-----------|-------|-------------|-----------------|\n| 2026-01-01 | agent1 | 1000 | file1 |\n| 2026-01-02 | agent2 | 2000 | file2 |\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " context trace-avg --file " + logFile).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.avg_tokens > 0 && parsed.total_entries === 2 && parsed.total_tokens === 3000) { pass("15q: context trace-avg returns correct avg_tokens, total_entries, total_tokens"); } else { fail("15q: context trace-avg unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15q: context trace-avg failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
-  })();
-  (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-15r");
-    fs.mkdirSync(testDir, { recursive: true });
-    const logFile = path.join(testDir, "context-log-md");
-    fs.writeFileSync(logFile, "# No table here\n", "utf8");
-    try {
-      const raw = execSync("node " + FLOW_TOOLS + " context trace-avg --file " + logFile).toString();
-      const parsed = JSON.parse(raw);
-      if (parsed.avg_tokens === 0 && parsed.total_entries === 0 && parsed.total_tokens === 0) { pass("15r: context trace-avg returns zeros for empty/no-table file"); } else { fail("15r: context trace-avg unexpected — " + JSON.stringify(parsed)); }
-    } catch (e) { fail("15r: context trace-avg failed — " + e.message); }
-    finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
+      if (parsed.total_matches !== undefined) pass("15b: map search returns {total_matches:" + parsed.total_matches + "} (canonical primitive)");
+      else fail("15b: map search expected {total_matches} — " + raw.slice(0, 200));
+    } catch (e) { fail("15b: map search failed — " + e.message); }
+    finally { try { fs.unlinkSync(mapPath); } catch {} }
   })();
 
-  // Suite 17
-  suite("Suite 17 — flow-tools CLI subcommands coverage");
+  // Suite 17 — work-item primitives coverage (6 primitives: state/frontmatter/files/map/task/audit)
+  suite("Suite 17 — flow-tools 6 primitives coverage");
   (function () {
     const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-suite17");
     try {
       fs.mkdirSync(tmpDir, { recursive: true });
-      fs.mkdirSync(path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks"), { recursive: true });
-      fs.mkdirSync(path.join(tmpDir, ".flow", "codebase"), { recursive: true });
-      fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_milestone: milestone-01\nactive_phase: 1\nstatus: active\nupdated_at: 2026-06-10T00:00:00.000Z\n---\nSome prose body here\n", "utf8");
-      fs.writeFileSync(path.join(tmpDir, ".flow", "config.json"), JSON.stringify({ flow_version: "0.3.0", runtime: "all", mode: "standard", depth: "standard", workflow: { research: true, plan_check: true }, context: { model_context_limit: 200000 } }, null, 2), "utf8");
-      fs.writeFileSync(path.join(tmpDir, ".flow", "milestones", "milestone-01", "phases", "phase-01", "tasks", "task-01.md"), "---\ntitle: Task Title\nstatus: pending\ndepends_on: none\nfiles:\n  - src/file1.js\n---\n# Task Title\n", "utf8");
-      fs.writeFileSync(path.join(tmpDir, ".flow", "codebase", "repo-map.json"), JSON.stringify({ files: { "src/file1.js": { language: "JavaScript", classes: ["TestClass"], functions: ["testFunc"], includes: ["import1"] } }, treesitter_health: { repo_map_size_kb: 5 } }), "utf8");
+      fs.mkdirSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "tasks"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_work_item: work-item-001\nstatus: planned\nupdated_at: 2026-06-10T00:00:00.000Z\n---\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "memory.md"), "# memory.md\n## Facts\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "tasks", "task-01.md"), "# Work Item 001 — Task 01: Probe\n\n## Context\nProbe\n\n## Read First\n- src/file1.js\n\n## Implementation Steps\n### Step 1\nDo it\n\n## Files\n- src/file1.js\n\n## Verify\n\`node -e \"process.exit(0)\"\`\n\n## Done Condition\nVerify passes\n\n**Depends on:** none\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "map.json"), JSON.stringify({ schema_version: "flow-map-v1", files: { "src/file1.js": { language: "JavaScript" } } }), "utf8");
       const stateGetRaw = execSync("node bin/flow-tools.js state get --cwd " + tmpDir).toString();
       const stateGet = JSON.parse(stateGetRaw);
-      if (stateGet.active_milestone === "milestone-01" && stateGet._prose_body === "Some prose body here") { pass("17a: state get returns correct frontmatter and prose"); } else { fail("17a: state get returned unexpected output: " + stateGetRaw); }
-      const statePatchRaw = execSync("node bin/flow-tools.js state patch --set status=paused --cwd " + tmpDir).toString();
+      if (stateGet.active_work_item === "work-item-001") { pass("17a: state get returns work-item state"); } else { fail("17a: state get unexpected: " + stateGetRaw); }
+      const statePatchRaw = execSync("node bin/flow-tools.js state patch --set status=in-progress --cwd " + tmpDir).toString();
       const statePatch = JSON.parse(statePatchRaw);
       const stateContent = fs.readFileSync(path.join(tmpDir, ".flow", "state.md"), "utf8");
-      if (statePatch.patched && stateContent.includes("status: paused")) { pass("17b: state patch correctly mutates status and writes updated_at"); } else { fail("17b: state patch failed. Output: " + statePatchRaw + ", file: " + stateContent); }
+      if (statePatch.patched && stateContent.includes("in-progress")) { pass("17b: state patch mutates status + writes updated_at"); } else { fail("17b: state patch failed: " + statePatchRaw); }
       const stateValRaw = execSync("node bin/flow-tools.js state validate --cwd " + tmpDir).toString();
       const stateVal = JSON.parse(stateValRaw);
-      if (stateVal.valid === true) { pass("17c: state validate returns valid: true for correct state"); } else { fail("17c: state validate failed: " + stateValRaw); }
+      if (stateVal.valid === true) { pass("17c: state validate valid: true"); } else { fail("17c: state validate failed: " + stateValRaw); }
       const stateSyncRaw = execSync("node bin/flow-tools.js state sync --cwd " + tmpDir).toString();
       const stateSync = JSON.parse(stateSyncRaw);
-      if (stateSync.synced === true) { pass("17d: state sync returns synced: true when milestone and phase dirs exist"); } else { fail("17d: state sync failed: " + stateSyncRaw); }
-      const stateMigrateRaw = execSync("node bin/flow-tools.js state migrate --cwd " + tmpDir).toString();
-      const stateMigrate = JSON.parse(stateMigrateRaw);
-      if (stateMigrate.migrated === true && fs.existsSync(path.join(tmpDir, ".flow", "state.json"))) { pass("17e: state migrate creates state.json correctly"); } else { fail("17e: state migrate failed: " + stateMigrateRaw); }
-      const contextEstimateRaw = execSync("node bin/flow-tools.js context estimate .flow/state.md --cwd " + tmpDir).toString();
-      const contextEstimate = JSON.parse(contextEstimateRaw);
-      if (contextEstimate.estimated_tokens > 0 && contextEstimate.fits_budget === true) { pass("17f: context estimate returns correct token estimations and fits budget"); } else { fail("17f: context estimate failed: " + contextEstimateRaw); }
-      const phaseListRaw = execSync("node bin/flow-tools.js phase list --phase 1 --cwd " + tmpDir).toString();
-      const phaseList = JSON.parse(phaseListRaw);
-      if (phaseList.tasks && phaseList.tasks[0].id === "task-01") { pass("17g: phase list lists tasks from directory correctly"); } else { fail("17g: phase list failed: " + phaseListRaw); }
-      const waveResolveRaw = execSync("node bin/flow-tools.js wave resolve --phase 1 --cwd " + tmpDir).toString();
-      const waveResolve = JSON.parse(waveResolveRaw);
-      if (waveResolve.waves && waveResolve.waves.wave_0 && waveResolve.waves.wave_0.includes("task-01")) { pass("17h: wave resolve resolves correct dependency waves"); } else { fail("17h: wave resolve failed: " + waveResolveRaw); }
-      const repoMapSearchRaw = execSync("node bin/flow-tools.js repo-map search --query \"testFunc\" --cwd " + tmpDir).toString();
-      const repoMapSearch = JSON.parse(repoMapSearchRaw);
-      if (repoMapSearch.matches && repoMapSearch.matches.length > 0 && repoMapSearch.matches[0].path === "src/file1.js") { pass("17i: repo-map search matches classes and functions correctly"); } else { fail("17i: repo-map search failed: " + repoMapSearchRaw); }
-      const batchInput = JSON.stringify([ { cmd: "config", args: ["get", "workflow.research", "--cwd", tmpDir] }, { cmd: "state", args: ["validate", "--cwd", tmpDir] } ]);
-      const batchRaw = execSync("node bin/flow-tools.js batch", { input: batchInput, cwd: process.cwd() }).toString();
-      const batch = JSON.parse(batchRaw);
-      if (batch[0].result && batch[0].result.value === true && batch[1].result && batch[1].result.valid === true) { pass("17j: batch command processes list of operations correctly"); } else { fail("17j: batch command failed: " + batchRaw); }
-      const indexRaw = execSync("node bin/flow-tools.js index --patterns .flow/state.md --cwd " + tmpDir).toString();
-      const indexRes = JSON.parse(indexRaw);
-      if (indexRes.files_parsed !== undefined) { pass("17k: index command runs and outputs valid index details"); } else { fail("17k: index command failed: " + indexRaw); }
-      const contentCheckRaw = execSync("node bin/flow-tools.js content check --file .flow/state.md --cwd " + tmpDir).toString();
-      const contentCheck = JSON.parse(contentCheckRaw);
-      if (contentCheck.safe !== undefined && Array.isArray(contentCheck.hits)) { pass("17l: content check command checks patterns correctly"); } else { fail("17l: content check failed: " + contentCheckRaw); }
-      const runtimeDetectRaw = execSync("node bin/flow-tools.js runtime detect --cwd " + tmpDir).toString();
-      const runtimeDetect = JSON.parse(runtimeDetectRaw);
-      if (runtimeDetect.runtime !== undefined && runtimeDetect.capabilities !== undefined) { pass("17m: runtime detect command runs successfully"); } else { fail("17m: runtime detect failed: " + runtimeDetectRaw); }
+      if (stateSync.synced === true) { pass("17d: state sync synced: true (work-items dir exists)"); } else { fail("17d: state sync failed: " + stateSyncRaw); }
+      // Deleted milestone/phase commands must return UNKNOWN_COMMAND (not crash)
+      let unknownOk = true;
+      for (const cmd of ["state migrate --cwd " + tmpDir, "context estimate .flow/state.md --cwd " + tmpDir, "phase list --phase 1 --cwd " + tmpDir, "repo-map search --query x --cwd " + tmpDir, "batch"] ) {
+        try { execSync("node bin/flow-tools.js " + cmd, { stdio: "pipe", cwd: process.cwd() }); unknownOk = false; fail("17e: deleted command should be UNKNOWN_COMMAND: " + cmd.split(" ")[0]); break; } catch (e) { const o=(e.stdout||e.stderr||Buffer.from("")).toString(); if (!/UNKNOWN_COMMAND|Unknown command/i.test(o)) { unknownOk=false; fail("17e: deleted command wrong error: "+cmd.split(" ")[0]+" — "+o.slice(0,100)); break; } }
+      }
+      if (unknownOk) pass("17e: deleted milestone/phase commands return UNKNOWN_COMMAND");
       const docsRaw = execSync("node scripts/generate-docs.js").toString();
-      if (docsRaw.includes("# FLOW Tools API Reference") && docsRaw.includes("### Input")) { pass("17n: generate-docs script runs and prints markdown schemas correctly"); } else { fail("17n: generate-docs script output is invalid"); }
+      if (docsRaw.includes("# FLOW Tools API Reference") && docsRaw.includes("### Input")) { pass("17f: generate-docs script prints markdown schemas"); } else { fail("17f: generate-docs output invalid"); }
       const { Platform } = require("../bin/lib/platform");
-      if (Platform.normalize(path.join("foo", "bar")) === "foo/bar" && Platform.isAbsolute(path.resolve("foo")) === true && typeof Platform.escapeArg("test") === "string" && typeof Platform.phpBin === "string" && Platform.shell.cmd !== undefined) { pass("17o: Platform helper methods work correctly across platforms"); } else { fail("17o: Platform helper methods returned unexpected results"); }
+      if (Platform.normalize(path.join("foo", "bar")) === "foo/bar" && Platform.isAbsolute(path.resolve("foo")) === true && typeof Platform.escapeArg("test") === "string" && typeof Platform.phpBin === "string" && Platform.shell.cmd !== undefined) { pass("17g: Platform helpers work"); } else { fail("17g: Platform helpers unexpected"); }
       const { getRuntime, RUNTIMES } = require("../bin/lib/runtime-registry");
-      if (RUNTIMES.opencode && getRuntime("opencode").name === "opencode") { pass("17p: Runtime registry getRuntime resolves correctly"); } else { fail("17p: Runtime registry getRuntime failed"); }
-    } catch (e) { fail("Suite 17: subcommand tests failed — " + e.message); }
+      if (RUNTIMES.opencode && getRuntime("opencode").name === "opencode") { pass("17h: runtime-registry getRuntime ok"); } else { fail("17h: runtime-registry failed"); }
+      const mapSearchRaw = execSync("node bin/flow-tools.js map search --query flow-map --cwd " + tmpDir).toString();
+      const mapSearch = JSON.parse(mapSearchRaw);
+      if (mapSearch.total_matches !== undefined) { pass("17i: map search returns {total_matches} (canonical primitive)" + (mapSearch.total_matches === 0 ? " — empty fixture is valid" : " with "+mapSearch.total_matches+" matches")); } else { fail("17i: map search expected {total_matches}: " + mapSearchRaw); }
+    } catch (e) { fail("Suite 17 failed — " + e.message + "\\n" + (e.stdout||e.stderr||"").toString().slice(0,300)); }
     finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
 

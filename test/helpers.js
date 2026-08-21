@@ -46,9 +46,7 @@ const KNOWN_AGENTS = [
   "flow-reviewer",
 ];
 
-// DEBT: CONFIG_*_KEYS kept for Suite 11 backwards-compat shims (no config.json in scaffold post-Task-3)
-const CONFIG_REQUIRED_KEYS = ["flow_version", "runtime", "mode", "depth", "workflow", "models", "git", "destructive_tier"];
-const CONFIG_WORKFLOW_KEYS = ["research", "plan_check", "node_repair", "node_repair_budget", "parallel_execution", "verifier"];
+
 
 function readFile(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -110,8 +108,6 @@ module.exports = {
   AGENT_REQUIRED,
   AGENT_TOOL_KEYS,
   KNOWN_AGENTS,
-  CONFIG_REQUIRED_KEYS,
-  CONFIG_WORKFLOW_KEYS,
   readFile,
   getFiles,
   extractInlineYamlBlocks,
