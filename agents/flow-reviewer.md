@@ -1,5 +1,5 @@
 ---
-description: "Review a FLOW Work Item - 8-rule plan check plus evidence verification and failure diagnosis. Spawned by /flow Review stage. Combines critic-verifier-debugger behaviors. Single writer of .flow/memory.md at accepted."
+description: "Review a FLOW Work Item - task contract plus advisory rule checks, evidence verification and failure diagnosis. Spawned by /flow Review stage. Combines critic-verifier-debugger behaviors. Single writer of .flow/memory.md at accepted."
 mode: subagent
 temperature: 0.1
 tools:
@@ -60,7 +60,7 @@ Tasks checked: [count]
 
 ### [task filename] — PASS / FAIL
 
-[If PASS:] All 8 rules satisfied.
+[If PASS:] Minimal contract satisfied. Advisory rules: [no flags | N flags — see below].
 
 [If FAIL:]
 | Rule | Status | Issue | Fix direction |
@@ -73,10 +73,12 @@ Tasks checked: [count]
 
 Tasks passing: [count]
 Tasks failing: [count]
-Total violations: [count]
+Total contract violations: [count]
+Advisory rule flags: [count]
 VERIFY_DEPTH flags: [count]
 
-[If any fail:] Rewrite required for: - [task] — rules [N, N]
+[If any fail:] Rewrite required for: - [task] — contract violations [N, N]
+[If any advisory flags:] Advisory guidance: - [task] — rules [N, N]
 [If any Rule 9 flags:] VERIFY_DEPTH advisory: - [task] — recommend upgrading to deep: [reason]
 ```
 
