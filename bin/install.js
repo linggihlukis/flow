@@ -2,7 +2,6 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const os = require("node:os");
 const readline = require("node:readline");
 const { execFileSync } = require("node:child_process");
 const { RUNTIMES } = require('./lib/runtime-registry');
@@ -137,9 +136,9 @@ function resolveFlag(names) {
   return null;
 }
 
-// Deleted flags — warn and exit early
+// Deleted flags — warn and exit early (also via npm_config_* bypass)
 const DELETED_FLAGS = ["--claude", "--antigravity", "--antigravity-ide", "--global", "-g", "--local", "-l"];
-const deletedHit = args.find(a => DELETED_FLAGS.includes(a));
+const deletedHit = args.find(a => DELETED_FLAGS.includes(a)) || DELETED_FLAGS.find(f => envFlag(f));
 if (deletedHit) {
   const hint = ["--claude", "--antigravity", "--antigravity-ide"].includes(deletedHit)
     ? "use --commandcode / --opencode / --codex / --zed"
@@ -148,6 +147,22 @@ if (deletedHit) {
   console.error(`   Valid runtimes: --opencode --codex --commandcode --zed --all`);
   process.exit(1);
 }
+
+// Single source for legacy shim cleanup — DRY over uninstall() + runUpdate()
+// (tests check for `legacyShims` + `.config", "opencode", "flow` — keep names stable)
+const legacyShims = [
+  path.join(Platform.home, ".config", "opencode", "flow"),
+  path.join(Platform.home, ".claude", "flow"),
+  path.join(Platform.home, ".codex", "flow"),
+  path.join(Platform.home, ".gemini", "antigravity", "flow"),
+  path.join(Platform.home, ".gemini", "antigravity-ide", "flow"),
+];
+const LEGACY_SHIMS = legacyShims;
+const LEGACY_FLAT_FILES = [
+  path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.js"),
+  path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.cmd"),
+  path.join(Platform.home, ".codex", "flow", "flow-tools.js"),
+];
 
 const flagRuntime  = resolveFlag(["--opencode","--codex","--commandcode","--zed","--all"]);
 const flagUninstall = args.includes("--uninstall") || envFlag("--uninstall");
@@ -247,27 +262,21 @@ function installFlowHome() {
 
   installNodeDeps(toolsDir);
 
-  // Generate SHA-256 integrity manifest
+  // Generate SHA-256 integrity manifest (recursive)
   try {
     const crypto = require('node:crypto');
     const manifest = { installedAt: new Date().toISOString() };
     manifest['flow-tools.js'] = crypto.createHash('sha256').update(fs.readFileSync(dest)).digest('hex');
-    if (fs.existsSync(libDest)) {
-      for (const entry of fs.readdirSync(libDest, { withFileTypes: true })) {
-        if (entry.isFile()) {
-          const filePath = path.join(libDest, entry.name);
-          manifest[`lib/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
-        }
+    function hashTree(base, prefix) {
+      if (!fs.existsSync(base)) return;
+      for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+        const filePath = path.join(base, entry.name);
+        if (entry.isDirectory()) hashTree(filePath, `${prefix}${entry.name}/`);
+        else manifest[`${prefix}${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
       }
     }
-    if (fs.existsSync(agentsDest)) {
-      for (const entry of fs.readdirSync(agentsDest, { withFileTypes: true })) {
-        if (entry.isFile()) {
-          const filePath = path.join(agentsDest, entry.name);
-          manifest[`agents/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
-        }
-      }
-    }
+    hashTree(libDest, 'lib/');
+    hashTree(agentsDest, 'agents/');
     fs.writeFileSync(path.join(toolsDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   } catch {}
 
@@ -286,7 +295,8 @@ function installNodeDeps(toolsDir) {
 
   const deps = ["js-yaml", "web-tree-sitter@0.20.8", "tree-sitter-wasms"];
   const missing = deps.filter(dep => {
-    const depName = dep.split("@")[0];
+    const at = dep.lastIndexOf("@");
+    const depName = at > 0 ? dep.slice(0, at) : dep;
     return !fs.existsSync(path.join(toolsDir, "node_modules", depName));
   });
 
@@ -342,7 +352,8 @@ function resolveTemplates(content) {
 // Source commands stay relative on disk; installed copies become absolute (Windows-safe).
 function absolutizeFlowToolsPath(content) {
   const abs = getFlowToolsAbsPath();
-  return content.replace(/node\s+(?:\.\/)?bin\/flow-tools\.js/g, `node ${abs}`);
+  return content.replace(/node\s+(?:\.\/)?bin\/flow-tools\.js/g, `node ${abs}`)
+                .replace(/node\s+(?:\.\/)?bin\\flow-tools\.js/g, `node ${abs}`);
 }
 
 
@@ -671,23 +682,11 @@ function uninstall(runtime) {
     removed += removeFlowEntries(RUNTIMES.zed.commandsDir);
   }
 
-  // Legacy shim cleanup (best-effort, ignore ENOENT) — use Platform.home for Windows USERPROFILE parity
-  const legacyShims = [
-    path.join(Platform.home, ".config", "opencode", "flow"),
-    path.join(Platform.home, ".claude", "flow"),
-    path.join(Platform.home, ".codex", "flow"),
-    path.join(Platform.home, ".gemini", "antigravity", "flow"),
-    path.join(Platform.home, ".gemini", "antigravity-ide", "flow"),
-  ];
+  // Legacy shim cleanup (single source — legacyShims / LEGACY_FLAT_FILES)
   for (const p of legacyShims) {
     try { if (fs.existsSync(p)) { fs.rmSync(p, { recursive: true, force: true }); removed++; } } catch {}
   }
-  // Also legacy flat files
-  for (const p of [
-    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.js"),
-    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.cmd"),
-    path.join(Platform.home, ".codex", "flow", "flow-tools.js"),
-  ]) {
+  for (const p of LEGACY_FLAT_FILES) {
     try { if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); } } catch {}
   }
 
@@ -804,39 +803,39 @@ async function main() {
   log(""); log(bold("Installing...")); log("");
 
   const targets = resolveTargets(runtime);
-  let commandCount = 0;
-  let skillCount = 0;
-  let agentCount = 0;
+  let totalCommands = 0;
+  let totalSkills = 0;
+  let totalAgents = 0;
   for (const target of targets) {
     try {
       if (target.kind === "codex") {
         const sc = installCodexSkills(target.skillsDir);
         const ac = installCodexAgents(target.agentsDir);
-        if (skillCount === 0) skillCount = sc;
-        if (agentCount === 0) agentCount = ac;
+        totalSkills += sc;
+        totalAgents += ac;
         ok(`${target.label}`);
         ok(`  ${sc} skills + ${ac} agents installed`);
       } else if (target.kind === "commandcode") {
         const sc = installCommandCodeSkills(target.skillsDir);
         const cc = installCommandCodeCommands(target.dir);
         const ac = installCommandCodeAgents(target.agentsDir);
-        if (skillCount === 0) skillCount = sc;
-        if (agentCount === 0) agentCount = ac;
+        totalSkills += sc;
+        totalCommands += cc;
+        totalAgents += ac;
         ok(`${target.label}`);
         ok(`  ${sc} skills + ${cc} commands + ${ac} agents installed`);
       } else if (target.kind === "zed") {
         // Zed shares ~/.agents/skills with Codex — dedup already handled by resolveTargets;
         // if Codex already wrote it, this target was deduped and won't appear when --all.
-        // Standalone --zed still needs to write skills.
         const sc = installCodexSkills(target.skillsDir);
-        if (skillCount === 0) skillCount = sc;
+        totalSkills += sc;
         ok(`${target.label}`);
         ok(`  ${sc} skills installed (shared with Codex)`);
       } else {
         const installedCount = installCommands(target.dir);
-        if (commandCount === 0) commandCount = installedCount;
+        totalCommands += installedCount;
         const ac = installAgents(target.agentsDir);
-        if (agentCount === 0) agentCount = ac;
+        totalAgents += ac;
         ok(`${target.label}`);
         ok(`  ${installedCount} commands + ${ac} agents installed`);
       }
@@ -869,13 +868,15 @@ async function main() {
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   if (runtime === "codex" || runtime === "zed") {
-    log(`  Skills:    ${skillCount} (flow-* skills in .agents/skills)`);
+    log(`  Skills:    ${totalSkills} (flow-* skills in .agents/skills)`);
   } else if (runtime === "commandcode") {
-    log(`  Skills/Commands: ${skillCount} skills + command copies`);
+    log(`  Skills/Commands: ${totalSkills} skills + ${totalCommands} command copies`);
+  } else if (runtime === "all") {
+    log(`  Commands:  ${totalCommands} · Skills: ${totalSkills} · Agents: ${totalAgents}`);
   } else {
-    log(`  Commands:  ${commandCount} (all prefixed /flow-)`);
+    log(`  Commands:  ${totalCommands} (all prefixed /flow-)`);
   }
-  log(`  Agents:    ${agentCount} (@flow-planner, @flow-executor, @flow-reviewer)`);
+  log(`  Agents:    ${totalAgents} (@flow-planner, @flow-executor, @flow-reviewer)`);
   log("");
   log(bold("  Getting started:"));
   log(`  ${dim("New project:")}      /flow-init`);
@@ -930,9 +931,13 @@ function detectInstalledRuntimes() {
   if (!found.commandcode && fs.existsSync(ccSkills) && fs.readdirSync(ccSkills).some(f => f.startsWith("flow-")))
     found.commandcode = true;
 
-  // Zed shares ~/.agents/skills with Codex — same dir, so if Codex has it, Zed is considered installed.
-  // We still check separately for standalone zed installs that may have been done before codex.
-  if (found.codex.skills) found.zed = true;
+  // Zed shares ~/.agents/skills with Codex. Standalone zed detection only when
+  // codex has no skills — otherwise zed is considered installed alongside codex.
+  if (found.codex.skills) {
+    found.zed = true;
+  } else if (fs.existsSync(RUNTIMES.zed.commandsDir) && fs.readdirSync(RUNTIMES.zed.commandsDir).some(f => f.startsWith("flow-"))) {
+    found.zed = true;
+  }
 
   return found;
 }
@@ -1028,22 +1033,11 @@ async function runUpdate() {
     } catch (e) { err(`Zed Editor global failed: ${e.message}`); }
   }
 
-  // ── One-shot legacy shim cleanup (idempotent, ignore ENOENT) — Platform.home for Windows parity
-  const legacyShims = [
-    path.join(Platform.home, ".config", "opencode", "flow"),
-    path.join(Platform.home, ".claude", "flow"),
-    path.join(Platform.home, ".codex", "flow"),
-    path.join(Platform.home, ".gemini", "antigravity", "flow"),
-    path.join(Platform.home, ".gemini", "antigravity-ide", "flow"),
-  ];
+  // One-shot legacy shim cleanup (legacyShims / LEGACY_FLAT_FILES)
   for (const p of legacyShims) {
     try { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); } catch {}
   }
-  for (const p of [
-    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.js"),
-    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.cmd"),
-    path.join(Platform.home, ".codex", "flow", "flow-tools.js"),
-  ]) {
+  for (const p of LEGACY_FLAT_FILES) {
     try { if (fs.existsSync(p)) fs.rmSync(p, { force: true }); } catch {}
   }
 

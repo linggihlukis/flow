@@ -63,7 +63,7 @@ npm test
 The test suite validates:
 - Frontmatter schema for all commands and agents
 - File tree consistency between scaffold, installer, and AGENTS.md
-- Config.json required keys
+- Scaffold required files and state.md schema
 - Agent list consistency
 
 ## Questions?

@@ -451,4 +451,4 @@ if (require.main === module) {
   })
 }
 
-module.exports = { execute, buildIndex, SCHEMA_VERSION }
+module.exports = { execute }

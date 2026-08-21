@@ -114,4 +114,4 @@ function execute(args) {
   throw { code: 'UNKNOWN_COMMAND', message: `Unknown frontmatter subcommand: ${sub}` };
 }
 
-module.exports = { execute, parseFrontmatter, serializeFrontmatter, serializeFrontmatterEOL };
+module.exports = { execute, parseFrontmatter, serializeFrontmatter };

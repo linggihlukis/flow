@@ -3,7 +3,6 @@
 
 const fs   = require('node:fs');
 const path = require('node:path');
-const os   = require('node:os');
 const crypto = require('node:crypto');
 
 const ERROR_CODES = {
@@ -172,7 +171,8 @@ function main() {
 
 // ─── Startup integrity check ─────────────────────────────────────────────────
 function runIntegrityCheck() {
-  const _home = process.platform === 'win32' ? (process.env.USERPROFILE || os.homedir()) : os.homedir();
+  const { Platform } = require('./lib/platform');
+  const _home = Platform.home;
   const manifestPath = path.join(_home, '.flow', 'tools', 'manifest.json');
   if (!fs.existsSync(manifestPath)) return;
 

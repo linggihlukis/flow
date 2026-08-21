@@ -166,4 +166,4 @@ function execute(args) {
   throw { code: 'UNKNOWN_COMMAND', message: `Unknown state subcommand: ${sub}` };
 }
 
-module.exports = { execute, readStateFile, nowISO };
+module.exports = { execute, nowISO };

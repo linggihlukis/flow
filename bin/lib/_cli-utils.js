@@ -82,4 +82,4 @@ function extractPositionalArg(args, knownFlags = KNOWN_VALUED_FLAGS) {
   return null;
 }
 
-module.exports = { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, ERROR_CODES, FlowError, extractPositionalArg };
+module.exports = { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, ERROR_CODES, extractPositionalArg };

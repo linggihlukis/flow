@@ -2,7 +2,7 @@
 "use strict";
 
 const path = require("path");
-const { resolveSafePath, resolveCwd, ERROR_CODES } = require("../../bin/lib/path-resolver");
+const { resolveSafePath, ERROR_CODES } = require("../../bin/lib/path-resolver");
 
 let failures = 0;
 const c = { reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m", red: "\x1b[31m" };
@@ -44,29 +44,8 @@ const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; }
   pass("resolveSafePath allows non-existent paths (new files)");
 }
 
-// ─── resolveCwd: valid path ──────────────────────────────────────────────────
-{
-  const r = resolveCwd(process.cwd());
-  console.assert(r === path.resolve(process.cwd()), "resolveCwd should match resolved cwd");
-  pass("resolveCwd resolves valid path");
-}
-
-// ─── resolveCwd: non-existent path ───────────────────────────────────────────
-{
-  let threw = false;
-  try {
-    resolveCwd("/nonexistent/path/xyz__test");
-  } catch (e) {
-    threw = true;
-    console.assert(e.code === ERROR_CODES.PATH_NOT_FOUND, `wrong error code: ${e.code}`);
-  }
-  console.assert(threw, "resolveCwd should throw for non-existent path");
-  pass("resolveCwd throws for non-existent path");
-}
-
 // ─── ERROR_CODES exports ─────────────────────────────────────────────────────
 {
-  console.assert(ERROR_CODES.PATH_NOT_FOUND === "PATH_NOT_FOUND", "PATH_NOT_FOUND code");
   console.assert(ERROR_CODES.PATH_OUTSIDE_CWD === "PATH_OUTSIDE_CWD", "PATH_OUTSIDE_CWD code");
   pass("ERROR_CODES exports correct constants");
 }

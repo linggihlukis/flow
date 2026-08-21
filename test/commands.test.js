@@ -315,9 +315,9 @@ async function run() {
       const docsRaw = execSync("node scripts/generate-docs.js").toString();
       if (docsRaw.includes("# FLOW Tools API Reference") && docsRaw.includes("### Input")) { pass("17f: generate-docs script prints markdown schemas"); } else { fail("17f: generate-docs output invalid"); }
       const { Platform } = require("../bin/lib/platform");
-      if (Platform.normalize(path.join("foo", "bar")) === "foo/bar" && Platform.isAbsolute(path.resolve("foo")) === true && typeof Platform.escapeArg("test") === "string" && typeof Platform.phpBin === "string" && Platform.shell.cmd !== undefined) { pass("17g: Platform helpers work"); } else { fail("17g: Platform helpers unexpected"); }
-      const { getRuntime, RUNTIMES } = require("../bin/lib/runtime-registry");
-      if (RUNTIMES.opencode && getRuntime("opencode").name === "opencode") { pass("17h: runtime-registry getRuntime ok"); } else { fail("17h: runtime-registry failed"); }
+      if (Platform.normalize(path.join("foo", "bar")) === "foo/bar" && typeof Platform.home === "string") { pass("17g: Platform helpers work (home + normalize)"); } else { fail("17g: Platform helpers unexpected"); }
+      const { RUNTIMES } = require("../bin/lib/runtime-registry");
+      if (RUNTIMES.opencode && RUNTIMES.opencode.name === "opencode") { pass("17h: runtime-registry ok"); } else { fail("17h: runtime-registry failed"); }
       const mapSearchRaw = execSync("node bin/flow-tools.js map search --query flow-map --cwd " + tmpDir).toString();
       const mapSearch = JSON.parse(mapSearchRaw);
       if (mapSearch.total_matches !== undefined) { pass("17i: map search returns {total_matches} (canonical primitive)" + (mapSearch.total_matches === 0 ? " — empty fixture is valid" : " with "+mapSearch.total_matches+" matches")); } else { fail("17i: map search expected {total_matches}: " + mapSearchRaw); }

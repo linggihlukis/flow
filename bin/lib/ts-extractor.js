@@ -396,21 +396,9 @@ function extractFromFile(flaggedPatterns, source, tree, lang) {
 }
 
 module.exports = {
-  initParser,
   extractFromFile,
-  extractPHP,
-  extractJS,
-  extractTS,
-  extractPython,
-  extractRuby,
-  extractGo,
-  extractJava,
-  extractRust,
-  extractGeneric,
   isParserAvailable,
   createLanguageParsers,
-  getSupportedLanguages,
   findWasmDir,
-  MAX_AST_DEPTH,
   KB,
 };

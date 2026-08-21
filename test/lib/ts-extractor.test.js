@@ -6,19 +6,7 @@ async function run() {
   const { pass, fail, suite, getFailures } = createReporter();
   suite("ts-extractor unit tests");
 
-  // Test 1: getSupportedLanguages
-  try {
-    const langs = tsExtractor.getSupportedLanguages();
-    if (Array.isArray(langs) && langs.includes("javascript")) {
-      pass("getSupportedLanguages returns correct languages array");
-    } else {
-      fail("getSupportedLanguages returned invalid array: " + JSON.stringify(langs));
-    }
-  } catch (e) {
-    fail("getSupportedLanguages failed: " + e.message);
-  }
-
-  // Test 2: findWasmDir
+  // Test 1: findWasmDir
   try {
     const wasmDir = tsExtractor.findWasmDir();
     if (wasmDir && typeof wasmDir === "string") {
@@ -30,7 +18,7 @@ async function run() {
     fail("findWasmDir failed: " + e.message);
   }
 
-  // Test 3: isParserAvailable
+  // Test 2: isParserAvailable
   try {
     const avail = tsExtractor.isParserAvailable();
     if (typeof avail === "boolean") {
@@ -42,7 +30,7 @@ async function run() {
     fail("isParserAvailable failed: " + e.message);
   }
 
-  // Test 4: createLanguageParsers and extractFromFile
+  // Test 3: createLanguageParsers and extractFromFile
   if (tsExtractor.isParserAvailable()) {
     try {
       const wasmDir = tsExtractor.findWasmDir();
