@@ -3,7 +3,6 @@ const fs   = require('node:fs');
 const path = require('node:path');
 const { resolveSafePath } = require('./path-resolver');
 const { output, exitErr, getCwd } = require('./_cli-utils');
-const { parseFrontmatter } = require('./frontmatter');
 
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function extractField(body, fieldName) {
@@ -48,10 +47,8 @@ function cmdTaskValidate(args) {
     const basename = path.basename(filePath);
     const errors = [];
     if (!lines.some(l => /^## Context\b/.test(l))) errors.push(`${basename}: missing ## Context`);
-    if (!lines.some(l => /^## Read First\b/.test(l))) errors.push(`${basename}: missing ## Read First`);
-    if (!lines.some(l => /^## Implementation Steps\b/.test(l))) errors.push(`${basename}: missing ## Implementation Steps`);
     if (!lines.some(l => /^## Files\b/.test(l))) errors.push(`${basename}: missing ## Files`);
-    if (!lines.some(l => /^## Verify$/.test(l))) errors.push(`${basename}: missing exact ## Verify`);
+    if (!lines.some(l => /^## Verify$/.test(l))) errors.push(`${basename}: missing ## Verify`);
     if (!lines.some(l => /^## Done Condition\b/.test(l))) errors.push(`${basename}: missing ## Done Condition`);
     if (!lines.some(l => /^\*\*Depends on:\*\*/.test(l))) errors.push(`${basename}: missing **Depends on:**`);
     const depLine = lines.find(l => /^\*\*Depends on:\*\*/.test(l));
@@ -64,38 +61,20 @@ function cmdTaskValidate(args) {
         }
       }
     }
-    const fm = parseFrontmatter(content);
-    if (fm) {
-      const fmDeps = fm.depends_on || fm['Depends on'] || [];
-      const depsArray = typeof fmDeps === 'string'
-        ? (fmDeps === 'none' ? [] : [fmDeps])
-        : (Array.isArray(fmDeps) ? fmDeps : []);
-      for (const dep of depsArray) {
-        if (typeof dep === 'string' && !/^(none|task-\d+)$/i.test(dep.trim())) {
-          errors.push(`${basename}: frontmatter depends_on value '${dep}' is not 'none' or 'task-NN'`);
-        }
-      }
-    }
     const verifyIdx = lines.findIndex(l => /^## Verify$/.test(l));
     if (verifyIdx >= 0) {
       const verifyLines = lines.slice(verifyIdx + 1);
-      const firstContent = verifyLines.find(l => l.trim() && !l.trim().startsWith('>') && !l.trim().startsWith('_'));
-      if (firstContent) { const t = firstContent.trim(); if (!t.startsWith('`') && !t.startsWith('```') && !t.startsWith('node ') && !t.startsWith('flow-tools ')) errors.push(`${basename}: ## Verify first content line does not start with a shell token`); }
-      else errors.push(`${basename}: ## Verify has no content`);
-      const proseLines = verifyLines.filter(l => { const t = l.trim(); return t.length > 0 && !t.startsWith('`') && !t.startsWith('>') && !t.startsWith('_') && !t.startsWith('-') && !t.startsWith('#'); });
-      const longProse = proseLines.filter(l => l.trim().length > 100);
-      if (longProse.length > 0) errors.push(`${basename}: ## Verify contains prose (${longProse.length} long non-shell lines) — verify commands must use shell tokens`);
+      const hasContent = verifyLines.some(l => l.trim() && !l.trim().startsWith('>') && !l.trim().startsWith('_'));
+      if (!hasContent) errors.push(`${basename}: ## Verify has no content`);
     }
     const filesIdx = lines.findIndex(l => /^## Files\b/.test(l));
     if (filesIdx >= 0) {
       const filePaths = lines.slice(filesIdx + 1).filter(l => /^\s*[-*]\s+\S+/.test(l) || /^\s*\S+/.test(l)).map(l => l.replace(/^\s*[-*]\s+/, '').trim()).filter(p => p && !p.startsWith('##'));
       if (filePaths.length === 0) errors.push(`${basename}: ## Files has no file paths listed`);
     }
-    const titleMatch = content.match(/^#\s+(.+)$/m);
-    const numFromTitle = basename.match(/task-(\d+)/)?.[1];
-    if (titleMatch && numFromTitle && !titleMatch[1].includes(numFromTitle)) errors.push(`${basename}: title '${titleMatch[1]}' does not reference task number ${numFromTitle}`);
     const implIdx = lines.findIndex(l => /^## Implementation Steps\b/.test(l));
-    if (implIdx >= 0) { const steps = lines.slice(implIdx + 1).filter(l => /^\s*\d+\.\s/.test(l)); if (steps.length < 2) errors.push(`${basename}: ## Implementation Steps has ${steps.length} step(s) — minimum 2 required`); }
+    if (implIdx < 0) errors.push(`${basename}: missing ## Implementation Steps`);
+    else { const steps = lines.slice(implIdx + 1).filter(l => /^\s*\d+\.\s/.test(l) || /^###\s+Step\b/.test(l)); if (steps.length < 1) errors.push(`${basename}: ## Implementation Steps has no steps — minimum 1 required`); }
     return { valid: errors.length === 0, file: basename, errors };
   }
 

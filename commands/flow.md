@@ -50,12 +50,12 @@ Delegate to `@flow-reviewer` — reads tasks cold, three behaviors:
 
 1. Critic — 8-rule + VERIFY_DEPTH flag check
 2. Verifier — must-deliver evidence (`files check`, `map search`, read-only verifies)
-3. Debugger — on fail, diagnose root cause → write `tasks/fix-XX.md` + return
+3. Debugger — on fail, diagnose root cause → revise `tasks/task-XX.md` in place + return (no `fix-XX.md`)
 
 Output: `## Reviewer Report — work-item-NNN` ending `Recommendation: accepted | revise` + `Memory: updated | skipped`.
 
 - `accepted` → Reviewer (single writer) curates `Facts/Decisions/Lessons` into `.flow/memory.md` (<150 lines), sets `state.md status: complete`.
-- `revise` → back to Executor for fix tasks; re-review.
+- `revise` → back to Executor for revised task; re-review.
 
 ## State
 

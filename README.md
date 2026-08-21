@@ -72,7 +72,7 @@ Most AI coding tools are fast at the start and chaotic by week two. They lose co
 
 Flow is built on the opposite premise: **the discipline lives in the system, not in you.**
 
-Every session starts the same way — state is read, relevant lessons are surfaced, the handoff from the last phase is loaded. Every task is checked against a fixed set of atomic rules before a single line of code is written. Every commit is one task. Every failure gets a root cause, a fix task, and a lesson appended to persistent memory. By the time you're at phase 8 of a mature project, Flow is running with more context about your codebase than any developer could hold in their head.
+Every session starts the same way — `state.md` + `memory.md` + `map.json` are read and the handoff from the last Work Item is loaded. Every task must satisfy the minimal contract (`Context / Files / Verify / Done Condition / Depends on`) with the 8 atomic rules as advisory guidance — enforced strictly only for shared/auth/migration/refactor archetypes. Every commit is one task. Every failure gets a root cause and a revised task in place, with durable lessons curated into `memory.md` at `accepted`. By the second Work Item, Flow is running with more context about your codebase than any developer could hold in their head.
 
 This works equally well on greenfield projects and legacy codebases. On clean codebases, Flow keeps them clean. On messy codebases, it maps the mess accurately and works within it — rather than pretending it isn't there.
 
@@ -191,15 +191,15 @@ bin/
     ├── files.js              ← File existence + metadata checks
     ├── audit.js              ← .flow integrity (state.md + work-items/ + map.json)
     ├── flow-map.js           ← File-level index + search (flow-map-v1, WASM opt-in)
-    ├── task.js               ← Task file validation (8-rule)
+    ├── task.js               ← Task file validation (minimal contract; 8-rule is advisory)
     └── ts-extractor.js       ← Tree-sitter extractors (opt-in via --symbols)
 ```
 
 **Key design properties:**
 - **Deterministic:** All tools are pure functions — same input always produces same output
 - **Cross-platform:** Every path is normalized to forward slashes; Windows shell is handled correctly
-- **Cached:** In-process LRU cache eliminates redundant disk reads during batch operations
-- **Validated:** Every subcommand has a JSON Schema contract checked at the dispatcher level
+- **Cached:** In-process LRU for `state.md` reads (single-file, mtime-guarded) — minimal batch cost
+- **Validated:** Lightweight flag guard at dispatcher level; real validation lives in each `lib/` primitive (e.g. task minimal contract)
 - **Runtimes:** Skills/commands invoke absolute `~/.flow/tools/flow-tools.js` directly at install time (no per-runtime shim); only `[flow-version]` is templated
 
 ---
@@ -212,7 +212,7 @@ One-time per repo. Detects greenfield vs brownfield, runs `map index` (file-leve
 
 **2. Plan — `/flow "goal"` → Plan**
 
-`@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md` with 8-rule self-check. Each task has one deliverable, one `Verify` (runnable shell command, non-zero on fail), `Depends on: none|task-NN`.
+`@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md` with minimal-contract validation (8-rule is advisory, enforced strictly only for shared/auth/migration/refactor). Each task has one deliverable, one `Verify` (runnable, non-zero on fail), `Depends on: none|task-NN`.
 
 **3. Execute — `/flow` → Execute**
 
@@ -220,7 +220,7 @@ One-time per repo. Detects greenfield vs brownfield, runs `map index` (file-leve
 
 **4. Review — `/flow` → Review**
 
-`@flow-reviewer` reads tasks cold — three behaviors: Critic (8-rule), Verifier (must-deliver evidence via `files check` / `map search`), Debugger (trace → hypothesis → `fix-XX.md`). Ends `accepted` (curates `Facts/Decisions/Lessons` into `.flow/memory.md`, sets `state complete`) or `revise` (back to Executor).
+`@flow-reviewer` reads tasks cold — three behaviors: Critic (minimal contract + 8-rule advisory), Verifier (must-deliver evidence via `files check` / `map search`), Debugger (trace → hypothesis → revise `task-XX.md` in place). Ends `accepted` (curates `Facts/Decisions/Lessons` into `.flow/memory.md`, sets `state complete`) or `revise` (back to Executor).
 
 ---
 
@@ -238,18 +238,18 @@ Every intensive operation is handled by a subagent with a focused context window
 
 `@flow-reviewer` reads every task cold — no session history. It combines 8-rule plan review, must-deliver evidence verification, and debugger diagnosis. This preserves a fresh perspective without maintaining separate critic, verifier, and debugger agents.
 
-It checks 8 atomic rules, strictly:
+It checks the minimal contract strictly (`## Context` / `## Files` / `## Verify` / `## Done Condition` / `**Depends on:**` + `Files` non-empty + `Verify` non-empty). The 8 atomic rules below are advisory guidance for larger tasks — the validator does not block tiny Work Items on them:
 
-1. **Single deliverable** — exactly one independently verifiable output
+1. **Single deliverable** — one independently verifiable output
 2. **Single context** — no switching between unrelated systems
-3. **Verifiable done condition** — binary pass/fail only; "looks correct" is not valid
-4. **Minimum file scope** — only files that must change, nothing adjacent
-5. **Safe failure** — the codebase must survive a midway stop
-6. **No assumed context** — an executor with a fresh window must be able to run this task from the file alone
-7. **Context window fit** — scope must fit in one agent session
-8. **Nyquist rule** — the verify field must be a real shell command that exits non-zero on failure; existence checks do not satisfy this for modification tasks
+3. **Verifiable done condition** — binary pass/fail
+4. **Minimum file scope** — only files that must change
+5. **Safe failure** — survives a midway stop
+6. **No assumed context** — fresh executor can run from file + `Read First` + source
+7. **Context window fit** — fits one agent session
+8. **Nyquist rule** — `Verify` is runnable, non-zero on failure
 
-Tasks that fail get rewritten before execution begins. There is no override.
+Tasks that fail the minimal contract get rewritten before execution begins. There is no override.
 
 ### Runtime support
 
@@ -413,9 +413,7 @@ project-root/
             ├── work-item.md               ← the contract (goal, constraints, done condition)
             ├── plan.md                    ← the solution record
             └── tasks/
-                ├── task-XX.md             ← atomic task (8-rule, Verify is runnable)
-                ├── fix-XX.md              ← debugger fix task (if needed)
-                └── summary-XX.md          ← executor report
+                └── task-XX.md             ← atomic task (Verify is runnable; revise in place on fix)
 ```
 
 > **Runtime tools:** `~/.flow/tools/` (outside your project, managed by the installer) holds `flow-tools.js` and its npm dependencies. Do not commit or edit manually.

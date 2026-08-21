@@ -5,3 +5,4 @@ test/
 /.flow/
 /AGENTS.md
 HANDOVER.md
+.context/

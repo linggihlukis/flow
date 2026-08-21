@@ -8,7 +8,7 @@
 Files: `.flow/{state.md,memory.md,map.json}` + `.flow/work-items/work-item-NNN/{work-item.md,plan.md,tasks/task-XX.md}`; `AGENTS.md` outside `.flow/`.
 
 Agents (3):
-- `@flow-planner` (research is part of planning → generates `plan.md` + `tasks/task-XX.md` with 8-rule self-check)
-- `@flow-executor` (one task: Read → Change → Verify → Report)
-- `@flow-reviewer` (8-rule + verifier gap check + debugger fix-task; single writer of `.flow/memory.md` at `accepted`)
+- `@flow-planner` (research is part of planning → generates `plan.md` + `tasks/task-XX.md` with minimal-contract validation; 8-rule is advisory)
+- `@flow-executor` (one task: Read → Change → Verify → Report; git is the handoff — no summary file)
+- `@flow-reviewer` (minimal-contract gate + verifier gap check + debugger revise-in-place; single writer of `.flow/memory.md` at `accepted`)
 <!-- flow:generated:end -->

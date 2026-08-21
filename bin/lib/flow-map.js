@@ -298,21 +298,7 @@ async function buildIndexWithSymbols(options, base) {
     for (const ext of exts) EXT_TO_LANG[ext] = lang
   }
 
-  const flaggedPatterns = []
-  const patternsPath = path.join(options.root, '.flow/codebase/patterns.md')
-  if (fs.existsSync(patternsPath)) {
-    const content = fs.readFileSync(patternsPath, 'utf8')
-    const sections = ['Do Not Change', 'Known Technical Debt', 'Global: Do Not Change', 'Global: Known Technical Debt']
-    let inSection = false
-    for (const line of content.split('\n')) {
-      if (line.startsWith('## ')) inSection = sections.some(s => line.includes(s))
-      if (inSection && line.startsWith('- ')) {
-        const ids = line.match(/[A-Z][a-zA-Z]+Id\b|[A-Z][A-Z_]{2,}\b/g)
-        if (ids) flaggedPatterns.push(...ids)
-      }
-    }
-  }
-  const flagged = [...new Set(flaggedPatterns)]
+  const flagged = []
 
   base.indexer.symbols = true
   // Remove the v1 limitation about symbols omitted when symbols enabled
@@ -427,7 +413,7 @@ function cmdSearch(args) {
       matches.push({ path: filePath, language: entry.language || null, matched_path: fileHit, matched_functions: funcHits, matched_classes: classHits, matched_includes: includeHits })
     }
   }
-  return output({ query, max_results: maxResults, total_matches: matches.length, repo_map_size_kb: repoMap.treesitter_health?.repo_map_size_kb || null, matches })
+  return output({ query, max_results: maxResults, total_matches: matches.length, repo_map_size_kb: null, matches })
 }
 
 function execute(args) {

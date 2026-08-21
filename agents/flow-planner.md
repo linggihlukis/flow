@@ -69,18 +69,22 @@ node bin/flow-tools.js map search --query "<expected_symbol>" --max-results 5
 4. **Confidence** — every task `## Context` has `**Confidence:** HIGH | MEDIUM | LOW` (+ `**Reason:**` if not HIGH). HIGH = grep-confirmed refs + exact anchors, no open unknowns.
 5. **VERIFY_DEPTH** — every task has `VERIFY_DEPTH: shallow | deep`. Use `deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor, or final task of a wave with ≥3 parallel tasks. Note reason in comment.
 6. **Complexity** — every task `**Complexity:** simple | moderate | complex` (highest-factor wins). `complex` if ≥5 files or ≥2 zones or `deep`.
-7. **8-rule self-check** — before writing each task file, check it against the 8 atomic rules (see below). Rewrite the draft task until it passes. Reviewer will re-check cold.
+7. **Self-check** — before writing each task file, check it against the minimal contract + 8-rule advisory below. The validator enforces only the minimal contract — the 8 rules are guidance for larger tasks, so tiny one-line Work Items aren't penalised. Rewrite the draft until the minimal contract passes; apply the 8 rules proportionally.
 
-## The 8 atomic rules (self-check before you write)
+## Minimal contract (validator-enforced)
 
-Apply strictly — do not rationalise edge cases:
+Every task must have: `## Context`, `## Files` (≥1 path), `## Verify` (≥1 line), `## Done Condition`, `**Depends on:** none|task-NN`. `Requires`: `## Implementation Steps` has ≥1 numbered step. Tiny tasks may omit `## Read First` / dedicated `## Scope` — the planner contract still recommends them for non-trivial tasks.
+
+## 8 atomic rules (advisory — apply proportionally, not as a hard gate)
+
+Use as a self-check, not a blocking schema. Enforce strictly for tasks touching shared/auth/migration/refactor archetypes; lighten for trivial one-line fixes:
 
 1. **Single deliverable** — exactly one independently verifiable output.
 2. **Single context** — no switching between unrelated systems in one task.
 3. **Verifiable done condition** — `Done Condition` is binary pass/fail only.
 4. **Minimum file scope** — `Files` lists only files this task must create/modify.
 5. **Safe failure** — codebase not left broken if task fails midway (migrations need rollback).
-6. **No assumed context** — executor with a fresh window can run this from `task file + Read First + source`. Modification tasks must include verbatim surrounding lines as the anchor; new-file tasks must include exact path + export signatures + import paths + call site(s).
+6. **No assumed context** — executor with a fresh window can run this from `task file + Read First + source` when present; tiny tasks may rely on `Context` + inline anchor alone.
 7. **Context window fit** — scope fits in one agent session (~≤5 files modified).
 8. **Nyquist rule** — `Verify` is a real runnable shell command that returns non-zero on failure. For modification tasks, the command must prove the change (grep/diff/test), not just file existence.
 
@@ -137,7 +141,7 @@ VERIFY_DEPTH: shallow | deep
 
 ## Rules
 
-Every task must satisfy all 8 atomic rules. If a work item touches a low-confidence area flagged in `memory.md`, add to `plan.md ## Unknowns` and do not plan that area without developer clarification unless `work-item.md` explicitly grants permission.
+Every task must satisfy the **minimal contract** above. The 8 atomic rules are advisory — enforce strictly only for shared/auth/migration/refactor tasks; lighten for trivial one-line fixes. If a work item touches a low-confidence area flagged in `memory.md`, add to `plan.md ## Unknowns` and do not plan that area without developer clarification unless `work-item.md` explicitly grants permission.
 
 ## Return
 

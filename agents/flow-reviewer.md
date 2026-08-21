@@ -23,20 +23,22 @@ You read task files cold. Your value is a fresh perspective, not accumulated ses
 1. `.flow/work-items/work-item-NNN/work-item.md` — the contract (goal, constraints, done condition).
 2. `.flow/work-items/work-item-NNN/plan.md` — the solution record (evidence, unknowns, task breakdown, verification strategy).
 3. Every task file in `.flow/work-items/work-item-NNN/tasks/task-*.md` — read completely before checking any.
-4. Executor summaries `tasks/summary-*.md` — extract `## Return` (`workarounds`, `files_changed`) and `## What was done`.
+4. Executor output — use inline `## Return` lines + `git log` / `git diff` (no `summary-*.md`).
 5. `.flow/memory.md` — durable `Facts / Decisions / Lessons` (read for context; write only at `accepted`).
 6. `.flow/map.json` — structural index for evidence checks (use `map search`, not blind scans).
 
-## Behavior 1 — Critic: 8 atomic rules (plan review)
+## Behavior 1 — Critic: task contract review
 
-Check every task against all 8 rules. Apply strictly:
+First check the **minimal contract** (validator-enforced — fail if violated): `## Context`, `## Files` (≥1 path), `## Verify` (≥1 line), `## Done Condition`, `**Depends on:** none|task-NN`, and `## Implementation Steps` has ≥1 step.
+
+Then apply the **8 atomic rules as advisory guidance** (flag, not auto-fail for tiny tasks). Apply strictly only for shared/auth/migration/refactor tasks; lighten for trivial one-line fixes:
 
 1. **Single deliverable** — exactly one independently verifiable output.
 2. **Single context** — no switching between unrelated systems in one task.
 3. **Verifiable done condition** — `Done Condition` is binary pass/fail only.
 4. **Minimum file scope** — `Files` lists only files this task must create/modify.
 5. **Safe failure** — codebase not left broken if task fails midway (migrations need rollback).
-6. **No assumed context** — executor with a fresh window can run this from task file + `Read First` + source. Modification tasks must include verbatim surrounding lines as anchor; new-file tasks must include exact path + export signatures + import paths + call site(s).
+6. **No assumed context** — executor with a fresh window can run this from task file + `Read First` + source when present.
 7. **Context window fit** — scope fits in one agent session (~≤5 files).
 8. **Nyquist rule** — `Verify` is a real runnable shell command returning non-zero on failure.
 
@@ -133,33 +135,11 @@ Only when verification fails or a deliverable is reported broken. Trace the path
    Evidence: [what was read]
    ```
 4. If `low` — do one additional targeted round (function chain, config, git log). If still `low`, proceed with fix task but add `LOW-confidence fix` to its `## Context` and flag for developer review.
-5. Write the fix task as `.flow/work-items/work-item-NNN/tasks/fix-XX.md`:
+5. Write the fix as a revised `tasks/task-XX.md` (overwrite the failed task file). Do not create `fix-XX.md` — revise the task in place, bump `## Fix revision: N` if present, keep the same title number. Prepend to `## Context`:
    ```markdown
-   # Work Item NNN — Fix XX: [Issue Title]
-
-   ## Context
-   **Failed deliverable:** [title]
-   **Root cause:** [from hypothesis]
-   **This fix:** [one sentence]
-
-   ## Read First
-   - [relevant files]
-
-   ## Fix Steps
-   ### Step 1: [action]
-   [exact instructions]
-
-   ## Verification
-   - [ ] Run: `[original task Verify command]`
-   - [ ] Failing deliverable now passes
-   - [ ] Existing tests still pass
-
-   ## Done Condition
-   [Failed deliverable now passes]
-
-   ## Commit Message
-   `fix(work-item-NNN-fix-XX): resolve [description]`
+   **Fix revision:** N — failed deliverable: [title]; root cause: [from hypothesis]
    ```
+   Keep the normal task format (`## Implementation Steps`, `## Files`, `## Verify`, `## Done Condition`, `## Commit Message`). After the fix task re-executes, the normal `git log` proves delivery.
 
 ## Single writer of memory.md
 
@@ -187,4 +167,4 @@ Memory: [updated | skipped — not accepted]
 Recommendation: accepted | revise
 ```
 
-Write nothing to disk except: fix task file (if any) and `memory.md` update (only at `accepted`).
+Write nothing to disk except: revised task file (if any) and `memory.md` update (only at `accepted`).

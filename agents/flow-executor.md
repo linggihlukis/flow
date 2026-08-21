@@ -60,7 +60,7 @@ After implementation, before committing:
 git diff --name-only
 ```
 
-The task summary is written after commit, as defined below; it is not part of the task implementation scope.
+The commit above is the handoff — git is the source of truth. No summary file is written.
 
 If files appear that were not in your announced list, flag them:
 
@@ -80,46 +80,17 @@ git commit -m "type(work-item-NNN-task-XX): description"
 
 Never batch tasks. Never commit broken code. One task = one commit.
 
-## Write task summary
-
-After committing (or after verify when not committed), write `.flow/work-items/work-item-NNN/tasks/summary-XX.md`:
-
-```markdown
-# Work Item NNN — Task XX Summary: [Task Title]
-
-**Committed:** [hash from git rev-parse HEAD, or `none` if not committed]
-**Completed:** [ISO 8601 datetime]
-
-## What was done
-[2-4 sentences — what was actually implemented]
-
-## Files changed
-[output of git diff HEAD~1 --name-only or git diff --name-only]
-
-## Workarounds
-[None — or deviation and reason]
-
-## Verify result
-[verify command] -> passed | failed
-```
-
 ## Report
 
 ```
 [task title] — [commit hash]
 Verify: passed
 Files touched: [list]
-Summary: .flow/work-items/work-item-NNN/tasks/summary-XX.md
+Workarounds: none | [description]
 ```
 
-Append a `## Return` block to the summary file:
+No summary file is written. Git is the source of truth — `git log --oneline -1` + `git diff HEAD~1 --name-only` + the commit above is the handoff. If the orchestrator needs machine-readable output, emit one `## Return` line inline in the report (do not write a file):
 
-```markdown
-## Return
-status: complete | failed
-task: [task file path]
-commit: [hash]
-files_changed: ["path/one", "path/two"]
-workarounds: "none" | "[description]"
-summary_path: .flow/work-items/work-item-NNN/tasks/summary-XX.md
+```
+## Return status: complete|failed task: [task file path] commit: [hash]
 ```

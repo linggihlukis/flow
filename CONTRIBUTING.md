@@ -52,7 +52,7 @@ Flow is a Work Item system — `Work Item → Plan → Execute → Review`.
 - 6 primitives only: `state/frontmatter/files/map/task/audit` — no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
 - `test/flow-test.js` has inline canonical data — update both the test and the source when paths change.
 - Keep `agents/flow-reviewer.md` task reads cold — context isolation is the point.
-- Executor summary write step order: between Commit and Report. Do not move it.
+- Executor has no `summary-XX.md` — git log is the handoff. Do not reintroduce per-task summary files.
 
 ## Testing
 
