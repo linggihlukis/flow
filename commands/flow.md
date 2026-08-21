@@ -32,7 +32,8 @@ If `status: planned|in-progress|in-review`, continue that Work Item — do not c
 Delegate to `@flow-planner` (research is part of planning — no separate researcher):
 
 - Reads `work-item.md` + `.flow/map.json` (search via `map search`) + `.flow/memory.md` + source (verbatim anchors).
-- Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md` (8-rule self-check, `Verify` is runnable shell command).
+- Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md` using the minimal enforced task contract. `Verify` must be a runnable shell command.
+- The 8 atomic rules are advisory guidance. Apply them strictly only where the work is shared, risky, or otherwise warrants deeper planning.
 
 Gate: if `map.json` stale (`git_commit` drift vs `HEAD`), note in `plan.md ## Unknowns` — do not silently re-index (ask `/flow-map`).
 
@@ -48,7 +49,7 @@ For each `tasks/task-XX.md` in dependency order (wave when `Depends on` allows):
 
 Delegate to `@flow-reviewer` — reads tasks cold, three behaviors:
 
-1. Critic — 8-rule + VERIFY_DEPTH flag check
+1. Critic — checks the minimal enforced task contract, then applies the 8 atomic rules as advisory guidance; `VERIFY_DEPTH` is also advisory.
 2. Verifier — must-deliver evidence (`files check`, `map search`, read-only verifies)
 3. Debugger — on fail, diagnose root cause → revise `tasks/task-XX.md` in place + return (no `fix-XX.md`)
 
