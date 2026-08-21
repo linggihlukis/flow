@@ -2,7 +2,7 @@
   "name": "@linggihlukis/flow",
   "version": "0.4.0",
   "author": "Linggih Lukis <linggihlukis@gmail.com> (https://github.com/linggihlukis)",
-  "description": "Flow — spec-driven agentic development workflow for solo developers.",
+  "description": "Flow — disciplined AI-assisted development workflow for real codebases.",
   "bin": {
     "flow": "bin/install.js"
   },
@@ -19,7 +19,8 @@
     "ai-workflow",
     "codex",
     "opencode",
-    "claude-code",
+    "commandcode",
+    "zed",
     "context-engineering",
     "spec-driven-development",
     "solo-developer",
