@@ -54,25 +54,41 @@ async function run() {
     }
   }
 
-  // Suite 8
-  suite("Suite 8 — Codex runtime install coverage");
+  // Suite 8 — global-only 4 runtimes (replaces local/antigravity coverage)
+  suite("Suite 8 — global-only 4-runtimes install coverage");
   const installSource = readFile(path.join(ROOT, "bin", "install.js"));
-  // Retired 6-agent verifier contract is now absorbed into flow-reviewer.md
-  // Validate that the single writer agent exists and is not write-restricted
   const reviewerSource = readFile(path.join(AGENTS, "flow-reviewer.md"));
+
+  // 8a — runtime flags: 4 runtimes + all, no claude/antigravity/local
   if (
     installSource.includes("--opencode") &&
-    installSource.includes("--claude") &&
     installSource.includes("--codex") &&
-    installSource.includes("--antigravity") &&
+    installSource.includes("--commandcode") &&
+    installSource.includes("--zed") &&
     installSource.includes("--all")
   ) {
-    pass("install.js exposes all runtime flags");
+    pass("install.js exposes 4 runtime flags + --all");
   } else {
-    fail("install.js is missing one or more runtime flags");
+    fail("install.js is missing one of --opencode/--codex/--commandcode/--zed/--all");
   }
+  if (!installSource.includes("resolveFlag([\"--opencode\",\"--claude\"") && !installSource.includes("--claude") || installSource.includes("DELETED_FLAGS") && installSource.includes("--claude")) {
+    // Deleted flags must be in DELETED_FLAGS, not in active flagRuntime
+    const hasActiveClaude = /flagRuntime\s*=\s*resolveFlag\(\[.*--claude/.test(installSource);
+    if (!hasActiveClaude) pass("install.js no longer exposes --claude/--antigravity as active runtime flags (moved to DELETED_FLAGS)");
+    else fail("install.js still exposes --claude as active runtime flag");
+  } else {
+    // fallback simple check
+    if (installSource.includes("DELETED_FLAGS") && installSource.includes("--claude")) pass("install.js guards deleted --claude via DELETED_FLAGS");
+    else fail("install.js deleted-flag guard missing for --claude");
+  }
+  // 8b — no local/global location flag as active mode
+  if (installSource.includes("DELETED_FLAGS") && installSource.includes("--global") && installSource.includes("--local")) {
+    pass("install.js guards deleted --global/--local flags (global is only mode)");
+  } else {
+    fail("install.js missing deleted-flag guard for --global/--local");
+  }
+  // 8c — argv compatibility still present
   if (
-    installSource.includes('"--global","-g","--local","-l"') &&
     installSource.includes("function parseNpmConfigArgv()") &&
     installSource.includes("function envFlag(name)") &&
     installSource.includes("function resolveFlag(names)") &&
@@ -83,33 +99,91 @@ async function run() {
   } else {
     fail("install.js is missing full install-flag compatibility coverage");
   }
-  if (
-    installSource.includes("const RUNTIME_CHOICES = [") &&
-    installSource.includes('{ label: "Codex App / CLI / Zed Editor",                value: "codex" }') &&
-    installSource.includes('runtime = await prompt("Which runtime?", RUNTIME_CHOICES);')
-  ) {
-    pass("runtime prompt includes Codex via the shared runtime choices list");
+  // 8d — RUNTIME_CHOICES is exactly 5 rows (4 + all), dedup note for zed
+  const runtimeChoicesBlock = installSource.slice(installSource.indexOf("const RUNTIME_CHOICES"), installSource.indexOf("const RUNTIME_CHOICES") + 600);
+  const choiceCount = (runtimeChoicesBlock.match(/value:\s*"/g) || []).length;
+  if (choiceCount === 5 && runtimeChoicesBlock.includes('value: "opencode"') && runtimeChoicesBlock.includes('value: "codex"') && runtimeChoicesBlock.includes('value: "commandcode"') && runtimeChoicesBlock.includes('value: "zed"') && runtimeChoicesBlock.includes('value: "all"')) {
+    pass("RUNTIME_CHOICES has 5 rows: opencode, codex, commandcode, zed, all");
   } else {
-    fail("runtime prompt is missing the shared Codex choice");
+    fail(`RUNTIME_CHOICES should have 5 rows (opencode/codex/commandcode/zed/all), got ${choiceCount}`);
   }
-  if (installSource.includes("installCodexSkills") && installSource.includes("installCodexAgents")) {
-    pass("install.js defines Codex skill and agent installers");
+  if (installSource.includes('runtime = await prompt("Which runtime?", RUNTIME_CHOICES);')) {
+    pass("runtime prompt uses shared RUNTIME_CHOICES list");
   } else {
-    fail("install.js is missing Codex skill or agent installers");
+    fail("runtime prompt is missing the shared RUNTIME_CHOICES choice");
   }
-  if (
-    installSource.includes("function installAntigravity(baseDir, runtimeName, location)") &&
-    installSource.includes("antigravity: { global: false, local: false },") &&
-    installSource.includes("installed.antigravity.global") &&
-    installSource.includes("installed.antigravity.local")
-  ) {
-    pass("install.js supports local-scoped antigravity and antigravity-ide runtimes");
+  // 8e — no per-runtime bridge / shim
+  if (!installSource.includes("createRuntimeBridge") && !installSource.includes("installAntigravity") && !installSource.includes("getLocalCodex") && !installSource.includes("getGlobalClaudeDir") && !installSource.includes("getGlobalAntigravity")) {
+    pass("install.js has no createRuntimeBridge / installAntigravity / getLocal / getGlobalClaude helpers (global-only, single home)");
   } else {
-    fail("install.js is missing local-scoped antigravity or antigravity-ide support");
+    fail("install.js still contains per-runtime bridge / antigravity / local helpers");
+  }
+  if (!installSource.includes("[flow-tools-path]") && !installSource.includes("[flow-tools-dir]") && !installSource.includes("[flow-pkg-dir]") && !installSource.includes("FLOW_TOOLS_PATH")) {
+    pass("install.js resolveTemplates only keeps [flow-version] (no [flow-tools-path] shim)");
+  } else {
+    fail("install.js still contains [flow-tools-path] shim placeholders");
+  }
+  // 8f — registry: 4 entries, no toolsDir, codex+zed dedup
+  try {
+    const { RUNTIMES } = require("../bin/lib/runtime-registry");
+    const keys = Object.keys(RUNTIMES);
+    if (keys.length !== 4) fail(`RUNTIMES length ${keys.length} !== 4`);
+    else pass("runtime-registry has 4 entries");
+    if (RUNTIMES.claude || RUNTIMES.antigravity || RUNTIMES["antigravity-ide"]) fail("runtime-registry still has claude/antigravity entries");
+    else pass("runtime-registry has no claude/antigravity entries");
+    let bad = null;
+    for (const [k, r] of Object.entries(RUNTIMES)) {
+      if (r.toolsDir || r.toolsFile) bad = `${k} still has toolsDir/toolsFile`;
+      if ("modelField" in r || "spawnSyntax" in r) bad = `${k} still has modelField/spawnSyntax`;
+    }
+    if (bad) fail(bad);
+    else pass("runtime-registry entries have no toolsDir/toolsFile/modelField/spawnSyntax");
+    if (RUNTIMES.codex.commandsDir !== RUNTIMES.zed.commandsDir) fail(`codex and zed must share commandsDir (~/.agents/skills): codex=${RUNTIMES.codex.commandsDir} zed=${RUNTIMES.zed.commandsDir}`);
+    else pass("codex and zed share commandsDir (~/.agents/skills)");
+    if (RUNTIMES.zed.agentsDir !== null) fail("zed agentsDir must be null (share codex)");
+    else pass("zed agentsDir is null (shared with Codex)");
+    if (!RUNTIMES.commandcode) fail("commandcode must exist");
+    else if (!String(RUNTIMES.commandcode.commandsDir).includes(".commandcode")) fail(`commandcode commandsDir must be ~/.commandcode/commands: ${RUNTIMES.commandcode.commandsDir}`);
+    else pass("commandcode commandsDir is ~/.commandcode/commands");
+    if (RUNTIMES.commandcode && !String(RUNTIMES.commandcode.agentsDir).includes(".commandcode")) fail(`commandcode agentsDir must be ~/.commandcode/agents: ${RUNTIMES.commandcode.agentsDir}`);
+    else if (RUNTIMES.commandcode) pass("commandcode agentsDir is ~/.commandcode/agents");
+  } catch (e) {
+    fail("runtime-registry check threw: " + e.message);
+  }
+  // 8g — absolute home path + Windows normalize + dedup
+  if (installSource.includes("function getFlowToolsAbsPath()") && installSource.includes("Platform.normalize") && installSource.includes("DEBT:")) {
+    pass("install.js exposes getFlowToolsAbsPath via Platform.normalize with DEBT marker (Windows-safe absolute home)");
+  } else {
+    fail("install.js missing getFlowToolsAbsPath / Platform.normalize / DEBT marker for Windows absolute home");
+  }
+  if (installSource.includes("function absolutizeFlowToolsPath") && installSource.includes("node\\s+(?:\\.\\/)?bin\\/flow-tools\\.js")) {
+    pass("install.js rewrites node bin/flow-tools.js → absolute home via absolutizeFlowToolsPath");
+  } else {
+    fail("install.js missing absolutizeFlowToolsPath rewrite for node bin/flow-tools.js");
+  }
+  if (installSource.includes("seenDirs") && installSource.includes("new Set()") && installSource.includes("path.resolve")) {
+    pass("resolveTargets dedupes ~/.agents/skills via Set of canonical dirs");
+  } else {
+    fail("resolveTargets missing Set dedup for ~/.agents/skills");
+  }
+  if (installSource.includes("updatedSkillsDirs") && installSource.includes("new Set()")) {
+    pass("runUpdate dedupes codex+zed shared skills via updatedSkillsDirs Set");
+  } else {
+    fail("runUpdate missing updatedSkillsDirs dedup for codex+zed");
+  }
+  if (installSource.includes("legacyShims") && installSource.includes(".config\", \"opencode\", \"flow")) {
+    pass("runUpdate/uninstall clean old */flow/ shims (legacyShims)");
+  } else {
+    fail("legacyShims cleanup missing in runUpdate/uninstall");
+  }
+  if (installSource.includes("installCodexSkills") && installSource.includes("installCodexAgents") && installSource.includes("installCommandCodeSkills")) {
+    pass("install.js defines Codex + CommandCode skill/agent installers");
+  } else {
+    fail("install.js is missing Codex or CommandCode installers");
   }
   const codexAgentSection = installSource.slice(
     installSource.indexOf("function installCodexAgents"),
-    installSource.indexOf("function installAntigravity")
+    installSource.indexOf("function installCommandCodeSkills") !== -1 ? installSource.indexOf("function installCommandCodeSkills") : installSource.indexOf("function installCommandCode")
   );
   if (
     installSource.includes("function detectCodexSandboxMode(sourceContent)") &&
@@ -122,13 +196,11 @@ async function run() {
     fail("Codex sandbox mode detection is still order-sensitive or tied to bash");
   }
   const reviewerFm = parseFrontmatter(reviewerSource);
-  // Reviewer absorbed the old read-only verifier behavior but is the single writer of memory.md — it must be writable
   if (reviewerFm && reviewerFm.tools && reviewerFm.tools.write === true && reviewerFm.tools.edit === true && reviewerFm.tools.bash === true) {
     pass("flow-reviewer.md is writable (single writer of memory.md) plus bash");
   } else {
     fail("flow-reviewer.md frontmatter should be write/edit/bash:true (single writer of memory.md)");
   }
-  // Retired 6-agent files must not exist
   const retired = ["flow-researcher.md", "flow-critic.md", "flow-verifier.md", "flow-debugger.md"];
   const stillPresent = retired.filter(f => { try { readFile(path.join(AGENTS, f)); return true; } catch { return false; } });
   if (stillPresent.length === 0) {
@@ -140,7 +212,7 @@ async function run() {
   // Suite 11 — Updated for Task 3 minimal scaffold
   suite("Suite 11 — Scaffold updater (minimal shape)");
   const installModule = require("../bin/install.js");
-  const { updateScaffold, createRuntimeBridge, installScaffold } = installModule;
+  const { updateScaffold, installScaffold, getFlowToolsAbsPath } = installModule;
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11a-"));
     try {
@@ -162,7 +234,6 @@ async function run() {
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11b-"));
     try {
-      // Pre-create work-item to test --force guard
       fs.mkdirSync(path.join(tmpDir, ".flow", "work-items", "work-item-001"), { recursive: true });
       fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "work-item.md"), "# WI", "utf8");
       const r = installScaffold(tmpDir, { yes: true });
@@ -177,7 +248,6 @@ async function run() {
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11c-"));
     try {
-      // Seed with eosys-like AGENTS.md (has context-mapper block)
       const eosysBlock = "<!-- context-mapper:generated:start -->\ncontext\n<!-- context-mapper:generated:end -->\n\n# User conventions\n";
       fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), eosysBlock, "utf8");
       installScaffold(tmpDir, { yes: true });
@@ -186,7 +256,6 @@ async function run() {
       if (!out.includes("<!-- context-mapper:generated:start -->")) { fail("11c: context-mapper block lost"); ok = false; }
       if (!out.includes("<!-- flow:generated:start -->")) { fail("11c: flow block not appended"); ok = false; }
       if (!out.includes("# User conventions")) { fail("11c: user conventions lost"); ok = false; }
-      // Second install idempotent
       const before = out;
       installScaffold(tmpDir, { yes: true });
       const after = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
@@ -196,31 +265,49 @@ async function run() {
     finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
   (function () {
+    // 11d — installFlowHome idempotency (replaces createRuntimeBridge test)
+    const { installFlowHome } = require("../bin/install.js");
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11d-"));
+    const originalHomedir = os.homedir;
+    const originalUserProfile = process.env.USERPROFILE;
+    const originalHome = process.env.HOME;
+    os.homedir = () => tmpDir;
+    process.env.USERPROFILE = tmpDir;
+    process.env.HOME = tmpDir;
+    const toolsDir = path.join(tmpDir, ".flow", "tools");
+    fs.mkdirSync(path.join(toolsDir, "node_modules", "js-yaml"), { recursive: true });
+    fs.mkdirSync(path.join(toolsDir, "node_modules", "web-tree-sitter"), { recursive: true });
+    fs.mkdirSync(path.join(toolsDir, "node_modules", "tree-sitter-wasms"), { recursive: true });
     try {
-      createRuntimeBridge(tmpDir);
-      let secondCallError = null;
-      try {
-        createRuntimeBridge(tmpDir);
-      } catch (e) {
-        secondCallError = e;
-      }
-      if (secondCallError) {
-        fail("11d: second createRuntimeBridge call threw: " + secondCallError.message);
+      const first = installFlowHome();
+      const hash1 = fs.existsSync(path.join(toolsDir, "manifest.json")) ? fs.readFileSync(path.join(toolsDir, "manifest.json"), "utf8") : "";
+      let secondError = null;
+      try { installFlowHome(); } catch (e) { secondError = e; }
+      if (secondError) {
+        fail("11d: second installFlowHome call threw: " + secondError.message);
       } else {
-        pass("11d: createRuntimeBridge is idempotent (no error on second call)");
+        pass("11d: installFlowHome is idempotent (no error on second call)");
       }
-      const expectedFile = process.platform === "win32" ? path.join(tmpDir, "flow-tools.cmd") : path.join(tmpDir, "flow-tools.js");
-      let bridgeExists = false;
-      try { fs.lstatSync(expectedFile); bridgeExists = true; } catch {}
-      if (bridgeExists) {
-        pass("11d: bridge file exists after both calls");
+      if (fs.existsSync(path.join(toolsDir, "flow-tools.js"))) {
+        pass("11d: flow-tools.js exists after both calls");
       } else {
-        fail("11d: bridge file not found: " + expectedFile);
+        fail("11d: flow-tools.js not found after installFlowHome");
+      }
+      // Windows normalize check — no backslash, absolute, no leading ~ (~ may appear in 8.3 short names like LINGGI~1, so check prefix only)
+      const abs = getFlowToolsAbsPath();
+      if (abs.includes(".flow/tools/flow-tools.js") && !abs.startsWith("~") && !abs.includes("\\")) {
+        pass("11d: getFlowToolsAbsPath is absolute, no leading ~, no backslash (Windows-safe via Platform.normalize)");
+      } else {
+        fail(`11d: getFlowToolsAbsPath not Windows-safe: ${abs}`);
       }
     } catch (e) {
-      fail("11d: createRuntimeBridge first call threw: " + e.message);
+      fail("11d: installFlowHome first call threw: " + e.message);
     } finally {
+      os.homedir = originalHomedir;
+      if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = originalUserProfile;
+      if (originalHome === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHome;
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
     }
   })();
@@ -243,7 +330,6 @@ async function run() {
   })();
   (function () {
     try {
-      // Post-Task 5: planner abs path is in flow.md (not flow-plan-phase.md — deleted 24→4)
       const flowContent = fs.readFileSync(path.join(COMMANDS, "flow.md"), "utf8");
       const plannerContent = fs.readFileSync(path.join(require("./helpers").AGENTS, "flow-planner.md"), "utf8");
       if (flowContent.includes("@flow-planner") || plannerContent.includes("flow-planner")) {
@@ -269,7 +355,7 @@ async function run() {
     fs.mkdirSync(path.join(toolsDir, "node_modules", "web-tree-sitter"), { recursive: true });
     fs.mkdirSync(path.join(toolsDir, "node_modules", "tree-sitter-wasms"), { recursive: true });
     try {
-      const success = installFlowHome("all");
+      const success = installFlowHome();
       if (!success) { fail("16c: installFlowHome returned false"); return; }
       const agentsDestDir = path.join(tmpDir, ".flow", "tools", "agents");
       const manifestPath = path.join(tmpDir, ".flow", "tools", "manifest.json");

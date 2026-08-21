@@ -9,7 +9,9 @@
 
 Flow is a spec-driven agentic development workflow for solo developers. It brings structure, memory, and discipline to AI-assisted coding — not by asking you to be more organised, but by making the system carry that weight itself.
 
-It runs on OpenCode, Claude Code, Codex App & CLI, and Antigravity — on macOS, Linux, and Windows natively.
+It runs on OpenCode, Codex App / CLI, CommandCode, and Zed Editor — on macOS, Linux, and Windows natively.
+
+> Install is global-only (`~/.flow/tools` sole home, absolute `C:/…/.flow/tools/flow-tools.js` on Windows via `Platform.normalize` — no `~`). Scaffold (`.flow/` + `AGENTS.md` marker) belongs to `/flow-init` in the repo, not to `npx flow`.
 
 ---
 
@@ -38,7 +40,7 @@ It runs on OpenCode, Claude Code, Codex App & CLI, and Antigravity — on macOS,
 ### New project (greenfield)
 
 ```bash
-npx @linggihlukis/flow --opencode --local
+npx @linggihlukis/flow --opencode   # or --codex / --commandcode / --zed / --all
 # then in your runtime:
 /flow-init
 /flow "your first Work Item goal — one sentence"
@@ -47,7 +49,7 @@ npx @linggihlukis/flow --opencode --local
 ### Existing codebase (brownfield)
 
 ```bash
-npx @linggihlukis/flow --opencode --local
+npx @linggihlukis/flow --opencode   # or --codex / --commandcode / --zed / --all
 # map first, then init:
 /flow-map
 /flow-init
@@ -79,34 +81,24 @@ This works equally well on greenfield projects and legacy codebases. On clean co
 ## Install
 
 ```bash
-# OpenCode (global)
-npx @linggihlukis/flow --opencode --global
-
-# Claude Code (global)
-npx @linggihlukis/flow --claude --global
-
-# Codex App / CLI (global)
-npx @linggihlukis/flow --codex --global
-
-# Antigravity (global)
-npx @linggihlukis/flow --antigravity
-
-# Local install
-npx @linggihlukis/flow --opencode --local
-npx @linggihlukis/flow --codex --local
+# One home to update — install once, use everywhere (global-only)
+npx @linggihlukis/flow --opencode     # OpenCode
+npx @linggihlukis/flow --codex        # Codex App / CLI
+npx @linggihlukis/flow --commandcode  # CommandCode
+npx @linggihlukis/flow --zed          # Zed Editor (shares ~/.agents/skills with Codex)
+npx @linggihlukis/flow --all          # all four (dedupes ~/.agents/skills once)
 ```
 
 | Flag | Description |
 |---|---|
 | `--opencode` | Install for OpenCode |
-| `--claude` | Install for Claude Code |
 | `--codex` | Install for Codex App / CLI |
-| `--antigravity` | Install for Antigravity (global only) |
-| `--global` / `-g` | Install to global config directory |
-| `--local` / `-l` | Install to current project only |
-| `--update` | Update an existing Flow install |
-| `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold) |
-| `--yes` | Non-interactive — overwrite AGENTS.md marker block without TTY prompt |
+| `--commandcode` | Install for CommandCode |
+| `--zed` | Install for Zed Editor (shares `~/.agents/skills` with Codex — deduped) |
+| `--all` | Install for all four runtimes |
+| `--update` | Update an existing Flow install (overwrites 4 globals idempotently; cleans old `*/flow/` shims) |
+| `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold; prompts to remove `~/.flow/tools`) |
+| `--yes` | Non-interactive — skip prompts / overwrite AGENTS.md marker block without TTY |
 | `--dry-run` | Preview scaffold/AGENTS.md changes without writing |
 | `--force` | Overwrite scaffold even when work-items/ is non-empty |
 | `--update-agents` | Re-diff AGENTS.md marker block |
@@ -136,12 +128,14 @@ The updater auto-detects every runtime where Flow is installed and updates all o
 
 ---
 
-| Runtime | Global path (Mac/Linux) |
+| Runtime | Global path (Mac/Linux — Windows: `C:/Users/…` via `Platform.normalize`) |
 |---|---|
-| OpenCode | `~/.config/opencode/commands/` |
-| Claude Code | `~/.claude/commands/` |
-| Codex App / CLI | `~/.agents/skills/` and `~/.codex/agents/` |
-| Antigravity | `~/.gemini/antigravity/skills/` |
+| OpenCode | `~/.config/opencode/commands/` (slash commands; `~/.config/opencode/skills` is a separate native skills system, compat `~/.agents/skills` — not used for Flow) |
+| Codex App / CLI | `~/.agents/skills/` (skills) + `~/.codex/agents/` (TOML agents) |
+| CommandCode | `~/.commandcode/commands/` + `~/.commandcode/skills/` (primary; compat `~/.agents/skills`) + `~/.commandcode/agents/` |
+| Zed Editor | `~/.agents/skills/` (shared with Codex — deduped, written once on `--all`) |
+
+Skills/commands invoke absolute `~/.flow/tools/flow-tools.js` (on Windows `C:/…/.flow/tools/flow-tools.js` via `Platform.normalize`, no `~` — `cmd.exe` does not expand `~`) directly — no per-runtime `flow/` bridge.
 
 ---
 
@@ -206,7 +200,7 @@ bin/
 - **Cross-platform:** Every path is normalized to forward slashes; Windows shell is handled correctly
 - **Cached:** In-process LRU cache eliminates redundant disk reads during batch operations
 - **Validated:** Every subcommand has a JSON Schema contract checked at the dispatcher level
-- **Runtimes:** Template substitution at install time resolves `[flow-tools-path]` per runtime
+- **Runtimes:** Skills/commands invoke absolute `~/.flow/tools/flow-tools.js` directly at install time (no per-runtime shim); only `[flow-version]` is templated
 
 ---
 
@@ -264,8 +258,9 @@ Flow adapts to the capabilities of the runtime it is installed in.
 | Runtime | Subagent spawning | Notes |
 |---|---|---|
 | OpenCode | ✅ Native | Full parallel wave execution |
-| Codex App / CLI | ✅ Native | Full parallel wave execution |
-| Claude Code | ⚠️ Sequential fallback | Stages run in the current context; `runtime_mode: sequential` noted in state.md |
+| Codex App / CLI | ✅ Native | Full parallel wave execution (shares `~/.agents/skills` with Zed) |
+| CommandCode | ✅ Native | Full parallel wave execution |
+| Zed Editor | ⚠️ Shares Codex skills | No separate `agentsDir` — reuses `~/.agents/skills` via Codex |
 | Other | ⚠️ Sequential fallback | Flow does not fail — it adapts |
 
 Sequential fallback mode produces the same structured output — all the same phases, tasks, Reviewer checks, commits, and handoffs. Execution is sequential rather than parallel, which is slower but not lower quality.
@@ -443,7 +438,7 @@ npx @linggihlukis/flow@latest --update
 ```
 
 **Sequential mode instead of parallel?**
-If your runtime doesn't support subagent spawning (e.g. Claude Code), Flow automatically falls back to sequential mode. This is noted in state.md as `runtime_mode: sequential`. Same quality, just slower.
+If your runtime doesn't support subagent spawning, Flow automatically falls back to sequential mode. This is noted in state.md as `runtime_mode: sequential`. Same quality, just slower (Zed reuses Codex skills via `~/.agents/skills`).
 
 **`map index` fails or shows `symbols requested but WASM unavailable`?**
 `tree-sitter-wasms` + `web-tree-sitter` are opt-in (only for `--symbols`). Default `map index` is file-level and needs no WASM. For symbols:

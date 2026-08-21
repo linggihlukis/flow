@@ -172,7 +172,8 @@ function main() {
 
 // ─── Startup integrity check ─────────────────────────────────────────────────
 function runIntegrityCheck() {
-  const manifestPath = path.join(os.homedir(), '.flow', 'tools', 'manifest.json');
+  const _home = process.platform === 'win32' ? (process.env.USERPROFILE || os.homedir()) : os.homedir();
+  const manifestPath = path.join(_home, '.flow', 'tools', 'manifest.json');
   if (!fs.existsSync(manifestPath)) return;
 
   let manifest;
@@ -189,7 +190,7 @@ function runIntegrityCheck() {
   const SRC_CONTENT = fs.readFileSync(__filename, 'utf8');
   const isSourceFile = SRC_CONTENT.includes('[flow-version]');
   const targetFile = isSourceFile
-    ? path.join(os.homedir(), '.flow', 'tools', 'flow-tools.js')
+    ? path.join(_home, '.flow', 'tools', 'flow-tools.js')
     : __filename;
 
   if (!isSourceFile && !fs.existsSync(targetFile)) return;

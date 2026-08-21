@@ -5,7 +5,7 @@ const path = require("node:path");
 const os = require("node:os");
 const readline = require("node:readline");
 const { execFileSync } = require("node:child_process");
-const { getRuntime } = require('./lib/runtime-registry');
+const { RUNTIMES } = require('./lib/runtime-registry');
 const { Platform } = require('./lib/platform');
 
 // ─── Environment Variables Consumed ─────────────────────────────────────────
@@ -32,48 +32,15 @@ const dim  = (m) => `${c.dim}${m}${c.reset}`;
 // ─── Platform ─────────────────────────────────────────────────────────────────
 const isWindows = process.platform === "win32";
 
-function getGlobalOpenCodeDir() {
-  // Mac/Linux: ~/.config/opencode
-  // Windows:   %USERPROFILE%\.config\opencode
-  const base = isWindows
-    ? (process.env.USERPROFILE || os.homedir())
-    : os.homedir();
-  return path.join(base, ".config", "opencode");
-}
-
-function getGlobalClaudeDir() {
-  return path.join(os.homedir(), ".claude");
-}
-
-function getGlobalAntigravityDir() {
-  return path.join(os.homedir(), ".gemini", "antigravity");
-}
-
-function getGlobalAntigravityIdeDir() {
-  return path.join(os.homedir(), ".gemini", "antigravity-ide");
-}
-
-function getGlobalCodexSkillsDir() {
-  return path.join(os.homedir(), ".agents", "skills");
-}
-
-function getGlobalCodexAgentsDir() {
-  return path.join(os.homedir(), ".codex", "agents");
-}
-
 function getFlowHomeDir() {
-  const base = isWindows
-    ? (process.env.USERPROFILE || os.homedir())
-    : os.homedir();
-  return path.join(base, ".flow", "tools");
+  return path.join(Platform.home, ".flow", "tools");
 }
 
-function getLocalCodexSkillsDir(cwd) {
-  return path.join(cwd, ".agents", "skills");
-}
-
-function getLocalCodexAgentsDir(cwd) {
-  return path.join(cwd, ".codex", "agents");
+// Absolute home path for injected `node` invocations in markdown.
+// DEBT: single hardcoded ~/.flow/tools — breaks if HOME moves, healed by one --update.
+// Windows: Platform.normalize ensures forward slashes so cmd.exe doesn't choke on \.
+function getFlowToolsAbsPath() {
+  return Platform.normalize(path.join(getFlowHomeDir(), "flow-tools.js"));
 }
 
 function parseCommandDescription(filePath) {
@@ -101,14 +68,6 @@ function escapeTomlBasicString(value) {
 function generateSkillMarkdown(name, description, sourceContent) {
   const body = stripFrontmatter(sourceContent).trimStart();
   return `---\nname: ${name}\ndescription: ${description}\ndisable-model-invocation: true\n---\n\n${body.endsWith("\n") ? body : `${body}\n`}`;
-}
-
-function generateAntigravitySkillWrapper(name, description, runtimeName, location) {
-  const dirName = runtimeName === "antigravity-ide" ? "antigravity-ide" : "antigravity";
-  const execPath = (location === "local")
-    ? `../../../.gemini/${dirName}/flow/workflows/${name}.md`
-    : `~/.gemini/${dirName}/flow/workflows/${name}.md`;
-  return `---\nname: ${name}\ndescription: ${description}\n---\n\n<context>\nArguments: $ARGUMENTS\n</context>\n\n<execution_context>\n@${execPath}\n</execution_context>\n\n<process>\nExecute the ${name} workflow end-to-end.\nPreserve all workflow gates, validation steps, and state updates.\n</process>\n`;
 }
 
 function generateCodexAgentToml(name, description, sourceContent, sandboxMode) {
@@ -178,8 +137,19 @@ function resolveFlag(names) {
   return null;
 }
 
-const flagRuntime  = resolveFlag(["--opencode","--claude","--codex","--antigravity","--all"]);
-const flagLocation = resolveFlag(["--global","-g","--local","-l"]);
+// Deleted flags — warn and exit early
+const DELETED_FLAGS = ["--claude", "--antigravity", "--antigravity-ide", "--global", "-g", "--local", "-l"];
+const deletedHit = args.find(a => DELETED_FLAGS.includes(a));
+if (deletedHit) {
+  const hint = ["--claude", "--antigravity", "--antigravity-ide"].includes(deletedHit)
+    ? "use --commandcode / --opencode / --codex / --zed"
+    : "global is now the only mode (flag removed)";
+  console.error(`${c.yellow}⚠${c.reset}  Flag ${bold(deletedHit)} has been removed — ${hint}.`);
+  console.error(`   Valid runtimes: --opencode --codex --commandcode --zed --all`);
+  process.exit(1);
+}
+
+const flagRuntime  = resolveFlag(["--opencode","--codex","--commandcode","--zed","--all"]);
 const flagUninstall = args.includes("--uninstall") || envFlag("--uninstall");
 const flagUpdate   = args.includes("--update") || envFlag("--update");
 const flagYes = args.includes("--yes") || envFlag("--yes");
@@ -194,11 +164,10 @@ const FLOW_END = "<!-- flow:generated:end -->";
 
 const RUNTIME_CHOICES = [
   { label: "OpenCode",                                    value: "opencode" },
-  { label: "Claude Code",                                 value: "claude" },
-  { label: "Codex App / CLI / Zed Editor",                value: "codex" },
-  { label: "Antigravity (Legacy) (Google, Gemini — global only)", value: "antigravity" },
-  { label: "Antigravity IDE (Google, Gemini — global only)", value: "antigravity-ide" },
-  { label: "All (OpenCode + Claude + Codex/Zed + Antigravity + Antigravity IDE)", value: "all" },
+  { label: "Codex App / CLI",                             value: "codex" },
+  { label: "CommandCode",                                 value: "commandcode" },
+  { label: "Zed Editor (shares ~/.agents/skills with Codex)", value: "zed" },
+  { label: "All (OpenCode + Codex + CommandCode + Zed)",  value: "all" },
 ];
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
@@ -239,7 +208,7 @@ function copyRecursiveSync(src, dest) {
 }
 
 // ─── Flow tools install ───────────────────────────────────────────────────────
-function installFlowHome(runtimeName) {
+function installFlowHome() {
   const toolsDir = getFlowHomeDir();
   ensureDir(toolsDir);
 
@@ -251,17 +220,10 @@ function installFlowHome(runtimeName) {
     return false;
   }
 
-  if (runtimeName && runtimeName !== "all") {
-    const content = fs.readFileSync(src, 'utf8');
-    const resolved = resolveTemplates(content, runtimeName);
-    fs.writeFileSync(dest, resolved, 'utf8');
-    ok(`flow-tools.js ${dim(`→ ${dest}`)} (${runtimeName})`);
-  } else {
-    const content = fs.readFileSync(src, 'utf8');
-    const resolved = content.replace(/\[flow-version\]/g, pkg.version);
-    fs.writeFileSync(dest, resolved, 'utf8');
-    ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
-  }
+  const content = fs.readFileSync(src, 'utf8');
+  const resolved = content.replace(/\[flow-version\]/g, pkg.version);
+  fs.writeFileSync(dest, resolved, 'utf8');
+  ok(`flow-tools.js ${dim(`→ ${dest}`)}`);
 
   // Copy lib/ modules required by flow-tools.js via require('./lib/...')
   const libSrc = path.join(REPO_ROOT, "bin", "lib");
@@ -290,10 +252,12 @@ function installFlowHome(runtimeName) {
     const crypto = require('node:crypto');
     const manifest = { installedAt: new Date().toISOString() };
     manifest['flow-tools.js'] = crypto.createHash('sha256').update(fs.readFileSync(dest)).digest('hex');
-    for (const entry of fs.readdirSync(libDest, { withFileTypes: true })) {
-      if (entry.isFile()) {
-        const filePath = path.join(libDest, entry.name);
-        manifest[`lib/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+    if (fs.existsSync(libDest)) {
+      for (const entry of fs.readdirSync(libDest, { withFileTypes: true })) {
+        if (entry.isFile()) {
+          const filePath = path.join(libDest, entry.name);
+          manifest[`lib/${entry.name}`] = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+        }
       }
     }
     if (fs.existsSync(agentsDest)) {
@@ -370,61 +334,15 @@ function installWasm() {
 }
 
 // ─── Template resolution ──────────────────────────────────────────────────────
-function resolveTemplates(content, runtimeName) {
-  const r = getRuntime(runtimeName);
-  const toolsPath = Platform.normalize(path.join(r.toolsDir, r.toolsFile));
-  const toolsDir  = Platform.normalize(r.toolsDir);
-  const pkgDir    = Platform.normalize(path.join(__dirname, '..'));
-  return content
-    .replace(/\[flow-tools-path\]/g, toolsPath)
-    .replace(/\{\{FLOW_TOOLS_PATH\}\}/g, toolsPath)
-    .replace(/\[flow-tools-dir\]/g, toolsDir)
-    .replace(/\[flow-pkg-dir\]/g, pkgDir)
-    .replace(/\[flow-version\]/g, pkg.version);
+function resolveTemplates(content) {
+  return content.replace(/\[flow-version\]/g, pkg.version);
 }
 
-function createRuntimeBridge(runtimeFlowDir, runtimeName) {
-  ensureDir(runtimeFlowDir);
-
-  const r = getRuntime(runtimeName || 'opencode');
-  const toolsPath = Platform.normalize(path.join(r.toolsDir, r.toolsFile));
-
-  	if (isWindows) {
-  		// .cmd shim — batch file wrapping node invocation
-  		const cmdShimPath = path.join(runtimeFlowDir, "flow-tools.cmd");
-  		if (!fs.existsSync(cmdShimPath)) {
-  			const cmdContent = `@echo off\nnode "${toolsPath}" %*\n`;
-  			fs.writeFileSync(cmdShimPath, cmdContent);
-  			ok(`flow-tools.cmd shim ${dim(`→ ${cmdShimPath}`)}`);
-  		}
-
-  		// .js shim — Node.js wrapper for environments that invoke .js directly
-  		const jsShimPath = path.join(runtimeFlowDir, "flow-tools.js");
-  		if (!fs.existsSync(jsShimPath)) {
-  			const jsContent = [
-  				'#!/usr/bin/env node',
-  				"'use strict';",
-  				'const { spawnSync } = require("node:child_process");',
-  				`const result = spawnSync(process.execPath, [${JSON.stringify(toolsPath)}, ...process.argv.slice(2)], { stdio: "inherit" });`,
-  				'process.exit(result.status ?? 1);',
-  				''
-  			].join('\n');
-  			fs.writeFileSync(jsShimPath, jsContent);
-  			ok(`flow-tools.js shim ${dim(`→ ${jsShimPath}`)}`);
-  		}
-  	} else {
-    const linkPath = path.join(runtimeFlowDir, "flow-tools.js");
-    try {
-      fs.lstatSync(linkPath);
-      return;
-    } catch { }
-    try {
-      fs.symlinkSync(toolsPath, linkPath);
-      ok(`flow-tools.js symlink ${dim(`→ ${linkPath}`)}`);
-    } catch (e) {
-      warn(`Symlink creation failed: ${e.message}`);
-    }
-  }
+// Rewrite relative `node bin/flow-tools.js` invocations to absolute home path.
+// Source commands stay relative on disk; installed copies become absolute (Windows-safe).
+function absolutizeFlowToolsPath(content) {
+  const abs = getFlowToolsAbsPath();
+  return content.replace(/node\s+(?:\.\/)?bin\/flow-tools\.js/g, `node ${abs}`);
 }
 
 
@@ -432,20 +350,12 @@ function createRuntimeBridge(runtimeFlowDir, runtimeName) {
 
 // ─── Install commands ─────────────────────────────────────────────────────────
 // Commands are flat .md files — copy them directly to the target commands dir
-function installCommands(commandsDir, runtimeName) {
-  if (!runtimeName) {
-    ensureDir(commandsDir);
-    const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
-    for (const file of files) {
-      copyFile(path.join(COMMANDS_DIR, file), path.join(commandsDir, file));
-    }
-    return files.length;
-  }
+function installCommands(commandsDir) {
   ensureDir(commandsDir);
   const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
     const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
-    const resolved = resolveTemplates(content, runtimeName);
+    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
     fs.writeFileSync(path.join(commandsDir, file), resolved, 'utf8');
   }
   return files.length;
@@ -453,28 +363,20 @@ function installCommands(commandsDir, runtimeName) {
 
 // ─── Install agents ───────────────────────────────────────────────────────────
 // Agent .md files go to the runtime's agents directory
-function installAgents(agentsDir, runtimeName) {
+function installAgents(agentsDir) {
   const AGENTS_DIR = path.join(REPO_ROOT, "agents");
-  if (!fs.existsSync(AGENTS_DIR)) return 0;
-  if (!runtimeName) {
-    ensureDir(agentsDir);
-    const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
-    for (const file of files) {
-      copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
-    }
-    return files.length;
-  }
+  if (!fs.existsSync(AGENTS_DIR) || !agentsDir) return 0;
   ensureDir(agentsDir);
   const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
     const content = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
-    const resolved = resolveTemplates(content, runtimeName);
+    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
     fs.writeFileSync(path.join(agentsDir, file), resolved, 'utf8');
   }
   return files.length;
 }
 
-function installCodexSkills(skillsDir, runtimeName) {
+function installCodexSkills(skillsDir) {
   ensureDir(skillsDir);
   const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
@@ -483,21 +385,21 @@ function installCodexSkills(skillsDir, runtimeName) {
     const skillDir = path.join(skillsDir, name);
     ensureDir(skillDir);
     const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    const content = runtimeName ? resolveTemplates(source, runtimeName) : source;
+    const content = absolutizeFlowToolsPath(resolveTemplates(source));
     fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
   }
   return files.length;
 }
 
-function installCodexAgents(agentsDir, runtimeName) {
+function installCodexAgents(agentsDir) {
   const AGENTS_DIR = path.join(REPO_ROOT, "agents");
-  if (!fs.existsSync(AGENTS_DIR)) return 0;
+  if (!fs.existsSync(AGENTS_DIR) || !agentsDir) return 0;
   ensureDir(agentsDir);
   const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
     const name = path.basename(file, ".md");
     const source = fs.readFileSync(path.join(AGENTS_DIR, file), "utf8");
-    const resolved = runtimeName ? resolveTemplates(source, runtimeName) : source;
+    const resolved = absolutizeFlowToolsPath(resolveTemplates(source));
     const match = resolved.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
     const fm = match ? match[1] : "";
     const descriptionMatch = fm.match(/^description:\s*(.+)$/m);
@@ -511,71 +413,43 @@ function installCodexAgents(agentsDir, runtimeName) {
   return files.length;
 }
 
-function installAntigravity(baseDir, runtimeName, location) {
-  const workflowsDir = path.join(baseDir, "flow", "workflows");
-  const agentsDir    = path.join(baseDir, "flow", "agents");
-  const skillsBase   = location === "local"
-    ? path.join(process.cwd(), ".agents", "skills")
-    : path.join(baseDir, "skills");
-
-  ensureDir(workflowsDir);
-  ensureDir(agentsDir);
-
-  const commandFiles = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
-  for (const file of commandFiles) {
-    if (runtimeName) {
-      const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
-      const resolved = resolveTemplates(content, runtimeName);
-      fs.writeFileSync(path.join(workflowsDir, file), resolved, 'utf8');
-    } else {
-      copyFile(path.join(COMMANDS_DIR, file), path.join(workflowsDir, file));
-    }
-  }
-
-  const AGENTS_DIR = path.join(REPO_ROOT, "agents");
-  let agentCount = 0;
-  if (fs.existsSync(AGENTS_DIR)) {
-    const agentFiles = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
-    for (const file of agentFiles) {
-      if (runtimeName) {
-        const content = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
-        const resolved = resolveTemplates(content, runtimeName);
-        fs.writeFileSync(path.join(agentsDir, file), resolved, 'utf8');
-      } else {
-        copyFile(path.join(AGENTS_DIR, file), path.join(agentsDir, file));
-      }
-    }
-    agentCount = agentFiles.length;
-  }
-
-  let skillCount = 0;
-  for (const file of commandFiles) {
+function installCommandCodeSkills(skillsDir) {
+  ensureDir(skillsDir);
+  const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
+  for (const file of files) {
     const name = path.basename(file, ".md");
     const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
-    const skillDir = path.join(skillsBase, name);
+    const skillDir = path.join(skillsDir, name);
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateAntigravitySkillWrapper(name, description, runtimeName, location));
-    skillCount++;
+    const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
+    const content = absolutizeFlowToolsPath(resolveTemplates(source));
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
   }
+  return files.length;
+}
 
-  // Also install to Antigravity 2.0 / IDE global config skills path: ~/.gemini/config/skills (global only)
-  if (location === "global") {
-    const configSkillsBase = path.join(os.homedir(), ".gemini", "config", "skills");
-    try {
-      ensureDir(configSkillsBase);
-      for (const file of commandFiles) {
-        const name = path.basename(file, ".md");
-        const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
-        const skillDir = path.join(configSkillsBase, name);
-        ensureDir(skillDir);
-        fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateAntigravitySkillWrapper(name, description, runtimeName, location));
-      }
-    } catch (e) {
-      warn(`Could not install skill wrappers to Antigravity config directory: ${e.message}`);
-    }
+function installCommandCodeCommands(commandsDir) {
+  ensureDir(commandsDir);
+  const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
+    fs.writeFileSync(path.join(commandsDir, file), resolved, 'utf8');
   }
+  return files.length;
+}
 
-  return { workflows: commandFiles.length, agents: agentCount, skills: skillCount };
+function installCommandCodeAgents(agentsDir) {
+  const AGENTS_DIR = path.join(REPO_ROOT, "agents");
+  if (!fs.existsSync(AGENTS_DIR) || !agentsDir) return 0;
+  ensureDir(agentsDir);
+  const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
+    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
+    fs.writeFileSync(path.join(agentsDir, file), resolved, 'utf8');
+  }
+  return files.length;
 }
 
 // ─── Install scaffold ─────────────────────────────────────────────────────────
@@ -762,9 +636,8 @@ function updateScaffold(projectRoot, opts = {}) {
 
 
 // ─── Uninstall ────────────────────────────────────────────────────────────────
-function uninstall(runtime, location) {
+function uninstall(runtime) {
   log(""); log(bold("Uninstalling FLOW..."));
-  const cwd = process.cwd();
   let removed = 0;
 
   function removeFlowEntries(dir) {
@@ -779,133 +652,95 @@ function uninstall(runtime, location) {
     return count;
   }
 
-  if (location === "global") {
-    if (runtime === "opencode" || runtime === "all") {
-      removed += removeFlowEntries(path.join(getGlobalOpenCodeDir(), "commands"));
-      removed += removeFlowEntries(path.join(getGlobalOpenCodeDir(), "agents"));
-    }
-    if (runtime === "claude" || runtime === "all") {
-      removed += removeFlowEntries(path.join(getGlobalClaudeDir(), "commands"));
-      removed += removeFlowEntries(path.join(getGlobalClaudeDir(), "agents"));
-    }
-    if (runtime === "codex" || runtime === "all") {
-      removed += removeFlowEntries(getGlobalCodexSkillsDir());
-      removed += removeFlowEntries(getGlobalCodexAgentsDir());
-    }
-  } else {
-    if (runtime === "opencode" || runtime === "all") {
-      removed += removeFlowEntries(path.join(cwd, ".opencode", "commands"));
-      removed += removeFlowEntries(path.join(cwd, ".opencode", "agents"));
-    }
-    if (runtime === "claude" || runtime === "all") {
-      removed += removeFlowEntries(path.join(cwd, ".claude", "commands"));
-      removed += removeFlowEntries(path.join(cwd, ".claude", "agents"));
-    }
-    if (runtime === "codex" || runtime === "all") {
-      removed += removeFlowEntries(path.join(cwd, ".agents", "skills"));
-      removed += removeFlowEntries(path.join(cwd, ".codex", "agents"));
-    }
+  // Global only — no local branches
+  if (runtime === "opencode" || runtime === "all") {
+    removed += removeFlowEntries(RUNTIMES.opencode.commandsDir);
+    removed += removeFlowEntries(RUNTIMES.opencode.agentsDir);
+  }
+  if (runtime === "codex" || runtime === "all") {
+    removed += removeFlowEntries(RUNTIMES.codex.commandsDir);
+    removed += removeFlowEntries(RUNTIMES.codex.agentsDir);
+  }
+  if (runtime === "commandcode" || runtime === "all") {
+    removed += removeFlowEntries(RUNTIMES.commandcode.commandsDir);
+    removed += removeFlowEntries(path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills"));
+    removed += removeFlowEntries(RUNTIMES.commandcode.agentsDir);
+  }
+  // zed shares codex skills dir — dedup: only count once when --all (codex branch already handled it)
+  if (runtime === "zed") {
+    removed += removeFlowEntries(RUNTIMES.zed.commandsDir);
+  }
+
+  // Legacy shim cleanup (best-effort, ignore ENOENT) — use Platform.home for Windows USERPROFILE parity
+  const legacyShims = [
+    path.join(Platform.home, ".config", "opencode", "flow"),
+    path.join(Platform.home, ".claude", "flow"),
+    path.join(Platform.home, ".codex", "flow"),
+    path.join(Platform.home, ".gemini", "antigravity", "flow"),
+    path.join(Platform.home, ".gemini", "antigravity-ide", "flow"),
+  ];
+  for (const p of legacyShims) {
+    try { if (fs.existsSync(p)) { fs.rmSync(p, { recursive: true, force: true }); removed++; } } catch {}
+  }
+  // Also legacy flat files
+  for (const p of [
+    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.js"),
+    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.cmd"),
+    path.join(Platform.home, ".codex", "flow", "flow-tools.js"),
+  ]) {
+    try { if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); } } catch {}
   }
 
   removed > 0 ? ok(`Removed ${removed} FLOW command(s)`) : warn("No FLOW commands found to remove");
-
-  if (runtime === "antigravity" || runtime === "antigravity-ide" || runtime === "all") {
-    const runtimesToUninstall = [];
-    if (runtime === "antigravity" || runtime === "all") runtimesToUninstall.push("antigravity");
-    if (runtime === "antigravity-ide" || runtime === "all") runtimesToUninstall.push("antigravity-ide");
-
-    for (const rt of runtimesToUninstall) {
-      const agBaseDir = location === "local"
-        ? path.join(cwd, ".gemini", rt)
-        : (rt === "antigravity-ide" ? getGlobalAntigravityIdeDir() : getGlobalAntigravityDir());
-      const skillsDir = location === "local"
-        ? path.join(cwd, ".agents", "skills")
-        : path.join(agBaseDir, "skills");
-
-      if (fs.existsSync(skillsDir)) {
-        for (const entry of fs.readdirSync(skillsDir)) {
-          if (entry.startsWith("flow-")) {
-            fs.rmSync(path.join(skillsDir, entry), { recursive: true, force: true });
-            removed++;
-          }
-        }
-      }
-      const flowDir = path.join(agBaseDir, "flow");
-      if (fs.existsSync(flowDir)) {
-        fs.rmSync(flowDir, { recursive: true, force: true });
-        removed++;
-      }
-    }
-
-    if (location === "global") {
-      // Also remove from global config skills if this is any global antigravity uninstall
-      const configSkillsDir = path.join(os.homedir(), ".gemini", "config", "skills");
-      if (fs.existsSync(configSkillsDir)) {
-        for (const entry of fs.readdirSync(configSkillsDir)) {
-          if (entry.startsWith("flow-")) {
-            fs.rmSync(path.join(configSkillsDir, entry), { recursive: true, force: true });
-            removed++;
-          }
-        }
-      }
-    }
-  }
 
   log("\nScaffold files (AGENTS.md, .flow/) preserved — remove manually if needed.");
 }
 
 // ─── Resolve targets ──────────────────────────────────────────────────────────
-function resolveTargets(runtime, location) {
+function resolveTargets(runtime) {
   const targets = [];
-  const cwd = process.cwd();
+  const seenDirs = new Set();
 
-  if (location === "global") {
-    if (runtime === "opencode" || runtime === "all")
-      targets.push({
-        label: `OpenCode  (global) ${dim(path.join(getGlobalOpenCodeDir(), "commands"))}`,
-        runtimeName: "opencode",
-        dir: path.join(getGlobalOpenCodeDir(), "commands"),
-        agentsDir: path.join(getGlobalOpenCodeDir(), "agents"),
-      });
-    if (runtime === "claude" || runtime === "all")
-      targets.push({
-        label: `Claude Code (global) ${dim(path.join(getGlobalClaudeDir(), "commands"))}`,
-        runtimeName: "claude",
-        dir: path.join(getGlobalClaudeDir(), "commands"),
-        agentsDir: path.join(getGlobalClaudeDir(), "agents"),
-      });
-    if (runtime === "codex" || runtime === "all")
-      targets.push({
-        label: `Codex / Zed (global) ${dim(getGlobalCodexSkillsDir())}`,
-        runtimeName: "codex",
-        kind: "codex",
-        skillsDir: getGlobalCodexSkillsDir(),
-        agentsDir: getGlobalCodexAgentsDir(),
-      });
-  } else {
-    if (runtime === "opencode" || runtime === "all")
-      targets.push({
-        label: `OpenCode  (local) ${dim(path.join(cwd, ".opencode", "commands"))}`,
-        runtimeName: "opencode",
-        dir: path.join(cwd, ".opencode", "commands"),
-        agentsDir: path.join(cwd, ".opencode", "agents"),
-      });
-    if (runtime === "claude" || runtime === "all")
-      targets.push({
-        label: `Claude Code (local) ${dim(path.join(cwd, ".claude", "commands"))}`,
-        runtimeName: "claude",
-        dir: path.join(cwd, ".claude", "commands"),
-        agentsDir: path.join(cwd, ".claude", "agents"),
-      });
-    if (runtime === "codex" || runtime === "all")
-      targets.push({
-        label: `Codex / Zed (local) ${dim(path.join(cwd, ".agents", "skills"))}`,
-        runtimeName: "codex",
-        kind: "codex",
-        skillsDir: path.join(cwd, ".agents", "skills"),
-        agentsDir: path.join(cwd, ".codex", "agents"),
-      });
+  function pushTarget(entry) {
+    const key = path.resolve(entry.dir || entry.skillsDir);
+    if (seenDirs.has(key)) return;
+    seenDirs.add(key);
+    targets.push(entry);
   }
+
+  if (runtime === "opencode" || runtime === "all")
+    pushTarget({
+      label: `OpenCode  (global) ${dim(RUNTIMES.opencode.commandsDir)}`,
+      runtimeName: "opencode",
+      dir: RUNTIMES.opencode.commandsDir,
+      agentsDir: RUNTIMES.opencode.agentsDir,
+    });
+  if (runtime === "codex" || runtime === "all")
+    pushTarget({
+      label: `Codex (global) ${dim(RUNTIMES.codex.commandsDir)}`,
+      runtimeName: "codex",
+      kind: "codex",
+      skillsDir: RUNTIMES.codex.commandsDir,
+      agentsDir: RUNTIMES.codex.agentsDir,
+    });
+  if (runtime === "commandcode" || runtime === "all")
+    pushTarget({
+      label: `CommandCode (global) ${dim(RUNTIMES.commandcode.commandsDir)}`,
+      runtimeName: "commandcode",
+      kind: "commandcode",
+      skillsDir: path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills"),
+      agentsDir: RUNTIMES.commandcode.agentsDir,
+      dir: RUNTIMES.commandcode.commandsDir,
+    });
+  if (runtime === "zed" || runtime === "all")
+    pushTarget({
+      label: `Zed Editor (global) ${dim(RUNTIMES.zed.commandsDir)} (shared with Codex)`,
+      runtimeName: "zed",
+      kind: "zed",
+      skillsDir: RUNTIMES.zed.commandsDir,
+      agentsDir: RUNTIMES.zed.agentsDir,
+      dir: RUNTIMES.zed.commandsDir,
+    });
   return targets;
 }
 
@@ -924,8 +759,26 @@ async function main() {
 
   if (flagUninstall) {
     const rt  = (flagRuntime  || "--all").replace("--", "");
-    const loc = flagLocation ? (["--global","-g"].includes(flagLocation) ? "global" : "local") : "global";
-    uninstall(rt, loc);
+    uninstall(rt);
+    // Optional prompt to remove ~/.flow/tools
+    const toolsDir = getFlowHomeDir();
+    if (fs.existsSync(toolsDir)) {
+      if (flagYes) {
+        // --yes: don't auto-delete, just hint
+        info(`Flow tools preserved at ${dim(toolsDir)} — remove manually if needed.`);
+      } else if (process.stdin.isTTY) {
+        const ans = await prompt(`Remove Flow tools at ${toolsDir}?`, [
+          { label: "No — keep tools", value: "no" },
+          { label: "Yes — remove ~/.flow/tools", value: "yes" },
+        ]);
+        if (ans === "yes") {
+          fs.rmSync(toolsDir, { recursive: true, force: true });
+          ok(`Removed ${toolsDir}`);
+        }
+      } else {
+        info(`Flow tools preserved at ${dim(toolsDir)} — use --yes to skip prompt or remove manually.`);
+      }
+    }
     return;
   }
 
@@ -948,113 +801,66 @@ async function main() {
     runtime = await prompt("Which runtime?", RUNTIME_CHOICES);
   }
 
-  // Location
-  let location;
-  if (flagLocation) {
-    location = ["--global","-g"].includes(flagLocation) ? "global" : "local";
-  } else {
-    let globalLabel;
-    let localLabel;
-    if (runtime === "codex") {
-      globalLabel = `${getGlobalCodexSkillsDir()} + ${getGlobalCodexAgentsDir()}`;
-      localLabel = `${process.cwd()}/.agents/skills + ${process.cwd()}/.codex/agents`;
-    } else if (runtime === "antigravity") {
-      globalLabel = getGlobalAntigravityDir();
-      localLabel = `${process.cwd()}/.gemini/antigravity`;
-    } else if (runtime === "antigravity-ide") {
-      globalLabel = getGlobalAntigravityIdeDir();
-      localLabel = `${process.cwd()}/.gemini/antigravity-ide`;
-    } else {
-      globalLabel = `${getGlobalOpenCodeDir()}/commands`;
-      localLabel = `${process.cwd()}`;
-    }
-    location = await prompt("Install location?", [
-      { label: `Global — all projects  ${dim(`(${globalLabel})`)}`, value: "global" },
-      { label: `Local  — this project  ${dim(`(${localLabel})`)}`,   value: "local" },
-    ]);
-  }
-
   log(""); log(bold("Installing...")); log("");
 
-  const targets = resolveTargets(runtime, location);
+  const targets = resolveTargets(runtime);
   let commandCount = 0;
   let skillCount = 0;
   let agentCount = 0;
   for (const target of targets) {
     try {
       if (target.kind === "codex") {
-        const sc = installCodexSkills(target.skillsDir, target.runtimeName);
-        const ac = installCodexAgents(target.agentsDir, target.runtimeName);
+        const sc = installCodexSkills(target.skillsDir);
+        const ac = installCodexAgents(target.agentsDir);
         if (skillCount === 0) skillCount = sc;
         if (agentCount === 0) agentCount = ac;
         ok(`${target.label}`);
         ok(`  ${sc} skills + ${ac} agents installed`);
-        createRuntimeBridge(path.join(path.dirname(target.agentsDir), "flow"), target.runtimeName);
+      } else if (target.kind === "commandcode") {
+        const sc = installCommandCodeSkills(target.skillsDir);
+        const cc = installCommandCodeCommands(target.dir);
+        const ac = installCommandCodeAgents(target.agentsDir);
+        if (skillCount === 0) skillCount = sc;
+        if (agentCount === 0) agentCount = ac;
+        ok(`${target.label}`);
+        ok(`  ${sc} skills + ${cc} commands + ${ac} agents installed`);
+      } else if (target.kind === "zed") {
+        // Zed shares ~/.agents/skills with Codex — dedup already handled by resolveTargets;
+        // if Codex already wrote it, this target was deduped and won't appear when --all.
+        // Standalone --zed still needs to write skills.
+        const sc = installCodexSkills(target.skillsDir);
+        if (skillCount === 0) skillCount = sc;
+        ok(`${target.label}`);
+        ok(`  ${sc} skills installed (shared with Codex)`);
       } else {
-        const installedCount = installCommands(target.dir, target.runtimeName);
+        const installedCount = installCommands(target.dir);
         if (commandCount === 0) commandCount = installedCount;
-        const ac = installAgents(target.agentsDir, target.runtimeName);
+        const ac = installAgents(target.agentsDir);
         if (agentCount === 0) agentCount = ac;
         ok(`${target.label}`);
         ok(`  ${installedCount} commands + ${ac} agents installed`);
-        createRuntimeBridge(path.join(path.dirname(target.dir), "flow"), target.runtimeName);
       }
     } catch (e) {
       err(`Failed: ${e.message}`);
     }
   }
 
-  if (runtime === "antigravity" || runtime === "all") {
-    try {
-      const agDir = location === "global" ? getGlobalAntigravityDir() : path.join(process.cwd(), ".gemini", "antigravity");
-      const { workflows, agents, skills } = installAntigravity(agDir, "antigravity", location);
-      ok(`Antigravity (Legacy) (${location}) ${dim(agDir)}`);
-      ok(`  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) {
-      err(`Antigravity install failed: ${e.message}`);
-    }
-  }
-
-  if (runtime === "antigravity-ide" || runtime === "all") {
-    try {
-      const agIdeDir = location === "global" ? getGlobalAntigravityIdeDir() : path.join(process.cwd(), ".gemini", "antigravity-ide");
-      const { workflows, agents, skills } = installAntigravity(agIdeDir, "antigravity-ide", location);
-      ok(`Antigravity IDE (${location}) ${dim(agIdeDir)}`);
-      ok(`  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) {
-      err(`Antigravity IDE install failed: ${e.message}`);
-    }
-  }
 
   // Flow tools — install home directory + WASM
   log(""); info("Installing Flow tools...");
-  installFlowHome(runtime);
+  installFlowHome();
   installWasm();
 
-  // Scaffold — always install into the current project directory
+  // Scaffold belongs to /flow-init in the repo, not to npx flow --global
+  // Do not auto-write .flow/ or AGENTS.md here. Warn if scaffold missing.
   const cwd = process.cwd();
-  const looksLikeProject = fs.existsSync(path.join(cwd, "package.json"))
-    || fs.existsSync(path.join(cwd, "AGENTS.md"))
-    || fs.existsSync(path.join(cwd, ".git"))
-    || fs.existsSync(path.join(cwd, "pyproject.toml"))
-    || fs.existsSync(path.join(cwd, "go.mod"))
-    || fs.existsSync(path.join(cwd, "Cargo.toml"));
-  if (!looksLikeProject) {
-    warn(`Scaffold will be written to: ${dim(cwd)}`);
-    warn("This doesn't look like a project directory. Run from inside your project to install scaffold in the right place.");
-    log("");
-  }
-  const sc = installScaffold(cwd);
-  const skipped = sc.skipped || sc;
-  if (sc.workItemsBlocked) {
-    // already warned inside
-  } else if (Array.isArray(skipped) && skipped.length > 0) {
-    warn("Scaffold files already exist (preserved):");
-    skipped.forEach(f => log(`    ${dim(f)}`));
+  const hasFlow = fs.existsSync(path.join(cwd, ".flow")) || fs.existsSync(path.join(cwd, "AGENTS.md"));
+  if (!hasFlow) {
+    // No scaffold present — this is expected for a global install outside a project.
+    // Don't write anything; /flow-init will scaffold when run inside a repo.
   } else {
-    ok("Project scaffold installed (AGENTS.md, .flow/)");
+    warn(`Flow scaffold present — run /flow-init to refresh AGENTS.md/.flow (global install does not auto-write scaffold)`);
   }
-  if (sc.agentsAction) info(`AGENTS.md: ${sc.agentsAction}`);
 
   // Summary
   log("");
@@ -1062,8 +868,10 @@ async function main() {
   log(`${c.green}${c.bold}  ✅ FLOW installed${c.reset}`);
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
-  if (runtime === "codex") {
+  if (runtime === "codex" || runtime === "zed") {
     log(`  Skills:    ${skillCount} (flow-* skills in .agents/skills)`);
+  } else if (runtime === "commandcode") {
+    log(`  Skills/Commands: ${skillCount} skills + command copies`);
   } else {
     log(`  Commands:  ${commandCount} (all prefixed /flow-)`);
   }
@@ -1077,14 +885,14 @@ async function main() {
   if (runtime === "opencode" || runtime === "all") {
     log(dim("  Restart OpenCode to load the new commands."));
   }
-  if (runtime === "claude" || runtime === "all") {
-    log(dim("  Reload Claude Code (or restart your shell) to load the new commands."));
-  }
   if (runtime === "codex" || runtime === "all") {
-    log(dim("  Restart Codex App / CLI or reload Zed Editor to load the new skills and agents."));
+    log(dim("  Restart Codex App / CLI to load the new skills and agents."));
   }
-  if (runtime === "antigravity" || runtime === "all") {
-    log(dim("  Restart Antigravity to load the new skills (/flow-* commands)."));
+  if (runtime === "commandcode" || runtime === "all") {
+    log(dim("  Restart CommandCode to load the new skills/commands."));
+  }
+  if (runtime === "zed" || runtime === "all") {
+    log(dim("  Reload Zed Editor to load the new skills (shared with Codex)."));
   }
   log("");
 }
@@ -1092,78 +900,45 @@ async function main() {
 // ─── Detect installed runtimes ───────────────────────────────────────────────
 // Returns an object describing every runtime location where Flow is installed.
 // Used by --update to know what to overwrite without asking the user.
-function detectInstalledRuntimes(cwd) {
+function detectInstalledRuntimes() {
   const found = {
-    opencode: { global: false, local: false },
-    claude:   { global: false, local: false },
-    codex:    { global: { skills: false, agents: false }, local: { skills: false, agents: false } },
-    antigravity: { global: false, local: false },
-    "antigravity-ide": { global: false, local: false },
+    opencode: false,
+    codex: { skills: false, agents: false },
+    commandcode: false,
+    zed: false,
   };
 
   // OpenCode global: ~/.config/opencode/commands/flow-*.md
-  const ocGlobal = path.join(getGlobalOpenCodeDir(), "commands");
+  const ocGlobal = RUNTIMES.opencode.commandsDir;
   if (fs.existsSync(ocGlobal) && fs.readdirSync(ocGlobal).some(f => f.startsWith("flow-")))
-    found.opencode.global = true;
+    found.opencode = true;
 
-  // OpenCode local: <cwd>/.opencode/commands/flow-*.md
-  const ocLocal = path.join(cwd, ".opencode", "commands");
-  if (fs.existsSync(ocLocal) && fs.readdirSync(ocLocal).some(f => f.startsWith("flow-")))
-    found.opencode.local = true;
-
-  // Claude Code global: ~/.claude/commands/flow-*.md
-  const ccGlobal = path.join(getGlobalClaudeDir(), "commands");
-  if (fs.existsSync(ccGlobal) && fs.readdirSync(ccGlobal).some(f => f.startsWith("flow-")))
-    found.claude.global = true;
-
-  // Claude Code local: <cwd>/.claude/commands/flow-*.md
-  const ccLocal = path.join(cwd, ".claude", "commands");
-  if (fs.existsSync(ccLocal) && fs.readdirSync(ccLocal).some(f => f.startsWith("flow-")))
-    found.claude.local = true;
-
-  // Codex App / CLI global: ~/.agents/skills/flow-* and ~/.codex/agents/flow-*.toml
-  const cxGlobalSkills = getGlobalCodexSkillsDir();
+  // Codex global: ~/.agents/skills/flow-* and ~/.codex/agents/flow-*.toml
+  const cxGlobalSkills = RUNTIMES.codex.commandsDir;
   if (fs.existsSync(cxGlobalSkills) && fs.readdirSync(cxGlobalSkills).some(f => f.startsWith("flow-")))
-    found.codex.global.skills = true;
-  const cxGlobalAgents = getGlobalCodexAgentsDir();
+    found.codex.skills = true;
+  const cxGlobalAgents = RUNTIMES.codex.agentsDir;
   if (fs.existsSync(cxGlobalAgents) && fs.readdirSync(cxGlobalAgents).some(f => f.startsWith("flow-")))
-    found.codex.global.agents = true;
+    found.codex.agents = true;
 
-  // Codex App / CLI local: <cwd>/.agents/skills/flow-* and <cwd>/.codex/agents/flow-*.toml
-  const cxLocalSkills = path.join(cwd, ".agents", "skills");
-  if (fs.existsSync(cxLocalSkills) && fs.readdirSync(cxLocalSkills).some(f => f.startsWith("flow-")))
-    found.codex.local.skills = true;
-  const cxLocalAgents = path.join(cwd, ".codex", "agents");
-  if (fs.existsSync(cxLocalAgents) && fs.readdirSync(cxLocalAgents).some(f => f.startsWith("flow-")))
-    found.codex.local.agents = true;
+  // CommandCode global: ~/.commandcode/commands/flow-*.md and ~/.commandcode/skills/flow-*
+  const ccGlobal = RUNTIMES.commandcode.commandsDir;
+  if (fs.existsSync(ccGlobal) && fs.readdirSync(ccGlobal).some(f => f.startsWith("flow-")))
+    found.commandcode = true;
+  // Also check skills dir
+  const ccSkills = path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills");
+  if (!found.commandcode && fs.existsSync(ccSkills) && fs.readdirSync(ccSkills).some(f => f.startsWith("flow-")))
+    found.commandcode = true;
 
-  // Antigravity global: ~/.gemini/antigravity/flow/workflows/
-  const agWorkflows = path.join(getGlobalAntigravityDir(), "flow", "workflows");
-  if (fs.existsSync(agWorkflows) && fs.readdirSync(agWorkflows).some(f => f.startsWith("flow-")))
-    found.antigravity.global = true;
-
-  // Antigravity local: <cwd>/.gemini/antigravity/flow/workflows/
-  const agWorkflowsLocal = path.join(cwd, ".gemini", "antigravity", "flow", "workflows");
-  if (fs.existsSync(agWorkflowsLocal) && fs.readdirSync(agWorkflowsLocal).some(f => f.startsWith("flow-")))
-    found.antigravity.local = true;
-
-  // Antigravity IDE global: ~/.gemini/antigravity-ide/flow/workflows/
-  const agIdeWorkflows = path.join(getGlobalAntigravityIdeDir(), "flow", "workflows");
-  if (fs.existsSync(agIdeWorkflows) && fs.readdirSync(agIdeWorkflows).some(f => f.startsWith("flow-")))
-    found["antigravity-ide"].global = true;
-
-  // Antigravity IDE local: <cwd>/.gemini/antigravity-ide/flow/workflows/
-  const agIdeWorkflowsLocal = path.join(cwd, ".gemini", "antigravity-ide", "flow", "workflows");
-  if (fs.existsSync(agIdeWorkflowsLocal) && fs.readdirSync(agIdeWorkflowsLocal).some(f => f.startsWith("flow-")))
-    found["antigravity-ide"].local = true;
+  // Zed shares ~/.agents/skills with Codex — same dir, so if Codex has it, Zed is considered installed.
+  // We still check separately for standalone zed installs that may have been done before codex.
+  if (found.codex.skills) found.zed = true;
 
   return found;
 }
 
 // ─── Update flow ─────────────────────────────────────────────────────────────
 // Auto-detects every installed runtime and updates all of them.
-// No runtime prompt — finds what's there and updates it.
-// No runtime prompt — finds what's there and updates it.
 async function runUpdate() {
   log("");
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
@@ -1175,119 +950,101 @@ async function runUpdate() {
   const cwd = process.cwd();
 
   // ── Step 1: Detect installed runtimes ──────────────────────────────────────
-  const installed = detectInstalledRuntimes(cwd);
-  const anyRuntime = installed.opencode.global || installed.opencode.local
-                  || installed.claude.global   || installed.claude.local
-                  || installed.codex.global.skills || installed.codex.global.agents
-                  || installed.codex.local.skills   || installed.codex.local.agents
-                  || installed.antigravity.global || installed.antigravity.local
-                  || installed["antigravity-ide"].global || installed["antigravity-ide"].local;
+  const installed = detectInstalledRuntimes();
+  const anyRuntime = installed.opencode
+                  || installed.codex.skills || installed.codex.agents
+                  || installed.commandcode
+                  || installed.zed;
 
   if (!anyRuntime) {
     warn("No Flow runtime installation detected.");
-    warn("Checked: OpenCode (global + local), Claude Code (global + local), Codex App / CLI (global + local), Antigravity (global), Antigravity IDE (global)");
+    warn("Checked: OpenCode (global), Codex App / CLI (global), CommandCode (global), Zed Editor (global, shared with Codex)");
     warn("If this is a new project, run the installer first: npx @linggihlukis/flow");
     log("");
     return;
   }
 
   log(bold("Step 1 — Detected installations:"));
-  if (installed.opencode.global)  info(`OpenCode   global  ${dim(path.join(getGlobalOpenCodeDir(), "commands"))}`);
-  if (installed.opencode.local)   info(`OpenCode   local   ${dim(path.join(cwd, ".opencode", "commands"))}`);
-  if (installed.claude.global)    info(`Claude Code global  ${dim(path.join(getGlobalClaudeDir(), "commands"))}`);
-  if (installed.claude.local)     info(`Claude Code local   ${dim(path.join(cwd, ".claude", "commands"))}`);
-  if (installed.codex.global.skills || installed.codex.global.agents)
-    info(`Codex App / CLI global  ${dim(`${getGlobalCodexSkillsDir()} + ${getGlobalCodexAgentsDir()}`)}`);
-  if (installed.codex.local.skills || installed.codex.local.agents)
-    info(`Codex App / CLI local   ${dim(`${path.join(cwd, ".agents", "skills")} + ${path.join(cwd, ".codex", "agents")}`)}`);
-  if (installed.antigravity.global)      info(`Antigravity (Legacy) global  ${dim(path.join(getGlobalAntigravityDir(), "flow", "workflows"))}`);
-  if (installed.antigravity.local)       info(`Antigravity (Legacy) local   ${dim(path.join(cwd, ".gemini", "antigravity", "flow", "workflows"))}`);
-  if (installed["antigravity-ide"].global) info(`Antigravity IDE global       ${dim(path.join(getGlobalAntigravityIdeDir(), "flow", "workflows"))}`);
-  if (installed["antigravity-ide"].local)  info(`Antigravity IDE local        ${dim(path.join(cwd, ".gemini", "antigravity-ide", "flow", "workflows"))}`);
+  if (installed.opencode)  info(`OpenCode   global  ${dim(RUNTIMES.opencode.commandsDir)}`);
+  if (installed.codex.skills || installed.codex.agents)
+    info(`Codex App / CLI global  ${dim(`${RUNTIMES.codex.commandsDir} + ${RUNTIMES.codex.agentsDir}`)}`);
+  if (installed.commandcode) info(`CommandCode global  ${dim(`${RUNTIMES.commandcode.commandsDir} + ${RUNTIMES.commandcode.agentsDir}`)}`);
+  if (installed.zed && !installed.codex.skills) info(`Zed Editor global  ${dim(RUNTIMES.zed.commandsDir)} (shared with Codex)`);
   log("");
 
   // ── Step 2: Update command & agent files for each detected runtime ─────────
   log(bold("Step 2 — Updating runtime files..."));
   log("");
 
-  if (installed.opencode.global) {
+  // Dedup: codex and zed share ~/.agents/skills — write once
+  const updatedSkillsDirs = new Set();
+
+  if (installed.opencode) {
     try {
-      const cmdCount = installCommands(path.join(getGlobalOpenCodeDir(), "commands"), "opencode");
-      const agCount  = installAgents(path.join(getGlobalOpenCodeDir(), "agents"), "opencode");
+      const cmdCount = installCommands(RUNTIMES.opencode.commandsDir);
+      const agCount  = installAgents(RUNTIMES.opencode.agentsDir);
       ok(`OpenCode global: ${cmdCount} commands + ${agCount} agents`);
     } catch (e) { err(`OpenCode global failed: ${e.message}`); }
   }
 
-  if (installed.opencode.local) {
+  if (installed.codex.skills || installed.codex.agents) {
     try {
-      const cmdCount = installCommands(path.join(cwd, ".opencode", "commands"), "opencode");
-      const agCount  = installAgents(path.join(cwd, ".opencode", "agents"), "opencode");
-      ok(`OpenCode local:  ${cmdCount} commands + ${agCount} agents`);
-    } catch (e) { err(`OpenCode local failed: ${e.message}`); }
-  }
-
-  if (installed.claude.global) {
-    try {
-      const cmdCount = installCommands(path.join(getGlobalClaudeDir(), "commands"), "claude");
-      const agCount  = installAgents(path.join(getGlobalClaudeDir(), "agents"), "claude");
-      ok(`Claude Code global: ${cmdCount} commands + ${agCount} agents`);
-    } catch (e) { err(`Claude Code global failed: ${e.message}`); }
-  }
-
-  if (installed.claude.local) {
-    try {
-      const cmdCount = installCommands(path.join(cwd, ".claude", "commands"), "claude");
-      const agCount  = installAgents(path.join(cwd, ".claude", "agents"), "claude");
-      ok(`Claude Code local:  ${cmdCount} commands + ${agCount} agents`);
-    } catch (e) { err(`Claude Code local failed: ${e.message}`); }
-  }
-
-  if (installed.codex.global.skills || installed.codex.global.agents) {
-    try {
-      const skillCount = installed.codex.global.skills ? installCodexSkills(getGlobalCodexSkillsDir(), "codex") : 0;
-      const agCount    = installed.codex.global.agents ? installCodexAgents(getGlobalCodexAgentsDir(), "codex") : 0;
+      let skillCount = 0;
+      if (installed.codex.skills) {
+        const key = path.resolve(RUNTIMES.codex.commandsDir);
+        if (!updatedSkillsDirs.has(key)) {
+          skillCount = installCodexSkills(RUNTIMES.codex.commandsDir);
+          updatedSkillsDirs.add(key);
+        }
+      }
+      const agCount    = installed.codex.agents ? installCodexAgents(RUNTIMES.codex.agentsDir) : 0;
       ok(`Codex App / CLI global: ${skillCount} skills + ${agCount} agents`);
     } catch (e) { err(`Codex App / CLI global failed: ${e.message}`); }
   }
 
-  if (installed.codex.local.skills || installed.codex.local.agents) {
+  if (installed.commandcode) {
     try {
-      const skillCount = installed.codex.local.skills ? installCodexSkills(path.join(cwd, ".agents", "skills"), "codex") : 0;
-      const agCount    = installed.codex.local.agents ? installCodexAgents(path.join(cwd, ".codex", "agents"), "codex") : 0;
-      ok(`Codex App / CLI local:  ${skillCount} skills + ${agCount} agents`);
-    } catch (e) { err(`Codex App / CLI local failed: ${e.message}`); }
+      const skillsDir = path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills");
+      let skillCount = 0;
+      const key = path.resolve(skillsDir);
+      if (!updatedSkillsDirs.has(key)) {
+        skillCount = installCommandCodeSkills(skillsDir);
+        updatedSkillsDirs.add(key);
+      }
+      const cmdCount = installCommandCodeCommands(RUNTIMES.commandcode.commandsDir);
+      const agCount  = installCommandCodeAgents(RUNTIMES.commandcode.agentsDir);
+      ok(`CommandCode global: ${skillCount} skills + ${cmdCount} commands + ${agCount} agents`);
+    } catch (e) { err(`CommandCode global failed: ${e.message}`); }
   }
 
-  if (installed.antigravity.global) {
+  if (installed.zed && !installed.codex.skills) {
     try {
-      const agDir = getGlobalAntigravityDir();
-      const { workflows, agents, skills } = installAntigravity(agDir, "antigravity", "global");
-      ok(`Antigravity (Legacy) global: ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) { err(`Antigravity (Legacy) global failed: ${e.message}`); }
+      const key = path.resolve(RUNTIMES.zed.commandsDir);
+      if (!updatedSkillsDirs.has(key)) {
+        const skillCount = installCodexSkills(RUNTIMES.zed.commandsDir);
+        updatedSkillsDirs.add(key);
+        ok(`Zed Editor global: ${skillCount} skills (shared with Codex)`);
+      }
+    } catch (e) { err(`Zed Editor global failed: ${e.message}`); }
   }
 
-  if (installed.antigravity.local) {
-    try {
-      const agDir = path.join(cwd, ".gemini", "antigravity");
-      const { workflows, agents, skills } = installAntigravity(agDir, "antigravity", "local");
-      ok(`Antigravity (Legacy) local:  ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) { err(`Antigravity (Legacy) local failed: ${e.message}`); }
+  // ── One-shot legacy shim cleanup (idempotent, ignore ENOENT) — Platform.home for Windows parity
+  const legacyShims = [
+    path.join(Platform.home, ".config", "opencode", "flow"),
+    path.join(Platform.home, ".claude", "flow"),
+    path.join(Platform.home, ".codex", "flow"),
+    path.join(Platform.home, ".gemini", "antigravity", "flow"),
+    path.join(Platform.home, ".gemini", "antigravity-ide", "flow"),
+  ];
+  for (const p of legacyShims) {
+    try { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); } catch {}
   }
-
-  if (installed["antigravity-ide"].global) {
-    try {
-      const agIdeDir = getGlobalAntigravityIdeDir();
-      const { workflows, agents, skills } = installAntigravity(agIdeDir, "antigravity-ide", "global");
-      ok(`Antigravity IDE global:     ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) { err(`Antigravity IDE global failed: ${e.message}`); }
-  }
-
-  if (installed["antigravity-ide"].local) {
-    try {
-      const agIdeDir = path.join(cwd, ".gemini", "antigravity-ide");
-      const { workflows, agents, skills } = installAntigravity(agIdeDir, "antigravity-ide", "local");
-      ok(`Antigravity IDE local:      ${workflows} workflows + ${agents} agents + ${skills} skill wrappers`);
-    } catch (e) { err(`Antigravity IDE local failed: ${e.message}`); }
+  for (const p of [
+    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.js"),
+    path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.cmd"),
+    path.join(Platform.home, ".codex", "flow", "flow-tools.js"),
+  ]) {
+    try { if (fs.existsSync(p)) fs.rmSync(p, { force: true }); } catch {}
   }
 
   // ── Step 2b: Update Flow tools ─────────────────────────────────────────────
@@ -1309,97 +1066,17 @@ async function runUpdate() {
     warn("WASM files update skipped — optional feature.");
   }
 
-  // ── Step 2c: Recreate runtime bridges ──────────────────────────────────────
+  // ── Step 3: Scaffold — global install does NOT auto-write scaffold ─────────
   log("");
-  log(bold("Step 2c — Recreating runtime bridges..."));
-  log("");
-
-  // OpenCode global
-  if (installed.opencode.global) {
-    try {
-      createRuntimeBridge(path.join(getGlobalOpenCodeDir(), "flow"), "opencode");
-    } catch (e) { err(`OpenCode global bridge failed: ${e.message}`); }
-  }
-
-  // OpenCode local
-  if (installed.opencode.local) {
-    try {
-      createRuntimeBridge(path.join(cwd, ".opencode", "flow"), "opencode");
-    } catch (e) { err(`OpenCode local bridge failed: ${e.message}`); }
-  }
-
-  // Claude Code global
-  if (installed.claude.global) {
-    try {
-      createRuntimeBridge(path.join(getGlobalClaudeDir(), "flow"), "claude");
-    } catch (e) { err(`Claude Code global bridge failed: ${e.message}`); }
-  }
-
-  // Claude Code local
-  if (installed.claude.local) {
-    try {
-      createRuntimeBridge(path.join(cwd, ".claude", "flow"), "claude");
-    } catch (e) { err(`Claude Code local bridge failed: ${e.message}`); }
-  }
-
-  // Codex global
-  if (installed.codex.global.skills || installed.codex.global.agents) {
-    try {
-      createRuntimeBridge(path.join(path.dirname(getGlobalCodexAgentsDir()), "flow"), "codex");
-    } catch (e) { err(`Codex global bridge failed: ${e.message}`); }
-  }
-
-  // Codex local
-  if (installed.codex.local.skills || installed.codex.local.agents) {
-    try {
-      createRuntimeBridge(path.join(cwd, ".codex", "flow"), "codex");
-    } catch (e) { err(`Codex local bridge failed: ${e.message}`); }
-  }
-
-  // Antigravity — SKIP (global-only, no local flow dir, bridges not applicable)
-  // (Comment: Antigravity uses workflow files directly, no shim needed)
-
-  // ── Step 3: Update project scaffold (AGENTS.md + .flow/) ──────────────────
-  log("");
-  log(bold("Step 3 — Updating project scaffold..."));
+  log(bold("Step 3 — Project scaffold"));
   log("");
 
   const hasFlow = fs.existsSync(path.join(cwd, ".flow")) || fs.existsSync(path.join(cwd, "AGENTS.md"));
   if (!hasFlow) {
     warn(`No .flow/ or AGENTS.md found in: ${dim(cwd)}`);
-    warn("Run --update from inside the project directory to update its scaffold.");
+    warn("Global install does not auto-write scaffold — run /flow-init inside your project to scaffold.");
   } else {
-    let report;
-    try {
-      report = updateScaffold(cwd);
-    } catch (e) {
-      err(`Step 3 — updateScaffold failed: ${e.message}`);
-      warn("Project scaffold update failed — your .flow data is untouched.");
-      report = null;
-    }
-
-    if (report) {
-      if (report.newDirs.length > 0) {
-        info("New directories created:");
-        report.newDirs.forEach(d => log(`    ${c.green}+${c.reset} ${d}`));
-      }
-      if (report.updated.length > 0) {
-        info("Updated:");
-        report.updated.forEach(f => log(`    ${c.green}↑${c.reset} ${f}`));
-      }
-      if (report.added.length > 0) {
-        info("Added:");
-        report.added.forEach(f => log(`    ${c.green}+${c.reset} ${f}`));
-      }
-      if (report.skipped.length > 0) {
-        info("Preserved (never touched):");
-        report.skipped.forEach(f => log(`    ${dim("  " + f)}`));
-      }
-      if (report.warnings.length > 0) {
-        log("");
-        report.warnings.forEach(w => warn(w));
-      }
-    }
+    warn(`Flow scaffold present — run /flow-init to refresh AGENTS.md/.flow (global --update does not auto-write scaffold)`);
   }
 
 
@@ -1415,11 +1092,10 @@ async function runUpdate() {
   log(`  ${dim("To update again later:")}`);
   log(`  ${dim("  npx @linggihlukis/flow@latest --update")}`);
   log("");
-  if (installed.opencode.global || installed.opencode.local)  log(dim("  Restart OpenCode to load the updated commands."));
-  if (installed.claude.global   || installed.claude.local)    log(dim("  Reload Claude Code to load the updated commands."));
-  if (installed.codex.global.skills || installed.codex.global.agents || installed.codex.local.skills || installed.codex.local.agents)
-                                                              log(dim("  Restart Codex App / CLI to load the updated skills and agents."));
-  if (installed.antigravity)                                  log(dim("  Restart Antigravity to load the updated skills."));
+  if (installed.opencode)  log(dim("  Restart OpenCode to load the updated commands."));
+  if (installed.codex)    log(dim("  Restart Codex App / CLI to load the updated skills and agents."));
+  if (installed.commandcode) log(dim("  Restart CommandCode to load the updated skills/commands."));
+  if (installed.zed)      log(dim("  Reload Zed Editor to load the updated skills (shared with Codex)."));
   log("");
 }
 
@@ -1427,4 +1103,4 @@ if (require.main === module) {
   main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
 }
 
-module.exports = { updateScaffold, createRuntimeBridge, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown, installScaffold, ensureAgentsBlock, FLOW_START, FLOW_END };
+module.exports = { updateScaffold, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown, installScaffold, ensureAgentsBlock, getFlowHomeDir, getFlowToolsAbsPath, FLOW_START, FLOW_END };
