@@ -340,7 +340,7 @@ The spec-driven agentic workflow space has grown quickly. Flow is one of several
 
 ## Commands
 
-Four only. See `docs/designs/2026-05-14-flow-redesign-locked.md` §13.
+Four only.
 
 | Command | Role | Replaces |
 |---|---|---|
@@ -396,51 +396,7 @@ Languages without a built-in mapping default to `.{language}` (e.g. `scala` → 
 
 ### Indexer settings
 
-By default, `flow-tools` skips `node_modules`, `.git`, `.flow`, and `vendor` during indexing. Everything else is scanned.
-
-#### `php_parser` — higher-accuracy PHP indexing (opt-in)
-
-By default, Flow indexes PHP files using Treesitter. For legacy or procedural PHP codebases, Treesitter misses:
-
-- Procedural functions defined outside classes
-- Global constants (`define()`, `const FOO`)
-- Concatenated includes: `require __DIR__ . '/file.php'`
-
-Setting `php_parser: "php-parser"` routes PHP files through [nikic/PHP-Parser](https://github.com/nikic/PHP-Parser) instead, which handles all of the above.
-
-```json
-{
-  "php_parser": "php-parser"
-}
-```
-
-**Requirements:** `php` in PATH and `composer` in PATH.
-
-**Auto-installation:** After setting `"php-parser"`, run:
-
-```bash
-npx @linggihlukis/flow@latest --update
-```
-
-The updater detects the setting and runs `composer require nikic/php-parser` automatically inside Flow's `bin/` directory. No manual Composer step needed. If `php` or `composer` are not found, the update completes normally with a warning — the setting falls back to Treesitter until the dependencies are available.
-
-**Status check:** After indexing, the health output includes:
-```
-php_parser: active      ← PHP-Parser running
-php_parser: fallback    ← requested but unavailable, Treesitter used
-php_parser: disabled    ← default Treesitter mode
-```
-
-| | Treesitter (default) | PHP-Parser (opt-in) |
-|---|---|---|
-| Class methods | ✓ | ✓ |
-| Procedural functions | ✓ | ✓ |
-| Global constants | ✗ | ✓ |
-| `require 'literal.php'` | ✓ | ✓ |
-| `require __DIR__ . '/x.php'` | ✗ | ✓ |
-| `require $variable` | ✗ | ✗ |
-
-> PHP-Parser is recommended for any legacy PHP codebase with procedural code, global constants, or dynamic includes.
+By default, `flow-tools` skips `node_modules`, `.git`, `.flow`, and `vendor` during indexing. Everything else is scanned. Symbols are file-level only (`flow-map-v1`); pass `--symbols` with WASM available to include `functions[]`/`classes[]`/`includes[]`, and `--hash` to include SHA-256 per file.
 
 ---
 

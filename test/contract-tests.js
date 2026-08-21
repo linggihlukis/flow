@@ -97,21 +97,6 @@ for (const [cmd, schema] of Object.entries(SCHEMAS)) {
   }
 }
 
-// Specific tests for commands that require fixture data
-console.log(`\n${c.bold}Additional structural tests${c.reset}`);
-
-// Test batch contract
-{
-  const result = invoke('batch', []);
-  if (result.ok && result.data) {
-    const errors = validateShape(result.data, SCHEMAS.batch.output);
-    if (errors.length > 0) fail(`batch: ${errors[0]}`);
-    else pass('batch: output shape valid');
-  } else {
-    skip('batch: skipped (no stdin input)');
-  }
-}
-
 if (failures === 0) {
   console.log(`\n${c.green}${c.bold}All contract tests passed${c.reset}\n`);
 } else {

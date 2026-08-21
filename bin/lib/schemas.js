@@ -35,10 +35,6 @@ const SCHEMAS = {
     input:  { type: 'object', required: ['cwd'], properties: { cwd: { type: 'string' }, paths: { type: 'array', items: { type: 'string' } }, 'line-count': { type: 'boolean' }, touch: { type: 'boolean' }, newer: { type: 'string' } } },
     output: { type: 'object', properties: { results: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, resolved: { type: 'string' }, exists: { type: 'boolean' }, readable: { type: 'boolean' }, line_count: { type: ['integer', 'null'] } } } } } },
   },
-  'extract field': {
-    input:  { type: 'object', required: ['cwd', 'file', 'field'], properties: { cwd: { type: 'string' }, file: { type: 'string' }, field: { type: 'string' } } },
-    output: { type: 'object', properties: { values: { type: 'array', items: { type: 'string' } } } },
-  },
   'audit open': {
     input:  { type: 'object', properties: { cwd: { type: 'string' } } },
     output: { type: 'object', properties: { valid: { type: 'boolean' }, drift: { type: 'array' } } },

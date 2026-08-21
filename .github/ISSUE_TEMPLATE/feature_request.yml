@@ -23,10 +23,10 @@ body:
       label: Scope
       description: What part of Flow does this affect?
       options:
-        - Command (flow-*)
+        - Command (/flow, /flow-init, /flow-map, /flow-status)
         - Agent (flow-planner, flow-executor, flow-reviewer)
         - Installer (bin/install.js)
-        - Scaffold (AGENTS.md, config.json, STATE.md)
+        - Scaffold (AGENTS.md, state.md, memory.md, map.json)
         - Documentation
         - Other
     validations:

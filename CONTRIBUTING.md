@@ -14,18 +14,16 @@ Thank you for your interest in contributing to Flow.
 git clone https://github.com/linggihlukis/flow.git
 cd flow
 npm install
-npm test    # 8 suites, zero failures expected
+npm test    # Suites 1-17 + ts-extractor, zero failures expected
 ```
 
 ## Project Structure
 
 ```
-agents/        — 6 subagent definitions (.md)
-bin/           — installer (install.js)
-commands/      — 24 orchestrator commands (.md)
-docs/adr/      — architecture decision records
-docs/research/ — curated research & analysis
-scaffold/      — template files installed into user projects
+agents/        — 3 subagent definitions (flow-planner, flow-executor, flow-reviewer)
+bin/           — installer (install.js) + flow-tools.js (6 primitives: state/frontmatter/files/map/task/audit)
+commands/      — 4 commands (flow, flow-init, flow-map, flow-status)
+scaffold/      — template files installed into user projects (.flow/{state,memory,map,work-items} + AGENTS.md marker)
 test/          — test suite
 ```
 
@@ -34,22 +32,24 @@ test/          — test suite
 1. Fork the repository
 2. Create a feature branch (`git checkout -b fix/schema-gate-regex`)
 3. Make your changes
-4. Run `npm test` — all 8 suites must pass with zero failures
+4. Run `npm test` — all suites must pass with zero failures
 5. Commit with a descriptive message
 6. Open a Pull Request
 
 ## Code Style
 
-Flow is an **instruction-layer system** — the product is Markdown files, not traditional code.
+Flow is a Work Item system — `Work Item → Plan → Execute → Review`.
 
-- **Commands** (`commands/flow-*.md`): YAML frontmatter + structured Markdown. Each command is a self-contained orchestrator script.
-- **Agents** (`agents/flow-*.md`): Subagent definitions with `## What you must read first`, `## Implementation Steps`, and `## Return` blocks.
-- **Installer** (`bin/install.js`): Standard Node.js. No transpilation, no build step.
+- **Commands** (`commands/*.md`): 4 only — `/flow`, `/flow-init`, `/flow-map`, `/flow-status`.
+- **Agents** (`agents/*.md`): 3 only — Planner (research is part of planning), Executor (Read → Change → Verify → Report), Reviewer (critic+verifier+debugger; single writer of memory.md at accepted).
+- **Installer** (`bin/install.js`): Standard Node.js. No transpilation, no build step. Marker co-existence for `AGENTS.md` (`flow:generated`).
+- **State** (`.flow/state.md`): `active_work_item: work-item-NNN`, `status: ready|planned|in-progress|in-review|complete`.
 
 ### Key Rules
 
-- `scaffold/AGENTS.md` is authoritative — if you add agents, update §2 and §5.
-- `bin/install.js` scaffold dirs must match `AGENTS.md` §2 file tree exactly.
+- `scaffold/AGENTS.md` Flow block is ~10 lines (`flow:generated` markers) — workflow only, not repo facts.
+- `bin/install.js` scaffold is `.flow/{state.md,memory.md,map.json,work-items/}` only — no `config.json`/`state.json`.
+- 6 primitives only: `state/frontmatter/files/map/task/audit` — no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
 - `test/flow-test.js` has inline canonical data — update both the test and the source when paths change.
 - Keep `agents/flow-reviewer.md` task reads cold — context isolation is the point.
 - Executor summary write step order: between Commit and Report. Do not move it.

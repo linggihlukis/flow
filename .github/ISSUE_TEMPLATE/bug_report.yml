@@ -53,6 +53,6 @@ body:
     id: context
     attributes:
       label: Additional context
-      description: Any other context — config.json contents, error output, screenshots.
+      description: Any other context — .flow/state.md or map.json contents, error output, screenshots.
     validations:
       required: false

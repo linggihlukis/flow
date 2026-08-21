@@ -13,7 +13,6 @@ const REQUIRED = [
   "state get", "state patch", "state validate", "state sync",
   "frontmatter get", "frontmatter set",
   "files check",
-  "extract field",
   "audit open",
   "task validate",
   "map index", "map search",
