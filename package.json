@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node bin/install.js",
-    "test": "node test/flow-test.js",
+    "test": "node test/flow-test.js && node test/state-regression.test.js",
     "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/flow-map.test.js && node test/lib/primitives.test.js",
     "test:contracts": "node test/contract-tests.js",
     "docs": "node scripts/generate-docs.js > docs/api-reference.md"
