@@ -14,7 +14,9 @@ function cmdAuditOpen(args) {
   if (!fm) { drift.push({ field: 'state.md', expected: 'valid frontmatter', actual: 'parse error' }); return output({ valid: false, drift }); }
   // Work-item lifecycle: active_work_item + status (ready|planned|in-progress|in-review|complete)
   const wi = fm.active_work_item;
-  if (wi === undefined || wi === null) drift.push({ field: 'state.active_work_item', expected: 'present', actual: 'missing' });
+  if (wi === undefined || (wi === null && fm.status !== 'ready')) {
+    drift.push({ field: 'state.active_work_item', expected: fm.status === 'ready' ? 'present or null' : 'work-item-NNN', actual: wi });
+  }
   if (fm.status === undefined || fm.status === null) drift.push({ field: 'state.status', expected: 'present', actual: 'missing' });
   if (wi) {
     const wiName = String(fm.active_work_item);
