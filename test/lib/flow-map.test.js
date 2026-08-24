@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execSync } = require('node:child_process')
+const { discoverRepositories } = require('../../bin/lib/flow-map')
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-map-test-'))
 execSync('git init', { cwd: root, stdio: 'ignore' })
@@ -24,8 +25,8 @@ assert.ok(!j.files['.env'], 'sensitive file skipped')
 assert.ok(Array.isArray(j.manifests))
 assert.ok(Array.isArray(j.limitations))
 assert.ok(!('functions' in j.files['src/index.ts']), 'no symbols without --symbols')
+assert.equal(j.repositories.length, 1)
 
-// Verify via flow-tools primitive
 const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-map-tools-'))
 execSync('git init', { cwd: tmp2, stdio: 'ignore' })
 fs.writeFileSync(path.join(tmp2, 'package.json'), '{"name":"y"}')
@@ -36,14 +37,29 @@ const j2 = JSON.parse(fs.readFileSync(path.join(tmp2, '.flow', 'map.json'), 'utf
 assert.equal(j2.schema_version, 'flow-map-v1')
 assert.ok(!('functions' in (j2.files['src/index.ts'] || {})), 'no symbols without --symbols via flow-tools')
 
-// --symbols when WASM missing should still be valid JSON with symbols:false
 execSync(`node "${path.join(__dirname, '../../bin/flow-tools.js')}" map index --cwd "${tmp2}" --symbols`, { stdio: 'pipe' })
 const j3 = JSON.parse(fs.readFileSync(path.join(tmp2, '.flow', 'map.json'), 'utf8'))
 assert.ok(j3.schema_version === 'flow-map-v1')
 assert.ok(typeof j3.indexer.symbols === 'boolean')
-// If WASM unavailable, limitation must mention it (no crash)
-if (!j3.indexer.symbols) {
-  assert.ok(j3.limitations.some(s => s.includes('WASM unavailable') || s.includes('symbols requested')), 'should note WASM unavailable')
+if (!j3.indexer.symbols) assert.ok(j3.limitations.some(s => s.includes('WASM unavailable') || s.includes('symbols requested')), 'should note WASM unavailable')
+
+// Polyrepo: Flow root is not itself a Git repository; nested repositories must be discovered and indexed.
+const poly = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-map-polyrepo-'))
+const repoA = path.join(poly, 'service-a')
+const repoB = path.join(poly, 'service-b')
+for (const [repo, name] of [[repoA, 'a'], [repoB, 'b']]) {
+  fs.mkdirSync(path.join(repo, 'src'), { recursive: true })
+  execSync('git init', { cwd: repo, stdio: 'ignore' })
+  fs.writeFileSync(path.join(repo, 'package.json'), `{"name":"${name}"}`)
+  fs.writeFileSync(path.join(repo, 'src', 'index.js'), `module.exports = '${name}'\n`)
 }
+const repos = discoverRepositories(poly, [], new Set())
+assert.deepEqual(repos.map(r => r.relative_root), ['service-a', 'service-b'])
+execSync(`node "${path.join(__dirname, '../../bin/lib/flow-map.js')}" index --cwd "${poly}"`, { stdio: 'pipe' })
+const polyMap = JSON.parse(fs.readFileSync(path.join(poly, '.flow', 'map.json'), 'utf8'))
+assert.equal(polyMap.repositories.length, 2)
+assert.ok(polyMap.files['service-a/src/index.js'])
+assert.ok(polyMap.files['service-b/src/index.js'])
+assert.ok(!polyMap.files['service-a/.git/config'])
 
 console.log('PASS')
