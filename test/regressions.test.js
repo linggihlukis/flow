@@ -19,7 +19,7 @@ async function run() {
     const executorContent = readFile(executorPath);
     const flowContent = readFile(flowPath);
     // Executor verify-before-commit contract (was 12a/b)
-    if (executorContent.includes("If it passes — proceed to commit")) { pass("12a: executor commits only after Verify passes"); } else { fail("12a: executor missing verify-before-commit rule"); }
+    if (executorContent.includes("After implementing — run the Verify command") && executorContent.includes("If it passes — proceed to the Git safety gate")) { pass("12a: executor commits only after Verify passes"); } else { fail("12a: executor missing verify-before-commit rule"); }
     if (executorContent.includes("do not stage or commit")) { pass("12b: executor blocks staging/commit after failed retries"); } else { fail("12b: executor missing failed-verify commit guard"); }
     // Work Item commit policy (was 12c-e, now in /flow not flow-execute-phase.md)
     if (flowContent.includes("One commit per task after verify passes")) { pass("12c: /flow has one-commit-per-task rule"); } else { fail("12c: /flow missing one-commit-per-task rule"); }
