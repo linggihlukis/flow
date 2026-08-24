@@ -50,7 +50,7 @@ Every task has a `## Verify` section with a runnable command.
 [the verify command from the task]
 ```
 
-If it passes — proceed to commit. If it fails — fix only the specific thing causing the failure, re-run the verify command, repeat up to 2 retries. After 2 retries still failing: report what failed and what was tried; do not stage or commit.
+If it passes — proceed to the Git safety gate. If it fails — fix only the specific thing causing the failure, re-run the verify command, repeat up to 2 retries. After 2 retries still failing: report what failed and what was tried; do not stage or commit.
 
 ## Verify scope
 
@@ -58,9 +58,13 @@ After implementation, before committing:
 
 ```bash
 git diff --name-only
+git status --short --branch
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse HEAD
 ```
 
-The commit above is the handoff — git is the source of truth. No summary file is written.
+The repository root and current branch are part of the commit safety check. If the task spans a polyrepo, run these commands from each repository that contains task files.
 
 If files appear that were not in your announced list, flag them:
 
@@ -70,11 +74,35 @@ Scope exceeded — unexpected files modified:
 Confirm these are intentional before I commit.
 ```
 
+## Commit safety gate
+
+**Never commit without checking the current repository and branch immediately before staging.** The current Git branch is not assumed to be safe merely because the task or Work Item started elsewhere.
+
+1. Determine the repository root with `git rev-parse --show-toplevel`.
+2. Determine the current branch with `git branch --show-current`.
+3. Determine HEAD with `git rev-parse HEAD`.
+4. Confirm the repository contains the files listed by the task.
+5. If the branch is `main` or `master`, **stop and ask the user for explicit confirmation before staging or committing**. Do not infer consent from the original `/flow` request.
+6. If the branch is detached, empty, or cannot be determined, **stop and ask the user**.
+7. If the current branch/repository differs from the execution context recorded by the orchestrator, **stop and ask the user before committing**.
+8. If the user does not explicitly confirm a questionable commit, do not stage or commit. Report `Commit blocked by Git safety gate`.
+
+For a normal non-protected branch with a matching execution context, continue without an extra confirmation prompt.
+
 ## Commit
+
+Only after the Git safety gate passes:
 
 ```bash
 git add [only files modified by this task]
-git status  # verify staged files match announced scope
+git status  # verify staged files match announced scope and repository/branch
+```
+
+If the safety gate required user confirmation, obtain that confirmation before running `git add` and `git commit`.
+
+Then:
+
+```bash
 git commit -m "type(work-item-NNN-task-XX): description"
 ```
 
