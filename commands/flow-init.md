@@ -63,6 +63,18 @@ Idempotent: re-running without `--force` preserves existing `state.md`/`memory.m
 
 After first accepted Work Item, only `@flow-reviewer` at `accepted` writes `memory.md` (see `flow.md` Review).
 
+## Step 6 — Done (completion contract)
+
+Report the scaffold result using the actual generated paths (`.flow/map.json`, `.flow/state.md` with `status: ready` and `active_work_item: null`, `.flow/memory.md`, `AGENTS.md` marker block, `.flow/work-items/`).
+
+Next action is `/flow "your goal"` — this creates `.flow/work-items/work-item-NNN/work-item.md` (see `flow.md` Step 1). Use `/flow-status` to check state.
+
+Constraints:
+
+- Only recommend commands that exist in the installed Flow command set: `/flow-init`, `/flow`, `/flow-map`, `/flow-status` (+ `flow-tools.js` primitives).
+- Never suggest `/flow-new`, `/flow-new-project`, or any other nonexistent work-item creation command.
+- Never describe the work-item path as `work-items/NNN-*.md` — correct path is `.flow/work-items/work-item-NNN/work-item.md`.
+
 ## What /flow-init will NOT do
 
 Questions/research/roadmap generation, `config.json` creation, PATTERNS.md prose, silent map refresh, auto-writing `memory.md` without proposal.
