@@ -25,7 +25,19 @@ Plan → Execute → Review
 
 Read `.flow/state.md` (`active_work_item`, `status`). If `status: ready` or no active Work Item, create `work-items/work-item-NNN/work-item.md` from `$ARGUMENTS` (goal, constraints, done condition). Set `state.md` `active_work_item: work-item-NNN`, `status: planned` via `flow-tools state patch`.
 
-If `status: planned|in-progress|in-review`, continue that Work Item — do not create a new one.
+When a Work Item starts, capture its Git execution context in `work-item.md` before Plan/Execute:
+
+```bash
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse HEAD
+```
+
+For a polyrepo Work Item, capture one context entry for every repository containing files in the Work Item scope. Record the repository root, branch, and starting HEAD under `## Git Execution Context`. Do not invent a repository context for paths that are not in a Git repository.
+
+If the Work Item is continued, re-read the recorded context; do not silently replace it. A new context may only be established when the previous Work Item is complete and a new Work Item starts.
+
+If the starting context cannot be determined, note it in the Work Item and the Executor must require explicit confirmation before any commit.
 
 ## Step 2 — Plan
 
@@ -45,6 +57,7 @@ For each `tasks/task-XX.md` in dependency order (wave when `Depends on` allows):
 - Delegate to `@flow-executor` — one task: `Read → Change → Verify → Report`.
 - Verify command must pass; on fail retry per task up to 2 times, else report.
 - Before every commit, Executor performs the Git safety gate. Protected branch (`main`/`master`), detached/unknown branch, or repository/branch mismatch requires explicit user confirmation; no confirmation means no commit.
+- Compare current repository root, branch, and HEAD against the Work Item's recorded `## Git Execution Context`. A changed HEAD caused by another legitimate commit does not by itself block the task; a changed branch or repository does. If branch/repository changed, stop and ask. If HEAD changed unexpectedly while this task was running, stop and ask rather than committing on an unreviewed base.
 - One commit per task after verify passes. Check `git diff --name-only` matches task `Files`.
 
 ## Step 4 — Review
