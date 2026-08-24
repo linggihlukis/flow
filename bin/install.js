@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync, execSync } = require("node:child_process");
 const { RUNTIMES } = require('./lib/runtime-registry');
 const { Platform } = require('./lib/platform');
 
@@ -283,6 +283,17 @@ function installFlowHome() {
   return true;
 }
 
+function findNpmCliPath() {
+  const candidates = [];
+  if (process.env.npm_execpath && fs.existsSync(process.env.npm_execpath)) candidates.push(process.env.npm_execpath);
+  candidates.push(path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"));
+  if (process.env.APPDATA) candidates.push(path.join(process.env.APPDATA, "npm", "node_modules", "npm", "bin", "npm-cli.js"));
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
 function installNodeDeps(toolsDir) {
   const pkgJsonPath = path.join(toolsDir, "package.json");
   if (!fs.existsSync(pkgJsonPath)) {
@@ -307,10 +318,29 @@ function installNodeDeps(toolsDir) {
 
   info(`Installing flow-tools deps: ${missing.join(", ")}`);
   try {
-    execFileSync(
-      isWindows ? "npm.cmd" : "npm", ["install", "--prefix", toolsDir, "--save", ...missing],
-      { stdio: "pipe", timeout: 60_000 }
-    );
+    if (isWindows) {
+      const npmCli = findNpmCliPath();
+      if (npmCli) {
+        // DEBT: direct node+npm-cli avoids shell and EINVAL for .cmd; fallback to shell if cli not found
+        const result = spawnSync(process.execPath, [npmCli, "install", "--prefix", toolsDir, "--save", ...missing], {
+          // Using args array avoids shell quoting issues (handles spaces in toolsDir)
+          stdio: "pipe",
+          timeout: 60_000,
+        });
+        // spawnSync does not throw on non-zero exit; check status/error
+        if (result.error) throw result.error;
+        if (result.status !== 0) {
+          const msg = (result.stderr && result.stderr.toString()) || (result.stdout && result.stdout.toString()) || `npm exited with code ${result.status}`;
+          throw new Error(msg.trim().slice(0, 500));
+        }
+      } else {
+        // Fallback: shell with quoted prefix (handles spaces, avoids EINVAL)
+        const quote = (s) => `"${String(s).replace(/"/g, '\\"')}"`;
+        execSync(`npm install --prefix ${quote(toolsDir)} --save ${missing.join(" ")}`, { stdio: "pipe", timeout: 60_000 });
+      }
+    } else {
+      execFileSync("npm", ["install", "--prefix", toolsDir, "--save", ...missing], { stdio: "pipe", timeout: 60_000 });
+    }
     ok(`flow-tools deps installed ${dim(`→ ${toolsDir}/node_modules`)}`);
     return true;
   } catch (e) {
