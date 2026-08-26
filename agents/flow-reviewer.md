@@ -51,7 +51,7 @@ For each must-deliver item, gather evidence with read-only operations:
 - symbol/structure: `node bin/flow-tools.js map search`;
 - behavioral evidence: focused tests or deterministic read-only checks when available.
 
-A task is deep when it changes runtime behavior, validation, data flow, authorization, persistence, API/server behavior, shared/base code, or user-visible behavior. Deep tasks require behavior-oriented evidence; token/grep presence alone is insufficient. If no suitable check exists, report a verification gap and recommend `revise` rather than inventing evidence.
+A task is **deep** if any of these are true: it changes runtime behavior, validation, data flow, authorization, persistence, API/server behavior, shared/base code, refactor behavior, or user-visible behavior. Deep tasks require behavior-oriented evidence; a grep/token-presence check is **not sufficient**. If no suitable check exists, report a verification gap and recommend `revise` rather than inventing evidence.
 
 ## Behavior 3 — Diagnose and route
 
@@ -79,7 +79,7 @@ When a Work Item produces verified, durable, cross-Work-Item knowledge, return a
 - Reason: [why this should persist]
 ```
 
-If an existing fact is contradicted or obsolete, propose `update` or `supersede`; do not leave two contradictory current facts. Do not propose unresolved discoveries, Work Item-local conclusions, research transcripts, or duplicate facts. Source and verified behavior outrank stale memory. An unresolved discovery must not be promoted to durable memory.
+When an **Existing fact contradicted or obsolete** by verified source evidence, propose `update` or `supersede`; **Do not leave two contradictory current facts**. Do not propose unresolved discoveries, Work Item-local conclusions, research transcripts, or duplicate facts. Source and verified behavior outrank stale memory. An **Unresolved discovery** must not be promoted to durable memory; **do not promote it to durable memory**. `/flow` applies only an approved proposal.
 
 ## Lifecycle
 
