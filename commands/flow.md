@@ -48,9 +48,19 @@ There is no inline fallback. If the runtime cannot spawn the required child, sto
 
 Read `.flow/state.md` (`active_work_item`, `status`). If `status: ready` or there is no active Work Item, create `work-items/work-item-NNN/work-item.md` from `$ARGUMENTS` with goal, constraints, and binary Done Condition. Establish the Work Item's Git execution context before delegation. Persist the lifecycle transition to `state.md` through the existing `flow-tools` state primitive.
 
-For a polyrepo Work Item, record one repository root, branch, and starting HEAD for each repository containing files in scope. Do not invent repository context for paths outside Git. If context cannot be determined, record that fact and require the Executor's Git safety gate before commit.
+## Git Execution Context
 
-When continuing a Work Item, read and preserve its recorded execution context. A branch or repository change is never silently accepted.
+At Work Item start, record for every repository containing files in scope:
+
+```bash
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse HEAD
+```
+
+For a polyrepo Work Item, record one repository root, branch, and starting HEAD per repository. Do not invent repository context for paths outside Git. If context cannot be determined, record that fact and require the Executor's Git safety gate before commit.
+
+When continuing a Work Item, read and preserve its recorded execution context. Before commit, compare the current repository root, branch, and HEAD against the Work Item's recorded execution context. A branch, repository, or unexpected HEAD change is never silently accepted.
 
 ## Step 2 — Plan
 
@@ -67,11 +77,15 @@ After the Planner returns:
 
 A stale `.flow/map.json` is an explicit planning unknown; do not silently re-index. Use `/flow-map` when re-indexing is required.
 
+Planner records confirmed **Discoveries** in `plan.md` before any memory proposal. An unresolved discovery remains an unknown. Do not append a second truth to memory when source evidence contradicts an existing durable fact; route the contradiction through review and memory curation.
+
 ## Step 3 — Execute
 
 Delegate each task to `@flow-executor`, one task per child. Follow task dependencies using the task files; do not introduce a separate wave/context-management subsystem.
 
-The Executor reads its task contract, changes only its declared files, runs its Verify command, passes the Git safety gate, and commits one task. `/flow` consumes the compact return result.
+The Executor reads its task contract, changes only its declared files, runs its Verify command, checks scope, passes the Git safety gate, and commits one task. `/flow` consumes the compact return result.
+
+One commit per task after verify passes. Check `git diff --name-only` matches task `Files` before commit.
 
 If execution fails, route the task result according to the failure. `/flow` does not implement the fix.
 
@@ -90,6 +104,8 @@ Reviewer reads the Work Item cold and returns a structured report containing:
 
 Reviewer must not write `state.md` or `memory.md`. It may revise a task only when its review contract explicitly requires task repair; it does not repair source code.
 
+Behavioral changes should prove behavior, not merely file/token presence. `VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer.
+
 Routing rules:
 
 - `accepted` → `/flow` persists completion and any approved memory proposal.
@@ -107,7 +123,9 @@ node bin/flow-tools.js task validate --work-item NNN --cwd .
 node bin/flow-tools.js files check .flow/work-items/work-item-NNN/work-item.md --cwd .
 ```
 
-Persist `state.md` as complete only after the Reviewer has accepted the Work Item and all executed tasks are done. Apply a Reviewer-approved memory proposal to `.flow/memory.md` through `/flow`; keep memory as current durable truth rather than an append-only journal. Do not write duplicate or contradictory facts.
+Acceptance requires that every task that actually executed is `status: done`, the `work-item.md` is `status: complete`, and no task remains `todo`, `planned`, or otherwise incomplete. Persist `state.md` as complete only after the Reviewer has accepted the Work Item and all executed tasks are done.
+
+Apply a Reviewer-approved memory proposal to `.flow/memory.md` through `/flow`; keep memory as current durable truth rather than an append-only journal. Do not write duplicate or contradictory facts.
 
 Before returning success, confirm `state.md`, `work-item.md`, and every task agree on their terminal lifecycle. If they do not, stop and report the inconsistency rather than fabricating completion.
 
