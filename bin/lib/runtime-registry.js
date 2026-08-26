@@ -33,7 +33,7 @@ const RUNTIMES = {
     get agentsDir() { return null; },
     configPath: null,
     agentFormat: 'md-frontmatter',
-    capabilities: { subagentSpawn: false, sandbox: false, modelAssignment: false },
+    capabilities: { subagentSpawn: true, sandbox: false, modelAssignment: false },
   },
 };
 
