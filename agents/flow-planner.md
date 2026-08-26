@@ -70,6 +70,10 @@ Before writing each task, verify the important file references with `ls` and tar
 - Every task declares `VERIFY_DEPTH: shallow | deep` and `**Complexity:** simple | moderate | complex`.
 - Prefer fewer tasks. Split only when independent verification or dependencies require it.
 
+## Verification depth
+
+Use `VERIFY_DEPTH: deep` when touching shared utility/helper/base code, authentication/session/authorization, schema/migrations, persistence, payments, runtime behavior, public API/server behavior, or a refactor whose correctness depends on behavior across callers. Deep tasks require a behavior-oriented Verify command; a grep/token-presence check is not sufficient. Use `shallow` only for changes whose correctness is adequately established by deterministic structure or syntax checks.
+
 ## Minimal task contract
 
 Every task must have: `## Context`, `## Files`, `## Implementation Steps`, `## Verify`, `## Done Condition`, and `**Depends on:** none|task-NN`.
