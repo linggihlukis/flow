@@ -13,9 +13,9 @@ Usage: `/flow "goal sentence"` — creates or continues a Work Item. Reads `map.
 ## Lifecycle
 
 ```
-Plan → Execute → Review
-  │       │          │
-  │       │          └─ accepted → curate memory.md → state complete
+Plan → Execute → Review → Complete
+  │       │          │          │
+  │       │          └─ accepted → curate memory.md → synchronize lifecycle artifacts
   │       │          └─ revise   → back to Executor
   │       └─ iterate tasks/ (each: Read → Change → Verify → Report)
   └─ Planner researches + discovers → writes plan.md + tasks/
@@ -45,8 +45,8 @@ Delegate to `@flow-planner` (research is part of planning — no separate resear
 
 - Reads `work-item.md` + `.flow/map.json` (search via `map search`) + `.flow/memory.md` + source (verbatim anchors).
 - Researches the source and records confirmed **Discoveries** in `plan.md`. A discovery may correct or contradict an existing memory entry; do not append a second truth to memory. Record the evidence and let the Reviewer decide whether durable memory must be updated/superseded.
-- Writes `plan.md` (evidence, discoveries, unknowns, solution, task breakdown) + `tasks/task-XX.md` using the minimal enforced task contract. `Verify` must be a runnable shell command.
-- The 8 atomic rules are advisory guidance. Apply them strictly only where the work is shared, risky, or otherwise warrants deeper planning.
+- Writes `plan.md` (evidence, discoveries, unknowns, solution, task breakdown) + `tasks/task-XX.md` using the minimal enforced task contract. `Verify` must be a runnable shell command and should prove behavior for behavioral changes, not merely file existence or token presence.
+- The 8 atomic rules are advisory guidance. `VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer when the task's risk/scope requires deeper verification.
 
 Gate: if `map.json` stale (`git_commit` drift vs `HEAD`), note in `plan.md ## Unknowns` — do not silently re-index (ask `/flow-map`).
 
@@ -64,14 +64,37 @@ For each `tasks/task-XX.md` in dependency order (wave when `Depends on` allows):
 
 Delegate to `@flow-reviewer` — reads tasks cold, three behaviors:
 
-1. Critic — checks the minimal enforced task contract, then applies the 8 atomic rules as advisory guidance; `VERIFY_DEPTH` is also advisory.
-2. Verifier — must-deliver evidence (`files check`, `map search`, read-only verifies)
-3. Debugger — on fail, diagnose root cause → revise `tasks/task-XX.md` in place + return (no `fix-XX.md`)
+1. Critic — checks the minimal enforced task contract and lifecycle metadata; applies the 8 atomic rules as advisory guidance. `VERIFY_DEPTH` is advisory only for low-risk tasks but becomes a release gate when task scope/risk requires deep verification.
+2. Verifier — must-deliver evidence (`files check`, `map search`, read-only verifies) and checks that every completed task has evidence that proves its behavioral Done Condition.
+3. Debugger — on fail, diagnose root cause → revise `tasks/task-XX.md` in place + return (no `fix-XX.md`).
+
+Before accepting, Reviewer must ensure:
+
+- Every task that actually executed is `status: done`.
+- `work-item.md` is `status: complete`.
+- `state.md` points to this Work Item with `status: complete`.
+- Task `Done Condition` and `Verify` evidence agree with the recorded status.
+- No task remains `todo`, `planned`, or otherwise incomplete for an accepted Work Item.
+- Memory is consistent with the Work Item's verified discoveries.
+
+If lifecycle metadata is stale, Reviewer repairs it before acceptance rather than leaving contradictory state behind.
 
 Output: `## Reviewer Report — work-item-NNN` ending `Recommendation: accepted | revise` + `Memory: updated | skipped`.
 
-- `accepted` → Reviewer (single writer) curates `.flow/memory.md` (<150 lines). Memory is **current durable truth**, not an append-only journal: add new facts, update/supersede obsolete or contradicted facts, preserve decisions/lessons only when still valid. Sets `state.md status: complete`.
+- `accepted` → Reviewer (single writer) curates `.flow/memory.md` (<150 lines). Memory is **current durable truth**, not an append-only journal: add new facts, update/supersede obsolete or contradicted facts, preserve decisions/lessons only when still valid. If a discovery contradicts a prior entry, edit the prior entry in place or replace it with the verified current truth; do not append both versions. Sets/synchronizes all Work Item and task statuses to their terminal state and `state.md status: complete`.
 - `revise` → back to Executor for revised task; re-review.
+
+## Step 5 — Complete
+
+Completion is a consistency operation, not a new lifecycle stage. Before returning success, verify:
+
+```bash
+node bin/flow-tools.js state validate --cwd .
+node bin/flow-tools.js task validate --work-item NNN --cwd .
+node bin/flow-tools.js files check .flow/work-items/work-item-NNN/work-item.md --cwd .
+```
+
+Then confirm the persisted artifacts agree: `state.md`, `work-item.md`, and every `tasks/task-XX.md` must report the same terminal lifecycle (`complete` / `done`).
 
 ## State
 
