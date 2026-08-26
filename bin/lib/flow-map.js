@@ -80,6 +80,27 @@ function gitPaths(repoRoot, root, limitations) {
   if (r.error || r.status !== 0) { limitations.add(`Git path selection failed for ${relativePath(root,repoRoot)}; filesystem fallback used${r.stderr ? `: ${String(r.stderr).trim()}` : ''}`); return null }
   return r.stdout.toString('utf8').split('\0').filter(Boolean).map(v => path.resolve(repoRoot,v))
 }
+function isInsideRepo(abs, repositories) { return repositories.some(repo => abs === repo.root || abs.startsWith(`${repo.root}${path.sep}`)) }
+function discoverWorkspaceFiles(options, limitations, repositories) {
+  const scopes = options.scopes && options.scopes.length ? options.scopes.map(path.resolve) : [options.root]
+  const workspacePatterns = readFallbackIgnores(options.root, options.root, limitations)
+  const selected = []
+  const walk = directory => {
+    let entries; try { entries = fs.readdirSync(directory, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      const absolute = path.join(directory, entry.name), rel = relativePath(options.root, absolute)
+      if (PROTECTED_DIRECTORIES.has(entry.name) || isInsideRepo(absolute, repositories)) continue
+      if (workspacePatterns.length && fallbackIgnored(rel, workspacePatterns)) continue
+      if (!options.includeHidden && isHidden(rel)) continue
+      if (entry.isDirectory()) walk(absolute)
+      else if (entry.isFile() || entry.isSymbolicLink()) selected.push(absolute)
+    }
+  }
+  for (const scope of scopes) {
+    if (scope === options.root || scope.startsWith(`${options.root}${path.sep}`)) walk(scope)
+  }
+  return selected
+}
 function discoverFiles(options, limitations, repositories) {
   const scopes = options.scopes && options.scopes.length ? options.scopes.map(path.resolve) : [options.root]
   const selected = []
@@ -100,6 +121,7 @@ function discoverFiles(options, limitations, repositories) {
     }
     walk(repo.root)
   }
+  selected.push(...discoverWorkspaceFiles(options,limitations,repositories))
   return [...new Set(selected)]
 }
 function textInfo(buffer) {
