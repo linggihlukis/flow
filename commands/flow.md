@@ -6,87 +6,100 @@ subtask: false
 
 # /flow $ARGUMENTS
 
-Every Work Item through `Plan → Execute → Review → Complete`. You do not manually invoke stages — `/flow` drives them. Scales by tasks (1 → N), not ceremony.
+`/flow` is the Work Item orchestrator. It coordinates exactly three subagents — `@flow-planner`, `@flow-executor`, and `@flow-reviewer` — and persists global lifecycle state. It does not plan, implement, or review source code itself.
 
-Usage: `/flow "goal sentence"` — creates or continues a Work Item. Reads `map.json + memory.md`; writes `work-item.md/plan.md/tasks/`; iterates Executors; Reviewer accept/revise.
+## Ownership
+
+- `/flow`: orchestration, child delegation/routing, `.flow/state.md`, `.flow/memory.md`.
+- `@flow-planner`: research, `plan.md`, and `tasks/task-XX.md`.
+- `@flow-executor`: one task at a time, source changes, verification, and Git commit.
+- `@flow-reviewer`: independent review, failure diagnosis, and memory proposals.
+
+Child agents report results to `/flow`; they do not write `state.md` or `memory.md`. `/flow` persists accepted lifecycle and memory changes. Do not accumulate child reasoning or transcripts in the orchestrator context.
 
 ## Lifecycle
 
+```text
+Accept/Continue
+      ↓
+   Planner
+      ↓
+Validate plan/tasks
+      ↓
+   Executor × tasks
+      ↓
+   Reviewer
+   ┌──┴───────────────┐
+   │                  │
+accepted            revise
+   │                  │
+   ↓             ┌────┴─────┐
+Complete         │          │
+              planner    executor
+                 │          │
+                 └────┬─────┘
+                      ↓
+                   Reviewer
 ```
-Plan → Execute → Review → Complete
-  │       │          │          │
-  │       │          └─ accepted → curate memory.md → synchronize lifecycle artifacts
-  │       │          └─ revise   → back to Executor
-  │       └─ iterate tasks/ (each: Read → Change → Verify → Report)
-  └─ Planner researches + discovers → writes plan.md + tasks/
-```
+
+There is no inline fallback. If the runtime cannot spawn the required child, stop and report the capability failure rather than performing that child's role in `/flow`.
 
 ## Step 1 — Accept or continue Work Item
 
-Read `.flow/state.md` (`active_work_item`, `status`). If `status: ready` or no active Work Item, create `work-items/work-item-NNN/work-item.md` from `$ARGUMENTS` (goal, constraints, done condition). Set `state.md` `active_work_item: work-item-NNN`, `status: planned` via `flow-tools state patch`.
+Read `.flow/state.md` (`active_work_item`, `status`). If `status: ready` or there is no active Work Item, create `work-items/work-item-NNN/work-item.md` from `$ARGUMENTS` with goal, constraints, and binary Done Condition. Establish the Work Item's Git execution context before delegation. Persist the lifecycle transition to `state.md` through the existing `flow-tools` state primitive.
 
-When a Work Item starts, capture its Git execution context in `work-item.md` before Plan/Execute:
+For a polyrepo Work Item, record one repository root, branch, and starting HEAD for each repository containing files in scope. Do not invent repository context for paths outside Git. If context cannot be determined, record that fact and require the Executor's Git safety gate before commit.
 
-```bash
-git rev-parse --show-toplevel
-git branch --show-current
-git rev-parse HEAD
-```
-
-For a polyrepo Work Item, capture one context entry for every repository containing files in the Work Item scope. Record the repository root, branch, and starting HEAD under `## Git Execution Context`. Do not invent a repository context for paths that are not in a Git repository.
-
-If the Work Item is continued, re-read the recorded context; do not silently replace it. A new context may only be established when the previous Work Item is complete and a new Work Item starts.
-
-If the starting context cannot be determined, note it in the Work Item and the Executor must require explicit confirmation before any commit.
+When continuing a Work Item, read and preserve its recorded execution context. A branch or repository change is never silently accepted.
 
 ## Step 2 — Plan
 
-Delegate to `@flow-planner` (research is part of planning — no separate researcher):
+Delegate the complete planning stage to `@flow-planner`. `/flow` must not research or write the plan itself.
 
-- Reads `work-item.md` + `.flow/map.json` (search via `map search`) + `.flow/memory.md` + source (verbatim anchors).
-- Researches the source and records confirmed **Discoveries** in `plan.md`. A discovery may correct or contradict an existing memory entry; do not append a second truth to memory. Record the evidence and let the Reviewer decide whether durable memory must be updated/superseded.
-- Writes `plan.md` (evidence, discoveries, unknowns, solution, task breakdown) + `tasks/task-XX.md` using the minimal enforced task contract. `Verify` must be a runnable shell command and should prove behavior for behavioral changes, not merely file existence or token presence.
-- The 8 atomic rules are advisory guidance. `VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer when the task's risk/scope requires deeper verification.
+Planner receives the Work Item and the minimum context it needs. It researches source, records evidence-backed discoveries and unknowns, then writes `plan.md` and task files.
 
-Gate: if `map.json` stale (`git_commit` drift vs `HEAD`), note in `plan.md ## Unknowns` — do not silently re-index (ask `/flow-map`).
+After the Planner returns:
+
+1. Confirm it reported completion or a clear blocker.
+2. Confirm only permitted planning artifacts changed; unexpected source changes are a protocol failure.
+3. Run the existing task validator and coverage checks available in Flow. Do not invent another planning schema.
+4. If the plan/task contract is invalid, route the defect back to Planner. Do not repair the plan by becoming the Planner.
+
+A stale `.flow/map.json` is an explicit planning unknown; do not silently re-index. Use `/flow-map` when re-indexing is required.
 
 ## Step 3 — Execute
 
-For each `tasks/task-XX.md` in dependency order (wave when `Depends on` allows):
+Delegate each task to `@flow-executor`, one task per child. Follow task dependencies using the task files; do not introduce a separate wave/context-management subsystem.
 
-- Delegate to `@flow-executor` — one task: `Read → Change → Verify → Report`.
-- Verify command must pass; on fail retry per task up to 2 times, else report.
-- Before every commit, Executor performs the Git safety gate. Protected branch (`main`/`master`), detached/unknown branch, or repository/branch mismatch requires explicit user confirmation; no confirmation means no commit.
-- Compare current repository root, branch, and HEAD against the Work Item's recorded `## Git Execution Context`. A changed HEAD caused by another legitimate commit does not by itself block the task; a changed branch or repository does. If branch/repository changed, stop and ask. If HEAD changed unexpectedly while this task was running, stop and ask rather than committing on an unreviewed base.
-- One commit per task after verify passes. Check `git diff --name-only` matches task `Files`.
+The Executor reads its task contract, changes only its declared files, runs its Verify command, passes the Git safety gate, and commits one task. `/flow` consumes the compact return result.
+
+If execution fails, route the task result according to the failure. `/flow` does not implement the fix.
 
 ## Step 4 — Review
 
-Delegate to `@flow-reviewer` — reads tasks cold, three behaviors:
+Delegate the complete review to `@flow-reviewer`.
 
-1. Critic — checks the minimal enforced task contract and lifecycle metadata; applies the 8 atomic rules as advisory guidance. `VERIFY_DEPTH` is advisory only for low-risk tasks but becomes a release gate when task scope/risk requires deep verification.
-2. Verifier — must-deliver evidence (`files check`, `map search`, read-only verifies) and checks that every completed task has evidence that proves its behavioral Done Condition.
-3. Debugger — on fail, diagnose root cause → revise `tasks/task-XX.md` in place + return (no `fix-XX.md`).
+Reviewer reads the Work Item cold and returns a structured report containing:
 
-Before accepting, Reviewer must ensure:
+- task-contract result;
+- behavioral/evidence verification;
+- root-cause diagnosis when something failed;
+- `Recommendation: accepted | revise`;
+- `Route: planner | executor | blocked` when revision is required;
+- optional `Memory Proposal` for durable verified knowledge.
 
-- Every task that actually executed is `status: done`.
-- `work-item.md` is `status: complete`.
-- `state.md` points to this Work Item with `status: complete`.
-- Task `Done Condition` and `Verify` evidence agree with the recorded status.
-- No task remains `todo`, `planned`, or otherwise incomplete for an accepted Work Item.
-- Memory is consistent with the Work Item's verified discoveries.
+Reviewer must not write `state.md` or `memory.md`. It may revise a task only when its review contract explicitly requires task repair; it does not repair source code.
 
-If lifecycle metadata is stale, Reviewer repairs it before acceptance rather than leaving contradictory state behind.
+Routing rules:
 
-Output: `## Reviewer Report — work-item-NNN` ending `Recommendation: accepted | revise` + `Memory: updated | skipped`.
-
-- `accepted` → Reviewer (single writer) curates `.flow/memory.md` (<150 lines). Memory is **current durable truth**, not an append-only journal: add new facts, update/supersede obsolete or contradicted facts, preserve decisions/lessons only when still valid. If a discovery contradicts a prior entry, edit the prior entry in place or replace it with the verified current truth; do not append both versions. Sets/synchronizes all Work Item and task statuses to their terminal state and `state.md status: complete`.
-- `revise` → back to Executor for revised task; re-review.
+- `accepted` → `/flow` persists completion and any approved memory proposal.
+- planning defect → `/flow` delegates the corrected planning work to Planner, then re-runs execution/review as required.
+- execution defect → `/flow` delegates the corrected task to Executor, then re-runs review.
+- blocked/insufficient evidence → stop and report; do not guess.
 
 ## Step 5 — Complete
 
-Completion is a consistency operation, not a new lifecycle stage. Before returning success, verify:
+Completion is a persistence and consistency operation owned by `/flow`. Before returning success, run the existing validation primitives:
 
 ```bash
 node bin/flow-tools.js state validate --cwd .
@@ -94,8 +107,17 @@ node bin/flow-tools.js task validate --work-item NNN --cwd .
 node bin/flow-tools.js files check .flow/work-items/work-item-NNN/work-item.md --cwd .
 ```
 
-Then confirm the persisted artifacts agree: `state.md`, `work-item.md`, and every `tasks/task-XX.md` must report the same terminal lifecycle (`complete` / `done`).
+Persist `state.md` as complete only after the Reviewer has accepted the Work Item and all executed tasks are done. Apply a Reviewer-approved memory proposal to `.flow/memory.md` through `/flow`; keep memory as current durable truth rather than an append-only journal. Do not write duplicate or contradictory facts.
 
-## State
+Before returning success, confirm `state.md`, `work-item.md`, and every task agree on their terminal lifecycle. If they do not, stop and report the inconsistency rather than fabricating completion.
 
-All transitions via `flow-tools.js` primitives: `state get/patch/validate/sync`, `frontmatter`, `files check`, `map search`, `task validate`, `audit open`.
+## State and memory ownership
+
+All reads are available to children as needed. Only `/flow` writes the global files:
+
+```text
+state.md  → /flow only
+memory.md → /flow only
+```
+
+Use existing `flow-tools.js` primitives for lifecycle operations. No new context-budget, token-estimation, context-log, or memory subsystem is introduced.
