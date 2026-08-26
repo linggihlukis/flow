@@ -29,9 +29,17 @@ You read task files cold. Your value is a fresh perspective, not accumulated ses
 
 ## Behavior 1 — Critic: task contract + lifecycle review
 
-First check the **minimal contract** (validator-enforced — fail if violated): `## Context`, `## Files` (≥1 path), `## Verify` (≥1 line), `## Done Condition`, `**Depends on:** none|task-NN`, and `## Implementation Steps` has ≥1 step.
+**First run the deterministic task-contract gate before expensive review.** Run:
 
-Then check lifecycle metadata. An accepted Work Item cannot contain a `planned`/`todo` task, and a completed task must have a passing verification record. If the artifacts disagree, this is a release-blocking finding until repaired.
+```bash
+node bin/flow-tools.js task validate --work-item NNN --cwd .
+```
+
+Treat the validator result as authoritative for the minimal task contract: `## Context`, `## Files` (≥1 path), `## Verify` (≥1 line), `## Done Condition`, `**Depends on:** none|task-NN`, and `## Implementation Steps` has ≥1 step.
+
+If `task validate` fails, report the structural contract failure and stop review for that Work Item. Do not proceed to implementation/deep verification or debugger diagnosis; the deterministic failure must be resolved before expensive verification can be meaningful.
+
+If `task validate` passes, continue with lifecycle metadata review. An accepted Work Item cannot contain a `planned`/`todo` task, and a completed task must have a passing verification record. If the artifacts disagree, this is a release-blocking finding until repaired.
 
 Then apply the **8 atomic rules as advisory guidance**. `VERIFY_DEPTH` is advisory for low-risk tasks, but when a task is marked `deep` or touches shared/auth/migration/refactor/base/shared code, its verification must actually exercise behavior rather than merely prove a token/file exists.
 
