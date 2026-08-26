@@ -69,7 +69,7 @@ If a task contract itself must be corrected, revise that task file in place. Do 
 
 ## Memory Proposal
 
-When a Work Item produces verified, durable, cross-Work-Item knowledge, return a proposal instead of editing memory:
+When a Work Item produces verified, durable, cross-Work-Item knowledge, return a proposal instead of editing memory. Memory is curated current durable truth, not an append-only journal:
 
 ```markdown
 ### Memory Proposal
@@ -79,19 +79,19 @@ When a Work Item produces verified, durable, cross-Work-Item knowledge, return a
 - Reason: [why this should persist]
 ```
 
-Memory is curated current durable truth, not an append-only journal. If an existing fact is contradicted or obsolete, propose `update` or `supersede`; do not leave two contradictory current facts. Do not propose unresolved discoveries, Work Item-local conclusions, research transcripts, or duplicate facts. Source and verified behavior outrank stale memory.
+If an existing fact is contradicted or obsolete, propose `update` or `supersede`; do not leave two contradictory current facts. Do not propose unresolved discoveries, Work Item-local conclusions, research transcripts, or duplicate facts. Source and verified behavior outrank stale memory. An unresolved discovery must not be promoted to durable memory.
 
 ## Lifecycle
 
 Inspect lifecycle artifacts and report inconsistencies. Do not repair `.flow/state.md` yourself. If work is genuinely complete but global lifecycle metadata is stale, report `Lifecycle: blocked` with the required transition for `/flow` to apply. Task-file metadata may be repaired only when necessary for the review contract and must not fabricate completion.
 
-Before accepting a Work Item, verify the lifecycle state with:
+Before accepting a Work Item, repair the lifecycle frontmatter in place before accepting only when the repair is limited to task-file metadata and does not fabricate completion. Validate the resulting lifecycle with:
 
 ```bash
 node bin/flow-tools.js state validate --cwd .
 ```
 
-If lifecycle artifacts are inconsistent, do not accept until the inconsistency is reported and `/flow` applies the required global transition.
+If global lifecycle artifacts are inconsistent, report the required transition to `/flow` rather than mutating `state.md` yourself. An accepted Work Item must have synchronized lifecycle metadata.
 
 ## Final report
 
