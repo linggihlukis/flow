@@ -48,7 +48,7 @@ If the task contains an error (assumes something that isn't true, references a f
 
 ## After implementing — run the Verify command
 
-Every task has a `## Verify` section with a runnable command. If it passes, proceed to the Git safety gate. If it fails, fix only the specific failure and re-run the Verify command, up to 2 retries. After 2 retries still failing, report the failure; do not stage or commit.
+Every task has a `## Verify` section with a runnable command. If it passes — proceed to the Git safety gate. If it fails, fix only the specific failure and re-run the Verify command, up to 2 retries. After 2 retries still failing, report the failure; do not stage or commit.
 
 ## Verify scope
 
@@ -92,7 +92,7 @@ Then:
 git commit -m "type(work-item-NNN-task-XX): description"
 ```
 
-Never batch tasks. Never commit broken code. One task = one commit.
+Never batch tasks. Never commit broken code. One task = one commit after Verify passes.
 
 ## Report
 
