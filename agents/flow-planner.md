@@ -72,7 +72,7 @@ Before writing each task, verify the important file references with `ls` and tar
 
 ## Verification depth
 
-Use `VERIFY_DEPTH: deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor, runtime behavior, public API/server behavior, persistence, authorization, or other behavior whose correctness depends on multiple callers. Deep tasks require behavior-oriented evidence; a grep/token-presence check is not sufficient. Use `shallow` only when deterministic structure or syntax checks adequately prove the deliverable.
+Use `deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor, runtime behavior, public API/server behavior, persistence, authorization, or other behavior whose correctness depends on multiple callers. Deep tasks require behavior-oriented evidence; a grep/token-presence check is not sufficient. Use `shallow` only when deterministic structure or syntax checks adequately prove the deliverable.
 
 ## Minimal task contract
 
