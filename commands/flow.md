@@ -77,7 +77,7 @@ After the Planner returns:
 
 A stale `.flow/map.json` is an explicit planning unknown; do not silently re-index. Use `/flow-map` when re-indexing is required.
 
-Planner records confirmed **Discoveries** in `plan.md` before any memory proposal. An unresolved discovery remains an unknown. Do not append a second truth to memory when source evidence contradicts an existing durable fact; route the contradiction through review and memory curation.
+Planner records confirmed **Discoveries** in `plan.md` before any memory proposal. An unresolved discovery remains an unknown — do not append a second truth to memory when source evidence contradicts an existing durable fact; route the contradiction through review and memory curation.
 
 ## Step 3 — Execute
 
@@ -105,13 +105,13 @@ Reviewer reads the Work Item cold and returns a structured report containing:
 
 Reviewer must not write `state.md` or `memory.md`. It may revise a task only when its review contract explicitly requires task repair; it does not repair source code.
 
-Behavioral changes should prove behavior, not merely file/token presence. `VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer.
+Behavioral changes should prove behavior for behavioral changes, not merely file/token presence. `VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer.
 
 Reviewer lifecycle reconciliation must validate the result with `state validate`; it reports stale global lifecycle metadata to `/flow` rather than mutating `state.md` itself.
 
 Routing rules:
 
-- `accepted` → `/flow` verifies that every task that actually executed is `status: done`, `work-item.md` is `status: complete`, and no task remains `todo`, `planned`, or otherwise incomplete; then `/flow` persists completion and any approved memory proposal.
+- `accepted` → `/flow` verifies that Every task that actually executed is `status: done`, `work-item.md` is `status: complete`, and No task remains `todo`, `planned`, or otherwise incomplete; then `/flow` persists completion and any approved memory proposal.
 - planning defect → `/flow` delegates the corrected planning work to Planner, then re-runs execution/review as required.
 - execution defect → `/flow` delegates the corrected task to Executor, then re-runs review.
 - blocked/insufficient evidence → stop and report; do not guess.
@@ -126,7 +126,7 @@ node bin/flow-tools.js task validate --work-item NNN --cwd .
 node bin/flow-tools.js files check .flow/work-items/work-item-NNN/work-item.md --cwd .
 ```
 
-Acceptance requires that every task that actually executed is `status: done`, the `work-item.md` is `status: complete`, and no task remains `todo`, `planned`, or otherwise incomplete. Persist `state.md` as complete only after the Reviewer has accepted the Work Item and all executed tasks are done.
+Acceptance requires that Every task that actually executed is `status: done`, the `work-item.md` is `status: complete`, and No task remains `todo`, `planned`, or otherwise incomplete. Persist `state.md` as complete only after the Reviewer has accepted the Work Item and all executed tasks are done.
 
 Apply a Reviewer-approved memory proposal to `.flow/memory.md` through `/flow`; keep memory as current durable truth rather than an append-only journal. If a discovery contradicts an existing memory fact, update/supersede that fact rather than append a second truth to memory. Unresolved discoveries are never promoted to durable memory.
 
