@@ -85,7 +85,7 @@ When an **Existing fact contradicted or obsolete** by verified source evidence, 
 
 Inspect lifecycle artifacts and report inconsistencies. Do not repair `.flow/state.md` yourself. If work is genuinely complete but global lifecycle metadata is stale, report `Lifecycle: blocked` with the required transition for `/flow` to apply. Task-file metadata may be repaired only when necessary for the review contract and must not fabricate completion.
 
-Before accepting a Work Item, repair the lifecycle frontmatter in place before accepting only when the repair is limited to task-file metadata and does not fabricate completion. Validate the resulting lifecycle with:
+Before accepting a Work Item, repair the lifecycle frontmatter in place before accepting (task files only, never .flow/state.md) only when the repair is limited to task-file metadata and does not fabricate completion. Validate the resulting lifecycle with:
 
 ```bash
 node bin/flow-tools.js state validate --cwd .
