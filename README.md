@@ -195,8 +195,7 @@ bin/
     ├── work-item.js           ← Work Item, task graph, and lifecycle validation
     ├── git-safety.js          ← Repository, branch, HEAD, scope, and commit checks
     ├── memory.js              ← Durable-memory validation, locking, and atomic apply
-    ├── runtime-adapter.js     ← Explicit host adapter capability contract
-    ├── orchestrator.js        ← Planner → Executor → Reviewer coordinator
+
     └── ts-extractor.js        ← Tree-sitter extractors (opt-in via --symbols)
 ```
 
@@ -258,17 +257,7 @@ Tasks that fail the minimal contract get rewritten before execution begins. Ther
 
 ### Runtime support
 
-Flow adapts to the capabilities of the runtime it is installed in.
-
-| Runtime | Subagent spawning | Notes |
-|---|---|---|
-| OpenCode | ⚠️ Host adapter required | Installer provides the protocol files; the runtime must inject and verify native child spawning |
-| Codex App / CLI | ⚠️ Host adapter required | Shares `~/.agents/skills` with Zed; no spawn API is inferred from installation |
-| CommandCode | ⚠️ Host adapter required | Installer provides commands and agents; native spawning must be verified by the host |
-| Zed Editor | ⚠️ Host adapter required | Shares `~/.agents/skills`; no separate agent registry is claimed |
-| Other | ❌ Unsupported | No runtime capability is assumed |
-
-The coordinator accepts only an injected adapter with `capabilities.subagentSpawn === true` and a `spawn(request)` function. It probes that contract before creating or continuing a Work Item. If the adapter is missing or unverified, `/flow` returns a capability error and performs no Planner, Executor, Reviewer, inline, or sequential fallback work.
+Flow is runtime-agnostic. The host runtime performs native child-agent/session creation and interprets the `@flow-planner`, `@flow-executor`, and `@flow-reviewer` delegations. Installation provides command, agent, and skill contracts only; it cannot guarantee host delegation support. If the host cannot delegate a required child, `/flow` fails closed without inline or sequential fallback.
 
 ---
 
@@ -440,8 +429,8 @@ Always use `@latest` when updating:
 npx @linggihlukis/flow@latest --update
 ```
 
-**Flow reports a runtime capability error?**
-Native child spawning is intentionally fail-closed. The host runtime must inject the adapter contract used by the coordinator: `{ capabilities: { subagentSpawn: true }, spawn(request) }`. Flow does not perform Planner, Executor, or Reviewer work inline and does not fall back to sequential mode. Installation of command/agent files alone does not verify spawning; report the capability problem to the runtime integration.
+**Flow cannot delegate a child agent?**
+Native child delegation is intentionally fail-closed. The host runtime owns child-agent creation; installation of command/agent files alone cannot verify that capability. Report the host limitation. Flow does not perform Planner, Executor, or Reviewer work inline and does not fall back to sequential mode.
 
 **`map index` fails or shows `symbols requested but WASM unavailable`?**
 `tree-sitter-wasms` + `web-tree-sitter` are opt-in (only for `--symbols`). Default `map index` is file-level and needs no WASM. For symbols:

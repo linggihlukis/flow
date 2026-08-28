@@ -52,7 +52,7 @@ Flow is a Work Item system — `Work Item → Plan → Execute → Review`.
 - 6 top-level namespaces only: `state/frontmatter/files/map/task/audit` — memory remains under `audit memory`, task verification/commit safety under `task`; no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
 - `test/flow-test.js` has inline canonical data — update both the test and the source when paths change.
 - Keep `agents/flow-reviewer.md` task reads cold — context isolation is the point.
-- Native child spawning is an explicit host adapter contract. Installation does not claim runtime capability; unsupported or unverified spawning must fail closed with no inline/sequential fallback.
+- Native child-agent creation belongs to the host runtime. Installation does not claim runtime capability; unsupported or unavailable delegation must fail closed with no inline/sequential fallback.
 - Supported mutation routes enforce the `flow` actor and protect global metadata. `DEBT:`: child agents still receive host shell/file tools, so host-level permissions are the future enforcement boundary.
 - Executor has no `summary-XX.md` — git log is the handoff. Do not reintroduce per-task summary files.
 
@@ -68,7 +68,7 @@ The test suite validates:
 - Scaffold required files and state.md schema
 - Agent list consistency
 - Strict task, Work Item, lifecycle, memory, path, and Git gate behavior
-- Native adapter orchestration and fail-closed capability behavior
+- Native host-delegation command contract and fail-closed behavior
 
 Run focused suites as well as the full runner when changing contracts:
 

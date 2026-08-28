@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
 const { execFileSync, spawnSync, execSync } = require("node:child_process");
-const { RUNTIMES, probeRuntimeCapabilities } = require('./lib/runtime-registry');
+const { RUNTIMES } = require('./lib/runtime-registry');
 const { Platform } = require('./lib/platform');
 
 // ─── Environment Variables Consumed ─────────────────────────────────────────
@@ -730,10 +730,7 @@ function uninstall(runtime) {
 function reportRuntimeCapabilities(runtime) {
   const names = runtime === 'all' ? Object.keys(RUNTIMES) : [runtime];
   for (const name of names) {
-    const capabilities = probeRuntimeCapabilities(name, null);
-    if (capabilities && !capabilities.subagentSpawn) {
-      warn(`${name}: native child spawning requires an injected host adapter; installation will not provide an inline or sequential fallback`);
-    }
+    if (RUNTIMES[name]) warn(`${name}: child-agent creation is provided by the host runtime; installation does not verify runtime delegation`);
   }
 }
 

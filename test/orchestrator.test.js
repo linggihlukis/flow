@@ -3,11 +3,11 @@
 const path = require("node:path");
 const { createReporter, ROOT, readFile } = require("./helpers");
 const { parseFrontmatter } = require("../bin/flow-tools");
-const { RUNTIMES, probeRuntimeCapabilities } = require("../bin/lib/runtime-registry");
+const { RUNTIMES } = require("../bin/lib/runtime-registry");
 
 async function run() {
   const { pass, fail, suite, getFailures } = createReporter();
-  suite("Suite — 0.5 orchestrator protocol");
+  suite("Suite — native host delegation command contract");
 
   const flow = readFile(path.join(ROOT, "commands", "flow.md"));
   const planner = readFile(path.join(ROOT, "agents", "flow-planner.md"));
@@ -15,70 +15,65 @@ async function run() {
   const reviewer = readFile(path.join(ROOT, "agents", "flow-reviewer.md"));
   const scaffold = readFile(path.join(ROOT, "scaffold", "AGENTS.md"));
 
-  const requiredFlow = [
+  for (const text of [
     "@flow-planner",
     "@flow-executor",
     "@flow-reviewer",
-    "There is no inline or sequential fallback",
-    "state.md  → /flow only",
-    "memory.md → /flow only",
-    "planning defect",
-    "execution defect",
+    "host runtime's native agent mechanism",
+    "There is no inline fallback and no sequential fallback",
+    "Only `/flow` writes global `state.md` and `memory.md`",
+    "planning defects to Planner",
+    "execution defects to Executor",
+    "Recommendation: accepted | revise",
     "Route: planner | executor | blocked",
-  ];
-  for (const text of requiredFlow) {
+  ]) {
     if (flow.includes(text)) pass(`flow.md contains protocol rule: ${text}`);
     else fail(`flow.md missing protocol rule: ${text}`);
   }
 
-  const forbiddenStructures = [
+  for (const forbidden of [
+    "runtime-adapter",
+    "subagentSpawn",
+    "runFlow(",
+    "adapter.spawn",
     "context-log.md",
-    "context percentage",
-    "average agent token load",
     "parallel-agent capacity",
-    "inline research",
     "flow-researcher",
     "flow-critic",
     "flow-verifier",
     "flow-debugger",
-  ];
-  for (const text of forbiddenStructures) {
-    if (!flow.includes(text)) pass(`flow.md does not reintroduce retired structure: ${text}`);
-    else fail(`flow.md reintroduces retired structure: ${text}`);
+  ]) {
+    if (!flow.includes(forbidden)) pass(`flow.md excludes obsolete structure: ${forbidden}`);
+    else fail(`flow.md contains obsolete structure: ${forbidden}`);
   }
 
-  if (planner.includes("Do not write `.flow/state.md`, `.flow/memory.md`, source code")) pass("Planner cannot own global state, memory, or source");
+  if (planner.includes("Do not write `.flow/state.md`, `.flow/memory.md`, source code")) pass("Planner ownership boundary is present");
   else fail("Planner ownership boundary missing");
-
-  if (executor.includes("Do not write `.flow/state.md` or `.flow/memory.md`")) pass("Executor cannot own global state or memory");
-  else fail("Executor global-state ownership boundary missing");
-
-  if (reviewer.includes("must not write `.flow/state.md` or `.flow/memory.md`") && reviewer.includes("Memory Proposal")) pass("Reviewer proposes memory and cannot write global state");
-  else fail("Reviewer memory/state boundary missing");
+  if (executor.includes("Do not write `.flow/state.md` or `.flow/memory.md`")) pass("Executor ownership boundary is present");
+  else fail("Executor ownership boundary missing");
+  if (reviewer.includes("must not write `.flow/state.md` or `.flow/memory.md`") && reviewer.includes("Memory Proposal")) pass("Reviewer proposal/state boundary is present");
+  else fail("Reviewer proposal/state boundary missing");
 
   const reviewerFm = parseFrontmatter(reviewer);
-  if (reviewerFm && reviewerFm.mode === "subagent") pass("Reviewer remains a subagent");
+  if (reviewerFm && reviewerFm.mode === "subagent") pass("Reviewer remains a host-loadable subagent");
   else fail("Reviewer frontmatter is not a subagent");
 
-  const generated = [
-    "Global ownership: `/flow` is the sole writer of `.flow/state.md` and `.flow/memory.md`.",
-    "@flow-planner",
-    "@flow-executor",
-    "@flow-reviewer",
-  ];
-  for (const text of generated) {
+  for (const text of ["@flow-planner", "@flow-executor", "@flow-reviewer", "Global ownership: `/flow` is the sole writer"]) {
     if (scaffold.includes(text)) pass(`scaffold contract contains: ${text}`);
     else fail(`scaffold contract missing: ${text}`);
   }
 
-  if (RUNTIMES.zed.capabilities.subagentSpawn === false && RUNTIMES.zed.capabilities.hostAdapterRequired === true) pass("Zed runtime does not claim unverified spawning and requires a host adapter");
-  else fail("Zed runtime makes an unverified subagent-spawning claim");
-
-  const probed = probeRuntimeCapabilities('zed', { capabilities: { subagentSpawn: true }, spawn() {} });
-  if (probed && probed.subagentSpawn === true && probed.verified === true) pass("runtime capability becomes available only after adapter probing");
-  else fail("runtime capability probe does not consume the injected adapter contract");
+  if (Object.values(RUNTIMES).every(runtime => !("subagentSpawn" in runtime.capabilities) && !("hostAdapterRequired" in runtime.capabilities))) pass("runtime registry contains installation metadata only");
+  else fail("runtime registry contains obsolete spawn capability metadata");
 
   return getFailures();
+}
+
+if (require.main === module) {
+  run().then(failures => process.exitCode = failures ? 1 : 0).catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
 
 module.exports = { run };

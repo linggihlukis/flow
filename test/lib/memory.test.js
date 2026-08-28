@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const memory = require('../../bin/lib/memory');
-const { applyApprovedMemoryProposal } = require('../../bin/lib/orchestrator');
+const { applyApprovedMemoryProposal } = memory;
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-memory-contract-'));
 const memoryPath = path.join(root, '.flow', 'memory.md');

@@ -82,10 +82,10 @@ async function run() {
     if (installSource.includes("DELETED_FLAGS") && installSource.includes("--claude")) pass("install.js guards deleted --claude via DELETED_FLAGS");
     else fail("install.js deleted-flag guard missing for --claude");
   }
-  if (installSource.includes("function reportRuntimeCapabilities") && installSource.includes("requires an injected host adapter") && installSource.includes("will not provide an inline or sequential fallback")) {
-    pass("installer reports native spawning as host-adapter dependent and fail-closed");
+  if (installSource.includes("function reportRuntimeCapabilities") && installSource.includes("provided by the host runtime") && installSource.includes("installation does not verify runtime delegation")) {
+    pass("installer reports native delegation as host-owned and unverified");
   } else {
-    fail("installer does not report the host adapter requirement honestly");
+    fail("installer does not report host-owned delegation honestly");
   }
 
   // 8b — no local/global location flag as active mode

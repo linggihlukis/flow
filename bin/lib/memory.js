@@ -23,6 +23,26 @@ function memoryPath(cwd) {
   return path.join(cwd, '.flow', 'memory.md');
 }
 
+function applyApprovedMemoryProposal(cwd, proposal, explicitlyApproved = false) {
+  if (!proposal || String(proposal.action || 'none').toLowerCase() === 'none') return { applied: false, action: 'none' };
+  if (explicitlyApproved !== true) {
+    return { applied: false, action: proposal.action, skipped: 'explicit Flow approval is required; Reviewer output is only a proposal' };
+  }
+  const fields = [
+    ['--action', proposal.action],
+    ['--section', proposal.section || 'Facts'],
+    ['--target', proposal.target],
+    ['--fact', proposal.fact],
+    ['--evidence', proposal.evidence],
+    ['--reason', proposal.reason],
+    ['--expected-memory-digest', proposal.expectedMemoryDigest || proposal.expected_memory_digest],
+    ['--approval', 'approved'],
+    ['--actor', 'flow'],
+    ['--cwd', cwd],
+  ].filter(([, value]) => value !== undefined && value !== null);
+  return execute(['apply', ...fields.flatMap(pair => pair)]);
+}
+
 function readMemory(cwd) {
   const filePath = memoryPath(cwd);
   if (!fs.existsSync(filePath)) exitErr('PATH_NOT_FOUND', '.flow/memory.md not found');
@@ -285,4 +305,5 @@ module.exports = {
   renderMemoryChange,
   withMemoryLock,
   memoryPath,
+  applyApprovedMemoryProposal,
 };
