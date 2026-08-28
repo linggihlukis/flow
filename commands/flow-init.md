@@ -55,13 +55,13 @@ Prompt: `Write .flow/{state.md, memory.md, map.json} + update AGENTS.md? [y/N/di
 ## Step 5 — Write (only on confirm)
 
 ```bash
-node bin/install.js --yes   # or run scaffold helpers directly
+node bin/install.js --scaffold --yes   # --yes is required here after /flow-init approval; omit it only for an interactive installer prompt
 # ensures .flow/work-items/ exists, never overwrites existing state.md/memory.md, never wholesale-overwrites AGENTS.md
 ```
 
 Idempotent: re-running without `--force` preserves existing `state.md`/`memory.md` and only replaces the Flow marker block in `AGENTS.md`. Use `--force` to reset `work-items/` guard.
 
-After first accepted Work Item, only `@flow-reviewer` at `accepted` writes `memory.md` (see `flow.md` Review).
+After a Work Item is accepted, `@flow-reviewer` may return a durable-memory proposal. Only `/flow` validates and applies an explicitly approved proposal to `memory.md` (see `flow.md` Review).
 
 ## Step 6 — Done (completion contract)
 

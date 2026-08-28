@@ -18,7 +18,8 @@ try {
     '---\nactive_work_item: null\nstatus: ready\nupdated_at: 2026-08-21T00:00:00.000Z\n---\n',
     'utf8'
   )
-  fs.writeFileSync(path.join(temp, '.flow', 'map.json'), '{"schema_version":"1"}\n', 'utf8')
+  fs.writeFileSync(path.join(temp, '.flow', 'map.json'), '{"schema_version":"flow-map-v1","files":{}}\n', 'utf8');
+  fs.writeFileSync(path.join(temp, '.flow', 'memory.md'), '# memory.md\n\n## Facts\n\n## Decisions\n\n## Lessons\n', 'utf8');
 
   const validate = JSON.parse(execFileSync(process.execPath, [tools, 'state', 'validate', '--cwd', temp], { encoding: 'utf8' }))
   assert.equal(validate.valid, true, 'ready state with no active Work Item must validate')

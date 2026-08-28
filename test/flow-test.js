@@ -11,6 +11,7 @@ const commandsSuite = require("./commands.test");
 const orchestratorSuite = require("./orchestrator.test");
 const regressionsSuite = require("./regressions.test");
 const tsExtractorSuite = require("./lib/ts-extractor.test");
+const integrationSuite = require("./integration/orchestrator.test");
 
 const c = {
   reset: "\x1b[0m", bold: "\x1b[1m",
@@ -27,6 +28,14 @@ async function main() {
     totalFailures += await orchestratorSuite.run();
     totalFailures += await regressionsSuite.run();
     totalFailures += await tsExtractorSuite.run();
+
+    try {
+      await integrationSuite.run();
+      console.log("  ✓ native orchestration integration included in npm test");
+    } catch (error) {
+      totalFailures++;
+      console.error(`${c.red}${c.bold}Native orchestration integration failed: ${error.message}${c.reset}`);
+    }
 
     console.log("\n" + "─".repeat(50));
     if (totalFailures === 0) {

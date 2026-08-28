@@ -48,7 +48,9 @@ If the task contains an error (assumes something that isn't true, references a f
 
 ## After implementing — run the Verify command
 
-Every task has a `## Verify` section with a runnable command. If it passes — proceed to the Git safety gate. If it fails, fix only the specific failure and re-run the Verify command, up to 2 retries. After 2 retries still failing, report the failure; do not stage or commit.
+Every task has a `## Verify` section with a runnable command. If it passes, return the result to `/flow`, which invokes the deterministic `task gate` with the recorded execution context. If it fails, fix only the specific failure and re-run the Verify command, up to 2 retries. After 2 retries still failing, report the failure; do not stage or commit.
+
+Do not bypass the gate with a direct `git commit`. The gate is the executable contract for Verify-before-commit, file scope, repository/branch/HEAD safety, and one commit per task.
 
 ## Verify scope
 
@@ -66,7 +68,7 @@ If files appear outside the task's declared `Files`, stop and report a scope vio
 
 ## Commit safety gate
 
-Never commit without checking the current repository and branch immediately before staging.
+`/flow` must run `node bin/flow-tools.js task gate --file <task> --work-item NNN --execution-context '<json>' --actor flow --cwd <repo>` after the Executor reports a passing Verify. The gate reruns the declared Verify command with a bounded timeout and returns structured verification, scope, Git, and commit results. Never commit without the gate checking the current repository and branch immediately before staging.
 
 1. Determine repository root with `git rev-parse --show-toplevel`.
 2. Determine current branch with `git branch --show-current`.
@@ -93,6 +95,8 @@ git commit -m "type(work-item-NNN-task-XX): description"
 ```
 
 Never batch tasks. Never commit broken code. One task = one commit after Verify passes.
+
+DEBT: The host runtime still grants child agents shell and file tools, so a malicious child could bypass the supported Flow routes. The concrete upgrade path is host-level tool permission enforcement keyed by the injected actor identity; until then, the coordinator and gate fail closed on supported mutation paths.
 
 ## Report
 

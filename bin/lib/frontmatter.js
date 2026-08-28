@@ -2,47 +2,45 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const yaml = require('js-yaml');
-const { resolveSafePath } = require('./path-resolver');
-const { output, exitErr, getCwd, collectFlagValues, sanitizeStateValue, extractPositionalArg } = require('./_cli-utils');
+const { resolveSafePath, canonicalizePath } = require('./path-resolver');
+const {
+  output,
+  exitErr,
+  getCwd,
+  collectFlagValues,
+  parseKeyValuePairs,
+  sanitizeStateValue,
+  extractPositionalArg,
+  MAX_FRONTMATTER_BYTES,
+} = require('./_cli-utils');
 
 function parseFrontmatter(content) {
+  if (typeof content !== 'string') return null;
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
+  if (!match || Buffer.byteLength(match[1], 'utf8') > MAX_FRONTMATTER_BYTES) return null;
   try {
-    return yaml.load(match[1]);
+    const parsed = yaml.load(match[1], { schema: yaml.JSON_SCHEMA });
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-function _quoteYamlValue(value) {
-  if (value === null) return 'null';
-  if (typeof value === 'boolean' || typeof value === 'number') return String(value);
-  const str = String(value);
-  if (/[:\#\{\}\[\]\,\&\*\!\|\>\'\"\%\@\`\r\n]/.test(str) || /^\s/.test(str) || /\s$/.test(str)) {
-    return '"' + str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
-  }
-  return str;
-}
-
 function serializeFrontmatter(obj) {
-  const lines = ['---'];
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) continue;
-    lines.push(`${key}: ${_quoteYamlValue(value)}`);
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    throw new TypeError('Frontmatter must be a mapping');
   }
-  lines.push('---');
-  return lines.join('\n');
+  const yamlBody = yaml.dump(obj, {
+    schema: yaml.JSON_SCHEMA,
+    noRefs: true,
+    lineWidth: -1,
+    sortKeys: false,
+  }).trimEnd();
+  return yamlBody === '{}' ? '---\n---' : `---\n${yamlBody}\n---`;
 }
 
 function serializeFrontmatterEOL(obj, eol) {
-  const lines = ['---'];
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) continue;
-    lines.push(`${key}: ${_quoteYamlValue(value)}`);
-  }
-  lines.push('---');
-  return lines.join(eol);
+  return serializeFrontmatter(obj).replace(/\n/g, eol);
 }
 
 function cmdFrontmatterGet(args) {
@@ -67,20 +65,23 @@ function cmdFrontmatterSet(args) {
   const filePath = extractPositionalArg(args);
   if (!filePath) exitErr('PATH_NOT_FOUND', 'File path is required for frontmatter set');
   const resolved = resolveSafePath(cwd, filePath);
+  const relative = path.relative(canonicalizePath(cwd), canonicalizePath(resolved)).split(path.sep).join('/').toLowerCase();
+  if (relative === '.flow/state.md' || relative === '.flow/memory.md') {
+    exitErr('PROTECTED_PATH', `${filePath} is owned by Flow and cannot be patched through frontmatter set`);
+  }
   if (!fs.existsSync(resolved)) exitErr('PATH_NOT_FOUND', `File not found: ${resolved}`);
   const content = fs.readFileSync(resolved, 'utf8');
   let fm = parseFrontmatter(content);
-  const hadFrontmatter = fm !== null;
+  if (/^---\r?\n/.test(content) && !fm) {
+    exitErr('FRONTMATTER_PARSE_ERROR', `Frontmatter in ${filePath} is malformed or exceeds the input limit`);
+  }
   if (!fm) fm = {};
   const eol = content.includes('\r\n') ? '\r\n' : '\n';
-  const sets = collectFlagValues(args, '--set');
+  const pairs = parseKeyValuePairs(args);
   const changes = {};
   const patched = [];
-  for (const pair of sets) {
-    const eqIdx = pair.indexOf('=');
-    if (eqIdx < 0) continue;
-    const key = pair.slice(0, eqIdx).trim();
-    let value = sanitizeStateValue(pair.slice(eqIdx + 1));
+  for (const { key, value: rawValue } of pairs) {
+    let value = sanitizeStateValue(rawValue);
     if (value === 'true') value = true;
     else if (value === 'false') value = false;
     else if (value === 'null') value = null;

@@ -8,9 +8,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         node-version: [18, 20, 22]
     steps:
       - uses: actions/checkout@v4
@@ -22,4 +23,3 @@ jobs:
       - run: npm run test:lib
       - run: npm run test:contracts
       - run: npm audit --audit-level=high
-        continue-on-error: true

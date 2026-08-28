@@ -65,9 +65,10 @@ async function run() {
     installSource.includes("--codex") &&
     installSource.includes("--commandcode") &&
     installSource.includes("--zed") &&
-    installSource.includes("--all")
+    installSource.includes("--all") &&
+    installSource.includes("--scaffold")
   ) {
-    pass("install.js exposes 4 runtime flags + --all");
+    pass("install.js exposes 4 runtime flags + --all + --scaffold");
   } else {
     fail("install.js is missing one of --opencode/--codex/--commandcode/--zed/--all");
   }
@@ -81,6 +82,12 @@ async function run() {
     if (installSource.includes("DELETED_FLAGS") && installSource.includes("--claude")) pass("install.js guards deleted --claude via DELETED_FLAGS");
     else fail("install.js deleted-flag guard missing for --claude");
   }
+  if (installSource.includes("function reportRuntimeCapabilities") && installSource.includes("requires an injected host adapter") && installSource.includes("will not provide an inline or sequential fallback")) {
+    pass("installer reports native spawning as host-adapter dependent and fail-closed");
+  } else {
+    fail("installer does not report the host adapter requirement honestly");
+  }
+
   // 8b — no local/global location flag as active mode
   if (installSource.includes("DELETED_FLAGS") && installSource.includes("--global") && installSource.includes("--local")) {
     pass("install.js guards deleted --global/--local flags (global is only mode)");
@@ -197,9 +204,9 @@ async function run() {
   }
   const reviewerFm = parseFrontmatter(reviewerSource);
   if (reviewerFm && reviewerFm.tools && reviewerFm.tools.write === true && reviewerFm.tools.edit === true && reviewerFm.tools.bash === true) {
-    pass("flow-reviewer.md is writable (single writer of memory.md) plus bash");
+    pass("flow-reviewer.md retains write/edit/bash tools for task metadata review and evidence checks");
   } else {
-    fail("flow-reviewer.md frontmatter should be write/edit/bash:true (single writer of memory.md)");
+    fail("flow-reviewer.md frontmatter should retain write/edit/bash:true for task metadata review and evidence checks");
   }
   const retired = ["flow-researcher.md", "flow-critic.md", "flow-verifier.md", "flow-debugger.md"];
   const stillPresent = retired.filter(f => { try { readFile(path.join(AGENTS, f)); return true; } catch { return false; } });

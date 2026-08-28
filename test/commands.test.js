@@ -220,8 +220,17 @@ async function run() {
     } catch (e) { fail("frontmatter set (coerce): command failed — " + e.message); }
     finally { try { fs.unlinkSync(testFile); } catch {} }
   })();
-  // Suite 10 statusline removed with milestone/phase model — use audit open / state validate now
-  (function () { pass("statusline show removed — milestone/phase model deleted (use audit open / state validate)"); })();
+  // Suite 10 statusline was removed with the milestone/phase model; assert the route is really gone.
+  (function () {
+    try {
+      execSync("node bin/flow-tools.js statusline show", { stdio: "pipe", cwd: process.cwd() });
+      fail("statusline show should return UNKNOWN_COMMAND");
+    } catch (e) {
+      const output = (e.stdout || e.stderr || Buffer.from("")).toString();
+      if (/UNKNOWN_COMMAND|Unknown command/i.test(output)) pass("statusline show removed — retired route returns UNKNOWN_COMMAND");
+      else fail("statusline show returned the wrong error: " + output.slice(0, 120));
+    }
+  })();
   (function () {
     try {
       const raw = execSync("node bin/flow-tools.js audit open", { cwd: process.cwd() }).toString();
@@ -289,14 +298,18 @@ async function run() {
     try {
       fs.mkdirSync(tmpDir, { recursive: true });
       fs.mkdirSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "tasks"), { recursive: true });
-      fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_work_item: work-item-001\nstatus: planned\nupdated_at: 2026-06-10T00:00:00.000Z\n---\n", "utf8");
-      fs.writeFileSync(path.join(tmpDir, ".flow", "memory.md"), "# memory.md\n## Facts\n", "utf8");
-      fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "tasks", "task-01.md"), "# Work Item 001 — Task 01: Probe\n\n## Context\nProbe\n\n## Read First\n- src/file1.js\n\n## Implementation Steps\n### Step 1\nDo it\n\n## Files\n- src/file1.js\n\n## Verify\n\`node -e \"process.exit(0)\"\`\n\n## Done Condition\nVerify passes\n\n**Depends on:** none\n", "utf8");
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src", "file1.js"), "module.exports = 1;\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "state.md"), "---\nactive_work_item: work-item-001\nstatus: planned\nupdated_at: 2026-06-10T00:00:00.000Z\ngit_commit: null\nexecution_context:\n  repositories: []\n  outside_git:\n    - src/file1.js\n---\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "memory.md"), "# memory.md\n\n## Facts\n\n## Decisions\n\n## Lessons\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "work-item.md"), "---\nwork_item: work-item-001\nstatus: in-progress\ntask_count: 1\nexecution_context:\n  repositories: []\n  outside_git:\n    - src/file1.js\n---\n# Work Item 001 — Lifecycle fixture\n\n## Goal\nExercise the state primitive.\n\n## Constraints\nDo not modify Flow metadata outside the state route.\n\n## Done Condition\nThe verification command passes and all tasks are done.\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "plan.md"), "# Plan\n\n## Tasks\n### Task 01: Probe\n- tasks/task-01.md\n", "utf8");
+      fs.writeFileSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "tasks", "task-01.md"), "---\nstatus: done\n---\n# Work Item 001 — Task 01: Probe\n\n## Context\n**Work Item goal:** exercise the state primitive\n**This task delivers:** a valid lifecycle fixture\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/file1.js — fixture target\n\n## Scope\n**Does:** exercise state validation.\n**Does NOT do:** modify unrelated files.\n\n## Implementation Steps\n### Step 1: Validate\nRun the state checks.\n\n## Files\n- src/file1.js\n\n## Verify\nnode -e \"process.exit(0)\"\n\n## Done Condition\nThe verification command passes.\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n## Commit Message\nfeat(work-item-001-task-01): probe state\n\n**Depends on:** none\n", "utf8");
       fs.writeFileSync(path.join(tmpDir, ".flow", "map.json"), JSON.stringify({ schema_version: "flow-map-v1", files: { "src/file1.js": { language: "JavaScript" } } }), "utf8");
       const stateGetRaw = execSync("node bin/flow-tools.js state get --cwd " + tmpDir).toString();
       const stateGet = JSON.parse(stateGetRaw);
       if (stateGet.active_work_item === "work-item-001") { pass("17a: state get returns work-item state"); } else { fail("17a: state get unexpected: " + stateGetRaw); }
-      const statePatchRaw = execSync("node bin/flow-tools.js state patch --set status=in-progress --cwd " + tmpDir).toString();
+      const statePatchRaw = execSync("node bin/flow-tools.js state patch --set status=in-progress --actor flow --cwd " + tmpDir).toString();
       const statePatch = JSON.parse(statePatchRaw);
       const stateContent = fs.readFileSync(path.join(tmpDir, ".flow", "state.md"), "utf8");
       if (statePatch.patched && stateContent.includes("in-progress")) { pass("17b: state patch mutates status + writes updated_at"); } else { fail("17b: state patch failed: " + statePatchRaw); }

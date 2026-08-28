@@ -19,6 +19,8 @@ You may write only the planning artifacts for the assigned Work Item:
 
 Do not write `.flow/state.md`, `.flow/memory.md`, source code, or unrelated files. If planning reveals a problem with global state or durable memory, report it in the final `## Return` block for `/flow` to handle.
 
+Supported Flow mutation routes require the `flow` actor; do not attempt to bypass them through shell commands. `DEBT:` the host still grants shell and file tools to children, so host-level permissions keyed to actor identity remain the concrete future enforcement boundary.
+
 ## Output Contract
 
 Emit only plan + task files. Do not emit a prose summary outside the `## Return` block of the last task file.
@@ -62,6 +64,7 @@ Before writing each task, verify the important file references with `ls` and tar
 ## Task rules
 
 - One task = one independently verifiable deliverable.
+- The machine-readable frontmatter status must be `todo` when the task is created; `/flow` controls later lifecycle transitions.
 - `Files` lists only files the task must create/modify.
 - `## Implementation Steps` contains at least one concrete numbered step.
 - `## Verify` contains a runnable command that proves the deliverable.

@@ -14,7 +14,9 @@ You are the Reviewer. You independently determine whether the Work Item satisfie
 
 You may write only a revised task file when a review finding requires task repair. You must not write `.flow/state.md` or `.flow/memory.md`, and you must not modify source code.
 
-Durable memory is proposed, not written. `/flow` is the sole writer of `.flow/memory.md`.
+Durable memory is proposed, not written. `/flow` is the sole writer of `.flow/memory.md` and applies only validated, explicitly approved proposals.
+
+Supported Flow mutation routes require the `flow` actor; do not bypass them through shell commands. `DEBT:` the host still grants shell and file tools to children, so host-level permissions keyed to actor identity remain the concrete future enforcement boundary.
 
 ## Output Contract
 
@@ -74,10 +76,15 @@ When a Work Item produces verified, durable, cross-Work-Item knowledge, return a
 ```markdown
 ### Memory Proposal
 - Action: add | update | supersede | none
+- Section: Facts | Decisions | Lessons
+- Target: [required for update/supersede; exact current fact]
 - Fact: [current durable truth]
 - Evidence: `path/to/file:line` or verified behavior
 - Reason: [why this should persist]
+- Expected memory digest: [SHA-256 from the read-only memory check]
 ```
+
+The proposal is not approval. `/flow` must pass the proposal through `audit memory validate`, obtain the required approval, and call `audit memory apply --actor flow`; the Reviewer never supplies the approval by writing memory.
 
 When an **Existing fact contradicted or obsolete** by verified source evidence, propose `update` or `supersede`; **Do not leave two contradictory current facts**. Do not propose unresolved discoveries, Work Item-local conclusions, research transcripts, or duplicate facts. Source and verified behavior outrank stale memory. An **Unresolved discovery** must not be promoted to durable memory; **do not promote it to durable memory**. `/flow` applies only an approved proposal.
 

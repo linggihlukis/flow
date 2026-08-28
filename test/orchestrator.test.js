@@ -3,7 +3,7 @@
 const path = require("node:path");
 const { createReporter, ROOT, readFile } = require("./helpers");
 const { parseFrontmatter } = require("../bin/flow-tools");
-const { RUNTIMES } = require("../bin/lib/runtime-registry");
+const { RUNTIMES, probeRuntimeCapabilities } = require("../bin/lib/runtime-registry");
 
 async function run() {
   const { pass, fail, suite, getFailures } = createReporter();
@@ -19,7 +19,7 @@ async function run() {
     "@flow-planner",
     "@flow-executor",
     "@flow-reviewer",
-    "There is no inline fallback",
+    "There is no inline or sequential fallback",
     "state.md  → /flow only",
     "memory.md → /flow only",
     "planning defect",
@@ -71,8 +71,12 @@ async function run() {
     else fail(`scaffold contract missing: ${text}`);
   }
 
-  if (RUNTIMES.zed.capabilities.subagentSpawn === true) pass("Zed runtime declares native subagent spawning");
-  else fail("Zed runtime still declares subagent spawning unavailable");
+  if (RUNTIMES.zed.capabilities.subagentSpawn === false && RUNTIMES.zed.capabilities.hostAdapterRequired === true) pass("Zed runtime does not claim unverified spawning and requires a host adapter");
+  else fail("Zed runtime makes an unverified subagent-spawning claim");
+
+  const probed = probeRuntimeCapabilities('zed', { capabilities: { subagentSpawn: true }, spawn() {} });
+  if (probed && probed.subagentSpawn === true && probed.verified === true) pass("runtime capability becomes available only after adapter probing");
+  else fail("runtime capability probe does not consume the injected adapter contract");
 
   return getFailures();
 }

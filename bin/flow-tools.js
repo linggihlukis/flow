@@ -61,7 +61,7 @@ function showHelp() {
     version: '[flow-version]',
     commands: {
       'state get': '--cwd path',
-      'state patch': '--cwd path --set key=value ...',
+      'state patch': '--cwd path --actor flow --set key=value ...',
       'state validate': '--cwd path',
       'state sync': '--cwd path',
       'frontmatter get': 'file [--field name ...] --cwd path',
@@ -70,7 +70,12 @@ function showHelp() {
       'map index': '--scope dir [--symbols] [--hash] [--cwd path]',
       'map search': '--query Q [--max-results N] [--path map] --cwd path',
       'task validate': '--file path --work-item NNN --cwd path',
+      'task transition': '--file path --status status --actor flow --cwd path',
+      'task gate': '--file path --work-item NNN --execution-context JSON --actor flow --cwd path',
       'audit open': '--cwd path',
+      'audit memory check': '--cwd path',
+      'audit memory validate': '--action action --fact fact --cwd path',
+      'audit memory apply': '--action action --actor flow --cwd path',
     },
   });
 }
@@ -114,6 +119,23 @@ const _FIELD_TO_FLAG = {
   'line-count': '--line-count',
   touch: '--touch',
   newer: '--newer',
+  actor: '--actor',
+  file: '--file',
+  query: '--query',
+  scope: '--scope',
+  output: '--output',
+  status: '--status',
+  'work-item': '--work-item',
+  'execution-context': '--execution-context',
+  timeout: '--timeout',
+  action: '--action',
+  fact: '--fact',
+  target: '--target',
+  evidence: '--evidence',
+  reason: '--reason',
+  section: '--section',
+  approval: '--approval',
+  'expected-memory-digest': '--expected-memory-digest',
 };
 
 function _validateRequired(args, schema) {
@@ -136,7 +158,8 @@ function _dispatchLib(cmd, args) {
   if (!modPath) return false;
   try {
     const subCmd = args[1] || '';
-    const fullCmd = subCmd ? `${cmd} ${subCmd}` : cmd;
+    const nestedCmd = cmd === 'audit' && subCmd === 'memory' && args[2] && !String(args[2]).startsWith('--') ? args[2] : '';
+    const fullCmd = nestedCmd ? `${cmd} ${subCmd} ${nestedCmd}` : subCmd ? `${cmd} ${subCmd}` : cmd;
     const schema = require('./lib/schemas').SCHEMAS[fullCmd]?.input;
     _validateRequired(args, schema);
     const subArgs = args.slice(1);

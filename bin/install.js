@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
 const { execFileSync, spawnSync, execSync } = require("node:child_process");
-const { RUNTIMES } = require('./lib/runtime-registry');
+const { RUNTIMES, probeRuntimeCapabilities } = require('./lib/runtime-registry');
 const { Platform } = require('./lib/platform');
 
 // ─── Environment Variables Consumed ─────────────────────────────────────────
@@ -171,6 +171,7 @@ const flagYes = args.includes("--yes") || envFlag("--yes");
 const flagDryRun = args.includes("--dry-run") || envFlag("--dry-run");
 const flagUpdateAgents = args.includes("--update-agents") || envFlag("--update-agents");
 const flagForce = args.includes("--force") || envFlag("--force");
+const flagScaffold = args.includes("--scaffold") || envFlag("--scaffold");
 
 // ─── Flow scaffold markers (LOCKED §11) ───────────────────────────────────────
 const FLOW_START = "<!-- flow:generated:start -->";
@@ -726,6 +727,16 @@ function uninstall(runtime) {
 }
 
 // ─── Resolve targets ──────────────────────────────────────────────────────────
+function reportRuntimeCapabilities(runtime) {
+  const names = runtime === 'all' ? Object.keys(RUNTIMES) : [runtime];
+  for (const name of names) {
+    const capabilities = probeRuntimeCapabilities(name, null);
+    if (capabilities && !capabilities.subagentSpawn) {
+      warn(`${name}: native child spawning requires an injected host adapter; installation will not provide an inline or sequential fallback`);
+    }
+  }
+}
+
 function resolveTargets(runtime) {
   const targets = [];
   const seenDirs = new Set();
@@ -821,6 +832,13 @@ async function main() {
     return;
   }
 
+  if (flagScaffold) {
+    log(bold("Scaffolding project..."));
+    const report = installScaffold(process.cwd(), { yes: flagYes, dryRun: flagDryRun, force: flagForce });
+    if (report.workItemsBlocked) process.exitCode = 1;
+    else ok(`Project scaffold ${flagDryRun ? 'previewed' : 'ready'} — use /flow-init for the guided initialization command`);
+    return;
+  }
 
   // Runtime
   let runtime;
@@ -829,6 +847,7 @@ async function main() {
   } else {
     runtime = await prompt("Which runtime?", RUNTIME_CHOICES);
   }
+  reportRuntimeCapabilities(runtime);
 
   log(""); log(bold("Installing...")); log("");
 

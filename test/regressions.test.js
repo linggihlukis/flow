@@ -24,7 +24,7 @@ async function run() {
     const reviewerContent = readFile(reviewerPath);
     const mapContent = readFile(mapPath);
 
-    if (executorContent.includes("After implementing — run the Verify command") && executorContent.includes("If it passes — proceed to the Git safety gate")) { pass("12a: executor commits only after Verify passes"); } else { fail("12a: executor missing verify-before-commit rule"); }
+    if (executorContent.includes("After implementing — run the Verify command") && executorContent.includes("The gate reruns the declared Verify command") && executorContent.includes("Never commit without the gate")) { pass("12a: executor commits only after Verify passes"); } else { fail("12a: executor missing verify-before-commit rule"); }
     if (executorContent.includes("do not stage or commit")) { pass("12b: executor blocks staging/commit after failed retries"); } else { fail("12b: executor missing failed-verify commit guard"); }
     if (flowContent.includes("One commit per task after verify passes")) { pass("12c: /flow has one-commit-per-task rule"); } else { fail("12c: /flow missing one-commit-per-task rule"); }
     if (flowContent.includes("Check `git diff --name-only` matches task `Files`")) { pass("12d: executor verifies Files scope before commit"); } else if (executorContent.includes("git diff --name-only")) { pass("12d: executor verifies Files scope"); } else { fail("12d: executor missing git diff scope check"); }
@@ -43,7 +43,7 @@ async function run() {
     if (mapContent.includes("function discoverWorkspaceFiles") && mapContent.includes("selected.push(...discoverWorkspaceFiles(options,limitations,repositories))") && mapContent.includes("isInsideRepo")) { pass("12l: flow-map indexes workspace files outside nested Git repositories"); } else { fail("12l: flow-map still indexes repositories only"); }
 
     // Lifecycle consistency: acceptance must reconcile all persisted Work Item/task state and validate it.
-    if (flowContent.includes("Every task that actually executed is `status: done`") && flowContent.includes("work-item.md` is `status: complete`") && flowContent.includes("No task remains `todo`, `planned`, or otherwise incomplete")) { pass("12m: /flow blocks acceptance with stale Work Item/task lifecycle state"); } else { fail("12m: /flow missing lifecycle consistency gate"); }
+    if (flowContent.includes("every task that actually executed is `status: done`") && flowContent.includes("work-item.md` is `status: complete`") && flowContent.includes("no task remains `todo`, `planned`, or otherwise incomplete")) { pass("12m: /flow blocks acceptance with stale Work Item/task lifecycle state"); } else { fail("12m: /flow missing lifecycle consistency gate"); }
     if (reviewerContent.includes("Lifecycle: [synchronized | repaired | blocked]") && reviewerContent.includes("repair the lifecycle frontmatter in place before accepting") && reviewerContent.includes("state validate")) { pass("12n: Reviewer reconciles and validates lifecycle artifacts before acceptance"); } else { fail("12n: Reviewer missing lifecycle reconciliation"); }
 
     // Verification depth: deep behavioral changes cannot be accepted on token/file-presence checks alone.

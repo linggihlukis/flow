@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+const fs = require("node:fs");
 const path = require("path");
 const { resolveSafePath, ERROR_CODES } = require("../../bin/lib/path-resolver");
 
@@ -42,6 +43,28 @@ const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; }
   const r = resolveSafePath(process.cwd(), "nonexistent-file.tmp");
   console.assert(r.includes("nonexistent-file.tmp"), "non-existent path should be allowed");
   pass("resolveSafePath allows non-existent paths (new files)");
+}
+
+// ─── Symlinked parent cannot escape the lexical boundary ─────────────────────
+{
+  const outsideDir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'flow-path-outside-'));
+  const linkPath = path.join(process.cwd(), '.flow-path-link-' + process.pid);
+  let created = false;
+  try {
+    require('node:fs').symlinkSync(outsideDir, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+    created = true;
+    let threw = false;
+    try { resolveSafePath(process.cwd(), path.join(path.basename(linkPath), 'new-file.md')); }
+    catch (e) { threw = true; console.assert(e.code === ERROR_CODES.PATH_OUTSIDE_CWD, `wrong symlink error code: ${e.code}`); }
+    console.assert(threw, "symlinked parent escape not caught");
+    if (threw) pass("resolveSafePath blocks new paths below symlinked parents");
+    else fail("resolveSafePath allows new paths below symlinked parents");
+  } catch (e) {
+    pass(`resolveSafePath symlink test skipped: ${e.code || e.message}`);
+  } finally {
+    if (created) { try { require('node:fs').unlinkSync(linkPath); } catch {} }
+    try { require('node:fs').rmSync(outsideDir, { recursive: true, force: true }); } catch {}
+  }
 }
 
 // ─── ERROR_CODES exports ─────────────────────────────────────────────────────
