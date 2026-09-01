@@ -338,11 +338,11 @@ async function run() {
   (function () {
     try {
       const flowContent = fs.readFileSync(path.join(COMMANDS, "flow.md"), "utf8");
-      const plannerContent = fs.readFileSync(path.join(require("./helpers").AGENTS, "flow-planner.md"), "utf8");
-      if (flowContent.includes("@flow-planner") || plannerContent.includes("flow-planner")) {
-        pass("16b: flow.md / flow-planner references Planner (work-item lifecycle)");
+      const hasPlannerRole = /Planner role/i.test(flowContent) || flowContent.includes("planner.md") || flowContent.includes("references/planner");
+      if (hasPlannerRole) {
+        pass("16b: flow.md references Planner role");
       } else {
-        fail("16b: flow.md missing Planner reference");
+        fail("16b: flow.md missing Planner role reference");
       }
     } catch (e) {
       fail("16b: flow.md planner path test failed — " + e.message);

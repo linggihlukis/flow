@@ -53,7 +53,7 @@ function parseCommandDescription(filePath) {
 }
 
 function stripFrontmatter(content) {
-  return content.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 }
 
 function escapeTomlBasicString(value) {
@@ -433,6 +433,34 @@ function installCodexSkills(skillsDir) {
   return files.length;
 }
 
+function installZedSkill(skillsDir) {
+  const AGENTS_DIR = path.join(REPO_ROOT, "agents");
+  ensureDir(skillsDir);
+  const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
+  for (const file of files) {
+    const name = path.basename(file, ".md");
+    const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
+    const skillDir = path.join(skillsDir, name);
+    ensureDir(skillDir);
+    const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
+    const content = absolutizeFlowToolsPath(resolveTemplates(source));
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
+    if (name === "flow") {
+      const refsDir = path.join(skillDir, "references");
+      ensureDir(refsDir);
+      for (const agentName of ["flow-planner", "flow-executor", "flow-reviewer"]) {
+        const src = path.join(AGENTS_DIR, `${agentName}.md`);
+        if (!fs.existsSync(src)) continue;
+        const agentContent = fs.readFileSync(src, "utf8");
+        const resolved = absolutizeFlowToolsPath(resolveTemplates(agentContent));
+        const short = agentName.replace(/^flow-/, "");
+        fs.writeFileSync(path.join(refsDir, `${short}.md`), resolved, "utf8");
+      }
+    }
+  }
+  return files.length;
+}
+
 function installCodexAgents(agentsDir) {
   const AGENTS_DIR = path.join(REPO_ROOT, "agents");
   if (!fs.existsSync(AGENTS_DIR) || !agentsDir) return 0;
@@ -686,7 +714,7 @@ function uninstall(runtime) {
     if (!fs.existsSync(dir)) return 0;
     let count = 0;
     for (const entry of fs.readdirSync(dir)) {
-      if (entry.startsWith("flow-")) {
+      if (entry === "flow" || entry.startsWith("flow-")) {
         fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
         count++;
       }
@@ -708,8 +736,7 @@ function uninstall(runtime) {
     removed += removeFlowEntries(path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills"));
     removed += removeFlowEntries(RUNTIMES.commandcode.agentsDir);
   }
-  // zed shares codex skills dir — dedup: only count once when --all (codex branch already handled it)
-  if (runtime === "zed") {
+  if (runtime === "zed" || runtime === "all") {
     removed += removeFlowEntries(RUNTIMES.zed.commandsDir);
   }
 
@@ -739,8 +766,14 @@ function resolveTargets(runtime) {
   const seenDirs = new Set();
 
   function pushTarget(entry) {
-    const key = path.resolve(entry.dir || entry.skillsDir);
-    if (seenDirs.has(key)) return;
+    const key = `${entry.kind || entry.runtimeName}:${path.resolve(entry.dir || entry.skillsDir)}`;
+    const sharedSkillsKey = path.resolve(entry.dir || entry.skillsDir);
+    // codex and zed share the same skills dir but have different package shapes;
+    // allow both entries so the Zed flow skill can add references/ alongside Codex flow-* skills.
+    const isSharedSkillsPair = entry.kind === 'zed' || entry.kind === 'codex';
+    if (!isSharedSkillsPair && seenDirs.has(sharedSkillsKey)) return;
+    if (isSharedSkillsPair && seenDirs.has(key)) return;
+    seenDirs.add(sharedSkillsKey);
     seenDirs.add(key);
     targets.push(entry);
   }
@@ -871,12 +904,10 @@ async function main() {
         ok(`${target.label}`);
         ok(`  ${sc} skills + ${cc} commands + ${ac} agents installed`);
       } else if (target.kind === "zed") {
-        // Zed shares ~/.agents/skills with Codex — dedup already handled by resolveTargets;
-        // if Codex already wrote it, this target was deduped and won't appear when --all.
-        const sc = installCodexSkills(target.skillsDir);
+        const sc = installZedSkill(target.skillsDir);
         totalSkills += sc;
         ok(`${target.label}`);
-        ok(`  ${sc} skills installed (shared with Codex)`);
+        ok(`  ${sc} Zed Skill installed (flow + references)`);
       } else {
         const installedCount = installCommands(target.dir);
         totalCommands += installedCount;
@@ -977,11 +1008,12 @@ function detectInstalledRuntimes() {
   if (!found.commandcode && fs.existsSync(ccSkills) && fs.readdirSync(ccSkills).some(f => f.startsWith("flow-")))
     found.commandcode = true;
 
-  // Zed shares ~/.agents/skills with Codex. Standalone zed detection only when
-  // codex has no skills — otherwise zed is considered installed alongside codex.
-  if (found.codex.skills) {
-    found.zed = true;
-  } else if (fs.existsSync(RUNTIMES.zed.commandsDir) && fs.readdirSync(RUNTIMES.zed.commandsDir).some(f => f.startsWith("flow-"))) {
+  // Zed: flow Skill is at ~/.agents/skills/flow (no dash). Detect it explicitly;
+  // also treat shared flow-* skills as evidence when codex is present.
+  const zedFlowDir = path.join(RUNTIMES.zed.commandsDir, "flow");
+  if (fs.existsSync(zedFlowDir)) found.zed = true;
+  else if (found.codex.skills) found.zed = true;
+  else if (fs.existsSync(RUNTIMES.zed.commandsDir) && fs.readdirSync(RUNTIMES.zed.commandsDir).some(f => f === "flow" || f.startsWith("flow-"))) {
     found.zed = true;
   }
 
@@ -1068,14 +1100,11 @@ async function runUpdate() {
     } catch (e) { err(`CommandCode global failed: ${e.message}`); }
   }
 
-  if (installed.zed && !installed.codex.skills) {
+  // Zed flow Skill: always install/update even when Codex shares the dir
+  if (installed.zed) {
     try {
-      const key = path.resolve(RUNTIMES.zed.commandsDir);
-      if (!updatedSkillsDirs.has(key)) {
-        const skillCount = installCodexSkills(RUNTIMES.zed.commandsDir);
-        updatedSkillsDirs.add(key);
-        ok(`Zed Editor global: ${skillCount} skills (shared with Codex)`);
-      }
+      const skillCount = installZedSkill(RUNTIMES.zed.commandsDir);
+      ok(`Zed Editor global: ${skillCount} Skill (flow + references)`);
     } catch (e) { err(`Zed Editor global failed: ${e.message}`); }
   }
 

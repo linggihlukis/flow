@@ -103,7 +103,8 @@ async function run() {
   }
   const agentsMdContent = readFile(AGENTS_MD);
   for (const agent of KNOWN_AGENTS) {
-    if (agentsMdContent.includes(`\`@${agent}\``)) {
+    const shortRole = agent.replace(/^flow-/, "");
+    if (agentsMdContent.includes(`\`@${agent}\``) || new RegExp(`${shortRole} role`, "i").test(agentsMdContent)) {
       pass(`@${agent}: listed in AGENTS.md Section 5`);
     } else {
       fail(`@${agent}: NOT listed in AGENTS.md Section 5`);

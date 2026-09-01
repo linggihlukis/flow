@@ -9,10 +9,10 @@ Global ownership: `/flow` is the sole writer of `.flow/state.md` and `.flow/memo
 
 Files: `.flow/{state.md,memory.md,map.json}` + `.flow/work-items/work-item-NNN/{work-item.md,plan.md,tasks/task-XX.md}`; `AGENTS.md` outside `.flow/`.
 
-Agents (3):
-- `@flow-planner` (research is part of planning → generates `plan.md` + `tasks/task-XX.md`)
-- `@flow-executor` (one task: Read → Change → Verify → Report; git is the handoff — no summary file)
-- `@flow-reviewer` (independent contract/evidence review + failure routing; memory proposals only)
+Flow roles (3):
+- Planner role (research is part of planning → generates `plan.md` + `tasks/task-XX.md`)
+- Executor role (one task: Read → Change → Verify → Report; git is the handoff — no summary file)
+- Reviewer role (independent contract/evidence review + failure routing; memory proposals only)
 
-`/flow` orchestrates the three agents and persists global lifecycle/memory state. It does not perform their work inline and fails closed when required child spawning is unavailable.
+`/flow` delegates Planner, Executor, and Reviewer roles through the host's native subagent mechanism when the host provides one, and persists global lifecycle/memory state. It does not perform their work inline and fails closed when required child delegation is unavailable.
 <!-- flow:generated:end -->

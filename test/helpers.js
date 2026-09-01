@@ -36,7 +36,7 @@ const CANONICAL_FLOW_PREFIXES = [
   ".flow/work-items/",
 ];
 
-const COMMAND_REQUIRED = ["description", "agent"];
+const COMMAND_REQUIRED = ["description"];
 const AGENT_REQUIRED   = ["description", "mode", "temperature", "tools"];
 const AGENT_TOOL_KEYS  = ["write", "edit", "bash"];
 

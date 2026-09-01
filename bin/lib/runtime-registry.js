@@ -32,7 +32,6 @@ const RUNTIMES = {
     get commandsDir() { return path.join(Platform.home, '.agents', 'skills'); },
     get agentsDir() { return null; },
     configPath: null,
-    agentFormat: 'md-frontmatter',
     capabilities: { sandbox: false, modelAssignment: false },
   },
 };
