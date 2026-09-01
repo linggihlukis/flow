@@ -24,14 +24,10 @@ const TASK_NAME_PATTERN = /^task-(\d{2})\.md$/i;
 const TASK_STATUSES = new Set(['todo', 'in-progress', 'done', 'blocked']);
 const REQUIRED_SECTIONS = [
   'Context',
-  'Read First',
-  'Scope',
   'Implementation Steps',
   'Files',
   'Verify',
   'Done Condition',
-  'Verify Depth',
-  'Commit Message',
 ];
 const COMMAND_NAMES = [
   'node', 'npm', 'npx', 'pnpm', 'yarn', 'bun', 'deno', 'python', 'python3',
@@ -175,6 +171,7 @@ function parseStatus(content, basename) {
 }
 
 function parseCommitMessage(section, basename) {
+  if (!section) return { message: null, errors: [] };
   const line = meaningfulLines(section)
     .map(value => value.replace(/^[-*]\s+/, '').replace(/^`|`$/g, '').trim())
     .find(value => value && !isPlaceholder(value));
@@ -183,6 +180,11 @@ function parseCommitMessage(section, basename) {
     return { message: line, errors: [`${basename}: commit message must match type(work-item-NNN-task-NN): description`] };
   }
   return { message: line, errors: [] };
+}
+
+function defaultCommitMessage(workItem, taskNumber) {
+  if (!workItem || taskNumber === null || taskNumber === undefined) return null;
+  return `chore(${workItem}-task-${String(taskNumber).padStart(2, '0')}): complete task`;
 }
 
 function validateTaskFile(filePath, { cwd = process.cwd(), workItem = null } = {}) {
@@ -210,20 +212,23 @@ function validateTaskFile(filePath, { cwd = process.cwd(), workItem = null } = {
   const contextLines = meaningfulLines(sections.get('Context'));
   if (contextLines.length === 0) errors.push(`${basename}: ## Context has no content`);
   const readFirstLines = meaningfulLines(sections.get('Read First'));
-  if (readFirstLines.length === 0) errors.push(`${basename}: ## Read First has no content`);
+  if (sections.has('Read First') && readFirstLines.length === 0) errors.push(`${basename}: ## Read First has no content`);
   const scopeLines = meaningfulLines(sections.get('Scope'));
-  if (scopeLines.length === 0) errors.push(`${basename}: ## Scope has no content`);
+  if (sections.has('Scope') && scopeLines.length === 0) errors.push(`${basename}: ## Scope has no content`);
   const implementationLines = meaningfulLines(sections.get('Implementation Steps'));
   if (!implementationLines.some(line => /^###\s+Step\b/i.test(line) || /^\d+[.)]\s+/.test(line))) {
     errors.push(`${basename}: ## Implementation Steps must contain at least one numbered or ### Step entry`);
   }
 
-  const confidence = extractField(contextLines.join('\n'), /^\s*\*\*Confidence:\*\*\s*(HIGH|MEDIUM|LOW)\s*$/im);
-  const complexity = extractField(contextLines.join('\n'), /^\s*\*\*Complexity:\*\*\s*(simple|moderate|complex)\s*$/im);
-  if (!confidence) errors.push(`${basename}: Context must declare Confidence: HIGH | MEDIUM | LOW`);
-  if (!complexity) errors.push(`${basename}: Context must declare Complexity: simple | moderate | complex`);
+  const contextText = contextLines.join('\n');
+  const confidence = extractField(contextText, /^\s*\*\*Confidence:\*\*\s*(HIGH|MEDIUM|LOW)\s*$/im);
+  const complexity = extractField(contextText, /^\s*\*\*Complexity:\*\*\s*(simple|moderate|complex)\s*$/im);
+  const suppliedConfidence = /\*\*Confidence:\*\*/i.test(contextText);
+  const suppliedComplexity = /\*\*Complexity:\*\*/i.test(contextText);
+  if (suppliedConfidence && !confidence) errors.push(`${basename}: Confidence must be HIGH | MEDIUM | LOW when provided`);
+  if (suppliedComplexity && !complexity) errors.push(`${basename}: Complexity must be simple | moderate | complex when provided`);
   if (confidence && !/^HIGH$/i.test(confidence)) {
-    const reason = extractField(contextLines.join('\n'), /^\s*\*\*Reason:\*\*\s*(.+)$/im);
+    const reason = extractField(contextText, /^\s*\*\*Reason:\*\*\s*(.+)$/im);
     if (!reason || isPlaceholder(reason)) errors.push(`${basename}: MEDIUM or LOW confidence requires a non-empty Reason`);
   }
 
@@ -240,7 +245,7 @@ function validateTaskFile(filePath, { cwd = process.cwd(), workItem = null } = {
   const depthText = meaningfulLines(sections.get('Verify Depth')).join('\n');
   const depthMatch = depthText.match(/^\s*VERIFY_DEPTH:\s*(shallow|deep)\s*$/im);
   const verifyDepth = depthMatch ? depthMatch[1].toLowerCase() : null;
-  if (!verifyDepth) errors.push(`${basename}: ## Verify Depth must declare VERIFY_DEPTH: shallow | deep`);
+  if (sections.has('Verify Depth') && !verifyDepth) errors.push(`${basename}: Verify Depth must be shallow | deep when provided`);
   if (verifyDepth === 'deep') {
     const reasonLines = meaningfulLines(sections.get('Verify Depth')).filter(line => !/^VERIFY_DEPTH:/i.test(line) && !/^#?\s*Reason:/i.test(line));
     if (reasonLines.length === 0 || reasonLines.every(isPlaceholder)) errors.push(`${basename}: deep Verify Depth requires a reason`);
@@ -272,7 +277,7 @@ function validateTaskFile(filePath, { cwd = process.cwd(), workItem = null } = {
     done_condition: doneText,
     files: parsedFiles.files,
     dependencies: dependencyResult.dependencies,
-    commitMessage: commitResult.message,
+    commitMessage: commitResult.message || defaultCommitMessage(normalizedWorkItem, taskNumber),
     errors,
   };
 }
@@ -665,4 +670,5 @@ module.exports = {
   runTaskGate,
   TASK_STATUSES,
   TASK_NAME_PATTERN,
+  defaultCommitMessage,
 };

@@ -21,7 +21,7 @@ async function run() {
     "Reviewer role",
     "Native host delegation is required",
     "There is no inline fallback and no sequential fallback",
-    "spawn_agent",
+    "[flow-delegation-binding]",
     "Only `/flow` writes global `state.md` and `memory.md`",
     "planning defects to Planner",
     "execution defects to Executor",

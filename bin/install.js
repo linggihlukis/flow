@@ -69,6 +69,20 @@ function generateSkillMarkdown(name, description, sourceContent) {
   return `---\nname: ${name}\ndescription: ${description}\ndisable-model-invocation: true\n---\n\n${body.endsWith("\n") ? body : `${body}\n`}`;
 }
 
+function hostDelegationBinding(host) {
+  const bindings = {
+    opencode: "OpenCode binding: use the native Task tool with the named `flow-planner`, `flow-executor`, or `flow-reviewer` subagent. If Task delegation is unavailable or rejected, stop and report the host capability failure; do not substitute inline work.",
+    codex: "Codex binding: use the native multi-agent child-thread mechanism and select the named `flow-planner`, `flow-executor`, or `flow-reviewer` custom agent. Do not assume a fixed low-level tool payload. If child delegation is unavailable or rejected, stop and report the host capability failure; do not substitute inline work.",
+    zed: "Zed binding: call `spawn_agent` with a short `label` and a self-contained `message` containing the selected role reference, Work Item/task paths, constraints, and output contract. If `spawn_agent` is unavailable or rejected, stop and report the host capability failure; do not substitute inline work."
+  };
+  if (!bindings[host]) throw new Error(`Unknown host delegation binding: ${host}`);
+  return bindings[host];
+}
+
+function renderHostBinding(content, host) {
+  return content.replace("[flow-delegation-binding]", hostDelegationBinding(host));
+}
+
 function generateCodexAgentToml(name, description, sourceContent, sandboxMode) {
   const body = stripFrontmatter(sourceContent).trimStart().replace(/\s+$/, "");
   const lines = [
@@ -141,10 +155,10 @@ const DELETED_FLAGS = ["--claude", "--antigravity", "--antigravity-ide", "--glob
 const deletedHit = args.find(a => DELETED_FLAGS.includes(a)) || DELETED_FLAGS.find(f => envFlag(f));
 if (deletedHit) {
   const hint = ["--claude", "--antigravity", "--antigravity-ide"].includes(deletedHit)
-    ? "use --commandcode / --opencode / --codex / --zed"
+    ? "use --opencode / --codex / --zed"
     : "global is now the only mode (flag removed)";
   console.error(`${c.yellow}⚠${c.reset}  Flag ${bold(deletedHit)} has been removed — ${hint}.`);
-  console.error(`   Valid runtimes: --opencode --codex --commandcode --zed --all`);
+  console.error(`   Valid runtimes: --opencode --codex --zed --all`);
   process.exit(1);
 }
 
@@ -164,7 +178,13 @@ const LEGACY_FLAT_FILES = [
   path.join(Platform.home, ".codex", "flow", "flow-tools.js"),
 ];
 
-const flagRuntime  = resolveFlag(["--opencode","--codex","--commandcode","--zed","--all"]);
+const flagRuntime  = resolveFlag(["--opencode","--codex","--zed","--all"]);
+const removedRuntime = args.find(arg => arg === "--commandcode") || (envFlag("--commandcode") ? "--commandcode" : null);
+if (removedRuntime) {
+  console.error(`${c.yellow}⚠${c.reset}  Flag ${bold(removedRuntime)} is no longer supported.`);
+  console.error(`   Valid runtimes: --opencode --codex --zed --all`);
+  process.exit(1);
+}
 const flagUninstall = args.includes("--uninstall") || envFlag("--uninstall");
 const flagUpdate   = args.includes("--update") || envFlag("--update");
 const flagYes = args.includes("--yes") || envFlag("--yes");
@@ -181,9 +201,8 @@ const FLOW_END = "<!-- flow:generated:end -->";
 const RUNTIME_CHOICES = [
   { label: "OpenCode",                                    value: "opencode" },
   { label: "Codex App / CLI",                             value: "codex" },
-  { label: "CommandCode",                                 value: "commandcode" },
   { label: "Zed Editor (shares ~/.agents/skills with Codex)", value: "zed" },
-  { label: "All (OpenCode + Codex + CommandCode + Zed)",  value: "all" },
+  { label: "All (OpenCode + Codex + Zed)",                 value: "all" },
 ];
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
@@ -397,7 +416,7 @@ function installCommands(commandsDir) {
   const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
   for (const file of files) {
     const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
-    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
+    const resolved = absolutizeFlowToolsPath(renderHostBinding(resolveTemplates(content), "opencode"));
     fs.writeFileSync(path.join(commandsDir, file), resolved, 'utf8');
   }
   return files.length;
@@ -427,7 +446,7 @@ function installCodexSkills(skillsDir) {
     const skillDir = path.join(skillsDir, name);
     ensureDir(skillDir);
     const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    const content = absolutizeFlowToolsPath(resolveTemplates(source));
+    const content = absolutizeFlowToolsPath(renderHostBinding(resolveTemplates(source), "codex"));
     fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
   }
   return files.length;
@@ -443,7 +462,7 @@ function installZedSkill(skillsDir) {
     const skillDir = path.join(skillsDir, name);
     ensureDir(skillDir);
     const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    const content = absolutizeFlowToolsPath(resolveTemplates(source));
+    const content = absolutizeFlowToolsPath(renderHostBinding(resolveTemplates(source), "zed"));
     fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
     if (name === "flow") {
       const refsDir = path.join(skillDir, "references");
@@ -483,44 +502,6 @@ function installCodexAgents(agentsDir) {
   return files.length;
 }
 
-function installCommandCodeSkills(skillsDir) {
-  ensureDir(skillsDir);
-  const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
-  for (const file of files) {
-    const name = path.basename(file, ".md");
-    const description = parseCommandDescription(path.join(COMMANDS_DIR, file));
-    const skillDir = path.join(skillsDir, name);
-    ensureDir(skillDir);
-    const source = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    const content = absolutizeFlowToolsPath(resolveTemplates(source));
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), generateSkillMarkdown(name, description, content));
-  }
-  return files.length;
-}
-
-function installCommandCodeCommands(commandsDir) {
-  ensureDir(commandsDir);
-  const files = fs.readdirSync(COMMANDS_DIR).filter(f => f.endsWith(".md"));
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
-    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
-    fs.writeFileSync(path.join(commandsDir, file), resolved, 'utf8');
-  }
-  return files.length;
-}
-
-function installCommandCodeAgents(agentsDir) {
-  const AGENTS_DIR = path.join(REPO_ROOT, "agents");
-  if (!fs.existsSync(AGENTS_DIR) || !agentsDir) return 0;
-  ensureDir(agentsDir);
-  const files = fs.readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md"));
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
-    const resolved = absolutizeFlowToolsPath(resolveTemplates(content));
-    fs.writeFileSync(path.join(agentsDir, file), resolved, 'utf8');
-  }
-  return files.length;
-}
 
 // ─── Install scaffold ─────────────────────────────────────────────────────────
 function diffLines(oldStr, newStr) {
@@ -731,16 +712,20 @@ function uninstall(runtime) {
     removed += removeFlowEntries(RUNTIMES.codex.commandsDir);
     removed += removeFlowEntries(RUNTIMES.codex.agentsDir);
   }
-  if (runtime === "commandcode" || runtime === "all") {
-    removed += removeFlowEntries(RUNTIMES.commandcode.commandsDir);
-    removed += removeFlowEntries(path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills"));
-    removed += removeFlowEntries(RUNTIMES.commandcode.agentsDir);
-  }
+
   if (runtime === "zed" || runtime === "all") {
     removed += removeFlowEntries(RUNTIMES.zed.commandsDir);
   }
 
-  // Legacy shim cleanup (single source — legacyShims / LEGACY_FLAT_FILES)
+  // Legacy shim cleanup, including artifacts from runtimes no longer supported.
+  const retiredRuntimePaths = [
+    path.join(Platform.home, ".commandcode", "commands"),
+    path.join(Platform.home, ".commandcode", "skills"),
+    path.join(Platform.home, ".commandcode", "agents"),
+  ];
+  for (const dir of retiredRuntimePaths) {
+    try { removeFlowEntries(dir); } catch {}
+  }
   for (const p of legacyShims) {
     try { if (fs.existsSync(p)) { fs.rmSync(p, { recursive: true, force: true }); removed++; } } catch {}
   }
@@ -793,15 +778,7 @@ function resolveTargets(runtime) {
       skillsDir: RUNTIMES.codex.commandsDir,
       agentsDir: RUNTIMES.codex.agentsDir,
     });
-  if (runtime === "commandcode" || runtime === "all")
-    pushTarget({
-      label: `CommandCode (global) ${dim(RUNTIMES.commandcode.commandsDir)}`,
-      runtimeName: "commandcode",
-      kind: "commandcode",
-      skillsDir: path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills"),
-      agentsDir: RUNTIMES.commandcode.agentsDir,
-      dir: RUNTIMES.commandcode.commandsDir,
-    });
+
   if (runtime === "zed" || runtime === "all")
     pushTarget({
       label: `Zed Editor (global) ${dim(RUNTIMES.zed.commandsDir)} (shared with Codex)`,
@@ -894,15 +871,7 @@ async function main() {
         totalAgents += ac;
         ok(`${target.label}`);
         ok(`  ${sc} skills + ${ac} agents installed`);
-      } else if (target.kind === "commandcode") {
-        const sc = installCommandCodeSkills(target.skillsDir);
-        const cc = installCommandCodeCommands(target.dir);
-        const ac = installCommandCodeAgents(target.agentsDir);
-        totalSkills += sc;
-        totalCommands += cc;
-        totalAgents += ac;
-        ok(`${target.label}`);
-        ok(`  ${sc} skills + ${cc} commands + ${ac} agents installed`);
+
       } else if (target.kind === "zed") {
         const sc = installZedSkill(target.skillsDir);
         totalSkills += sc;
@@ -946,8 +915,6 @@ async function main() {
   log("");
   if (runtime === "codex" || runtime === "zed") {
     log(`  Skills:    ${totalSkills} (flow-* skills in .agents/skills)`);
-  } else if (runtime === "commandcode") {
-    log(`  Skills/Commands: ${totalSkills} skills + ${totalCommands} command copies`);
   } else if (runtime === "all") {
     log(`  Commands:  ${totalCommands} · Skills: ${totalSkills} · Agents: ${totalAgents}`);
   } else {
@@ -966,9 +933,7 @@ async function main() {
   if (runtime === "codex" || runtime === "all") {
     log(dim("  Restart Codex App / CLI to load the new skills and agents."));
   }
-  if (runtime === "commandcode" || runtime === "all") {
-    log(dim("  Restart CommandCode to load the new skills/commands."));
-  }
+
   if (runtime === "zed" || runtime === "all") {
     log(dim("  Reload Zed Editor to load the new skills (shared with Codex)."));
   }
@@ -982,7 +947,7 @@ function detectInstalledRuntimes() {
   const found = {
     opencode: false,
     codex: { skills: false, agents: false },
-    commandcode: false,
+
     zed: false,
   };
 
@@ -999,14 +964,6 @@ function detectInstalledRuntimes() {
   if (fs.existsSync(cxGlobalAgents) && fs.readdirSync(cxGlobalAgents).some(f => f.startsWith("flow-")))
     found.codex.agents = true;
 
-  // CommandCode global: ~/.commandcode/commands/flow-*.md and ~/.commandcode/skills/flow-*
-  const ccGlobal = RUNTIMES.commandcode.commandsDir;
-  if (fs.existsSync(ccGlobal) && fs.readdirSync(ccGlobal).some(f => f.startsWith("flow-")))
-    found.commandcode = true;
-  // Also check skills dir
-  const ccSkills = path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills");
-  if (!found.commandcode && fs.existsSync(ccSkills) && fs.readdirSync(ccSkills).some(f => f.startsWith("flow-")))
-    found.commandcode = true;
 
   // Zed: flow Skill is at ~/.agents/skills/flow (no dash). Detect it explicitly;
   // also treat shared flow-* skills as evidence when codex is present.
@@ -1036,12 +993,12 @@ async function runUpdate() {
   const installed = detectInstalledRuntimes();
   const anyRuntime = installed.opencode
                   || installed.codex.skills || installed.codex.agents
-                  || installed.commandcode
+
                   || installed.zed;
 
   if (!anyRuntime) {
     warn("No Flow runtime installation detected.");
-    warn("Checked: OpenCode (global), Codex App / CLI (global), CommandCode (global), Zed Editor (global, shared with Codex)");
+    warn("Checked: OpenCode (global), Codex App / CLI (global), Zed Editor (global, shared with Codex)");
     warn("If this is a new project, run the installer first: npx @linggihlukis/flow");
     log("");
     return;
@@ -1051,7 +1008,7 @@ async function runUpdate() {
   if (installed.opencode)  info(`OpenCode   global  ${dim(RUNTIMES.opencode.commandsDir)}`);
   if (installed.codex.skills || installed.codex.agents)
     info(`Codex App / CLI global  ${dim(`${RUNTIMES.codex.commandsDir} + ${RUNTIMES.codex.agentsDir}`)}`);
-  if (installed.commandcode) info(`CommandCode global  ${dim(`${RUNTIMES.commandcode.commandsDir} + ${RUNTIMES.commandcode.agentsDir}`)}`);
+
   if (installed.zed && !installed.codex.skills) info(`Zed Editor global  ${dim(RUNTIMES.zed.commandsDir)} (shared with Codex)`);
   log("");
 
@@ -1085,20 +1042,6 @@ async function runUpdate() {
     } catch (e) { err(`Codex App / CLI global failed: ${e.message}`); }
   }
 
-  if (installed.commandcode) {
-    try {
-      const skillsDir = path.join(path.dirname(RUNTIMES.commandcode.commandsDir), "skills");
-      let skillCount = 0;
-      const key = path.resolve(skillsDir);
-      if (!updatedSkillsDirs.has(key)) {
-        skillCount = installCommandCodeSkills(skillsDir);
-        updatedSkillsDirs.add(key);
-      }
-      const cmdCount = installCommandCodeCommands(RUNTIMES.commandcode.commandsDir);
-      const agCount  = installCommandCodeAgents(RUNTIMES.commandcode.agentsDir);
-      ok(`CommandCode global: ${skillCount} skills + ${cmdCount} commands + ${agCount} agents`);
-    } catch (e) { err(`CommandCode global failed: ${e.message}`); }
-  }
 
   // Zed flow Skill: always install/update even when Codex shares the dir
   if (installed.zed) {
@@ -1108,7 +1051,15 @@ async function runUpdate() {
     } catch (e) { err(`Zed Editor global failed: ${e.message}`); }
   }
 
-  // One-shot legacy shim cleanup (legacyShims / LEGACY_FLAT_FILES)
+  // One-shot legacy shim cleanup, including retired runtime artifacts.
+  const retiredRuntimePaths = [
+    path.join(Platform.home, ".commandcode", "commands"),
+    path.join(Platform.home, ".commandcode", "skills"),
+    path.join(Platform.home, ".commandcode", "agents"),
+  ];
+  for (const dir of retiredRuntimePaths) {
+    try { removeFlowEntries(dir); } catch {}
+  }
   for (const p of legacyShims) {
     try { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); } catch {}
   }
@@ -1163,7 +1114,7 @@ async function runUpdate() {
   log("");
   if (installed.opencode)  log(dim("  Restart OpenCode to load the updated commands."));
   if (installed.codex)    log(dim("  Restart Codex App / CLI to load the updated skills and agents."));
-  if (installed.commandcode) log(dim("  Restart CommandCode to load the updated skills/commands."));
+
   if (installed.zed)      log(dim("  Reload Zed Editor to load the updated skills (shared with Codex)."));
   log("");
 }
@@ -1172,4 +1123,4 @@ if (require.main === module) {
   main().catch(e => { err(`Installation failed: ${e.message}`); process.exit(1); });
 }
 
-module.exports = { updateScaffold, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown, installScaffold, ensureAgentsBlock, getFlowHomeDir, getFlowToolsAbsPath, FLOW_START, FLOW_END };
+module.exports = { updateScaffold, installFlowHome, installWasm, resolveTemplates, generateSkillMarkdown, renderHostBinding, hostDelegationBinding, installScaffold, ensureAgentsBlock, getFlowHomeDir, getFlowToolsAbsPath, FLOW_START, FLOW_END };

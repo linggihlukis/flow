@@ -70,40 +70,37 @@ Before writing each task, verify the important file references with `ls` and tar
 - `## Verify` contains a runnable command that proves the deliverable.
 - `## Done Condition` is binary.
 - `**Depends on:** none or task-NN.
-- Every task declares `VERIFY_DEPTH: shallow | deep` and `**Complexity:** simple | moderate | complex`.
 - Prefer fewer tasks. Split only when independent verification or dependencies require it.
 
-## Verification depth
+## Optional task guidance
 
-Use `deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor, runtime behavior, public API/server behavior, persistence, authorization, or other behavior whose correctness depends on multiple callers. Deep tasks require behavior-oriented evidence; a grep/token-presence check is not sufficient. Use `shallow` only when deterministic structure or syntax checks adequately prove the deliverable.
+Add these only when they materially help a complex or risky task; do not add them by default to every small task:
+
+- `## Read First` for explicit source/context pointers.
+- `## Scope` for a clear inclusion/exclusion boundary beyond the declared files.
+- `VERIFY_DEPTH: shallow | deep` when the review needs an explicit verification-depth signal.
+- `**Confidence:** HIGH | MEDIUM | LOW` and `**Reason:** ...` when uncertainty is useful to communicate. MEDIUM/LOW confidence requires a non-empty reason.
+- `**Complexity:** simple | moderate | complex` when task sizing helps review.
+- `## Commit Message` when an explicit conventional commit message is useful. If omitted, the task gate supplies a deterministic fallback.
+
+Use `deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor behavior, runtime behavior, public APIs, persistence, authorization, or other behavior whose correctness depends on multiple callers; add `VERIFY_DEPTH: deep` when that explicit signal helps review. Deep tasks require behavior-oriented evidence; a grep/token-presence check is not sufficient. Use `shallow` only when deterministic structure or syntax checks adequately prove the deliverable.
 
 ## Minimal task contract
 
-Every task must have: `## Context`, `## Files`, `## Implementation Steps`, `## Verify`, `## Done Condition`, and `**Depends on:** none|task-NN`.
+Every task must have: `## Context`, `## Files`, `## Implementation Steps`, `## Verify`, `## Done Condition`, and `**Depends on:** none|task-NN`. Lifecycle `status: todo` remains required in frontmatter. Optional guidance may be omitted for small, self-contained tasks and is still validated when supplied.
 
 ## Task file format
 
 Save each task as `.flow/work-items/work-item-NNN/tasks/task-XX.md` (zero-padded):
 
 ```markdown
+---
+status: todo
+---
 # Work Item NNN — Task XX: [Descriptive Title]
 
 ## Context
-**Work Item goal:** [from work-item.md]
-**This task delivers:** [single specific deliverable]
-**Depends on:** [task XX-1, or "none"]
-**Confidence:** HIGH | MEDIUM | LOW
-**Reason:** [one sentence — required if MEDIUM or LOW; omit if HIGH]
-**Complexity:** simple | moderate | complex
-
-## Read First
-- [file — why]
-- .flow/map.json — structural index
-- .flow/memory.md — durable lessons for this area
-
-## Scope
-**Does:** [specific actions]
-**Does NOT do:** [explicit exclusions]
+[why this task exists and what single deliverable it produces]
 
 ## Implementation Steps
 
@@ -114,18 +111,15 @@ Save each task as `.flow/work-items/work-item-NNN/tasks/task-XX.md` (zero-padded
 [exact list of files this task will create or modify]
 
 ## Verify
-[a single runnable shell command that proves this task's deliverable works]
+[a single runnable shell command that proves the deliverable]
 
 ## Done Condition
-[Binary pass/fail — verify command passes and no new regressions]
+[Binary pass/fail — verify command passes and the deliverable is complete]
 
-## Verify Depth
-VERIFY_DEPTH: shallow | deep
-# Reason: [if deep — one line]
-
-## Commit Message
-`type(work-item-NNN-task-XX): description`
+**Depends on:** none
 ```
+
+For a complex or risky task, optionally add `Read First`, `Scope`, verification depth, confidence/reason, complexity, and an explicit `Commit Message` after the hard contract sections.
 
 ## Return
 

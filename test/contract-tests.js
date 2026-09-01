@@ -159,6 +159,32 @@ feat(work-item-001-task-01): exercise fixture
 `;
 }
 
+function minimalTaskContent(status = 'todo') {
+  return `---
+status: ${status}
+---
+# Work Item 001 — Minimal Contract Fixture
+
+## Context
+This task contains only the ADR hard task contract.
+
+## Implementation Steps
+### Step 1: Exercise fixture
+Run the contract check.
+
+## Files
+- src/fixture.js
+
+## Verify
+node -e "process.exit(0)"
+
+## Done Condition
+The verification command passes.
+
+**Depends on:** none
+`;
+}
+
 function createFixture({ taskStatus = 'todo' } = {}) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-contract-'));
   const taskDirectory = path.join(cwd, '.flow', 'work-items', 'work-item-001', 'tasks');
@@ -222,6 +248,18 @@ function argsFor(command, fixture) {
     case 'map index': return ['map', 'index', '--scope', '.', '--output', '.flow/contract-map.json', '--cwd', cwd];
     case 'map search': return ['map', 'search', '--query', 'fixture', '--cwd', cwd];
     default: throw new Error(`No contract fixture for ${command}`);
+  }
+}
+
+function checkMinimalTaskContract() {
+  const fixture = createFixture();
+  try {
+    fs.writeFileSync(fixture.taskFile, minimalTaskContent(), 'utf8');
+    const result = invoke(['task', 'validate', '--file', fixture.taskFile, '--cwd', fixture.cwd], fixture.cwd);
+    if (result.ok && result.data?.valid === true) pass('minimal task contract is accepted without optional metadata');
+    else fail(`minimal task contract should be accepted — ${JSON.stringify(result.data || result)}`);
+  } finally {
+    fs.rmSync(fixture.cwd, { recursive: true, force: true });
   }
 }
 
@@ -289,6 +327,7 @@ const strictSchema = {
 if (validateShape({ valid: true, unexpected: true }, strictSchema).length > 0) pass('additionalProperties: false rejects undeclared output fields');
 else fail('additionalProperties: false does not reject undeclared output fields');
 
+checkMinimalTaskContract();
 checkInvalidInputs();
 
 if (failures === 0) {

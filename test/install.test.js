@@ -54,23 +54,24 @@ async function run() {
     }
   }
 
-  // Suite 8 — global-only 4 runtimes (replaces local/antigravity coverage)
-  suite("Suite 8 — global-only 4-runtimes install coverage");
+  // Suite 8 — global-only 3 runtimes (replaces local/antigravity coverage)
+  suite("Suite 8 — global-only 3-runtimes install coverage");
   const installSource = readFile(path.join(ROOT, "bin", "install.js"));
   const reviewerSource = readFile(path.join(AGENTS, "flow-reviewer.md"));
 
-  // 8a — runtime flags: 4 runtimes + all, no claude/antigravity/local
+  // 8a — runtime flags: 3 runtimes + all, no claude/antigravity/local
   if (
     installSource.includes("--opencode") &&
     installSource.includes("--codex") &&
-    installSource.includes("--commandcode") &&
     installSource.includes("--zed") &&
     installSource.includes("--all") &&
-    installSource.includes("--scaffold")
+    installSource.includes("--scaffold") &&
+    !/flagRuntime\s*=\s*resolveFlag\(\[.*--commandcode/.test(installSource) &&
+    installSource.includes("removedRuntime")
   ) {
-    pass("install.js exposes 4 runtime flags + --all + --scaffold");
+    pass("install.js exposes 3 runtime flags + --all + --scaffold");
   } else {
-    fail("install.js is missing one of --opencode/--codex/--commandcode/--zed/--all");
+    fail("install.js must expose only --opencode/--codex/--zed/--all");
   }
   if (!installSource.includes("resolveFlag([\"--opencode\",\"--claude\"") && !installSource.includes("--claude") || installSource.includes("DELETED_FLAGS") && installSource.includes("--claude")) {
     // Deleted flags must be in DELETED_FLAGS, not in active flagRuntime
@@ -106,13 +107,13 @@ async function run() {
   } else {
     fail("install.js is missing full install-flag compatibility coverage");
   }
-  // 8d — RUNTIME_CHOICES is exactly 5 rows (4 + all), dedup note for zed
+  // 8d — RUNTIME_CHOICES is exactly 4 rows (3 runtimes + all), dedup note for zed
   const runtimeChoicesBlock = installSource.slice(installSource.indexOf("const RUNTIME_CHOICES"), installSource.indexOf("const RUNTIME_CHOICES") + 600);
   const choiceCount = (runtimeChoicesBlock.match(/value:\s*"/g) || []).length;
-  if (choiceCount === 5 && runtimeChoicesBlock.includes('value: "opencode"') && runtimeChoicesBlock.includes('value: "codex"') && runtimeChoicesBlock.includes('value: "commandcode"') && runtimeChoicesBlock.includes('value: "zed"') && runtimeChoicesBlock.includes('value: "all"')) {
-    pass("RUNTIME_CHOICES has 5 rows: opencode, codex, commandcode, zed, all");
+  if (choiceCount === 4 && runtimeChoicesBlock.includes('value: "opencode"') && runtimeChoicesBlock.includes('value: "codex"') && runtimeChoicesBlock.includes('value: "zed"') && runtimeChoicesBlock.includes('value: "all"') && !runtimeChoicesBlock.includes('commandcode')) {
+    pass("RUNTIME_CHOICES has 4 rows: opencode, codex, zed, all");
   } else {
-    fail(`RUNTIME_CHOICES should have 5 rows (opencode/codex/commandcode/zed/all), got ${choiceCount}`);
+    fail(`RUNTIME_CHOICES should have 4 rows (opencode/codex/zed/all), got ${choiceCount}`);
   }
   if (installSource.includes('runtime = await prompt("Which runtime?", RUNTIME_CHOICES);')) {
     pass("runtime prompt uses shared RUNTIME_CHOICES list");
@@ -134,8 +135,8 @@ async function run() {
   try {
     const { RUNTIMES } = require("../bin/lib/runtime-registry");
     const keys = Object.keys(RUNTIMES);
-    if (keys.length !== 4) fail(`RUNTIMES length ${keys.length} !== 4`);
-    else pass("runtime-registry has 4 entries");
+    if (keys.length !== 3) fail(`RUNTIMES length ${keys.length} !== 3`);
+    else pass("runtime-registry has 3 entries");
     if (RUNTIMES.claude || RUNTIMES.antigravity || RUNTIMES["antigravity-ide"]) fail("runtime-registry still has claude/antigravity entries");
     else pass("runtime-registry has no claude/antigravity entries");
     let bad = null;
@@ -149,11 +150,8 @@ async function run() {
     else pass("codex and zed share commandsDir (~/.agents/skills)");
     if (RUNTIMES.zed.agentsDir !== null) fail("zed agentsDir must be null (share codex)");
     else pass("zed agentsDir is null (shared with Codex)");
-    if (!RUNTIMES.commandcode) fail("commandcode must exist");
-    else if (!String(RUNTIMES.commandcode.commandsDir).includes(".commandcode")) fail(`commandcode commandsDir must be ~/.commandcode/commands: ${RUNTIMES.commandcode.commandsDir}`);
-    else pass("commandcode commandsDir is ~/.commandcode/commands");
-    if (RUNTIMES.commandcode && !String(RUNTIMES.commandcode.agentsDir).includes(".commandcode")) fail(`commandcode agentsDir must be ~/.commandcode/agents: ${RUNTIMES.commandcode.agentsDir}`);
-    else if (RUNTIMES.commandcode) pass("commandcode agentsDir is ~/.commandcode/agents");
+    if (RUNTIMES.commandcode) fail("runtime-registry must not contain commandcode");
+    else pass("runtime-registry has no commandcode entry");
   } catch (e) {
     fail("runtime-registry check threw: " + e.message);
   }
@@ -183,14 +181,14 @@ async function run() {
   } else {
     fail("legacyShims cleanup missing in runUpdate/uninstall");
   }
-  if (installSource.includes("installCodexSkills") && installSource.includes("installCodexAgents") && installSource.includes("installCommandCodeSkills")) {
-    pass("install.js defines Codex + CommandCode skill/agent installers");
+  if (installSource.includes("installCodexSkills") && installSource.includes("installCodexAgents") && !installSource.includes("installCommandCode")) {
+    pass("install.js defines Codex installers and no CommandCode installers");
   } else {
-    fail("install.js is missing Codex or CommandCode installers");
+    fail("install.js must contain Codex installers and no CommandCode installers");
   }
   const codexAgentSection = installSource.slice(
     installSource.indexOf("function installCodexAgents"),
-    installSource.indexOf("function installCommandCodeSkills") !== -1 ? installSource.indexOf("function installCommandCodeSkills") : installSource.indexOf("function installCommandCode")
+    installSource.indexOf("// ─── Install scaffold")
   );
   if (
     installSource.includes("function detectCodexSandboxMode(sourceContent)") &&
@@ -316,6 +314,30 @@ async function run() {
       if (originalHome === undefined) delete process.env.HOME;
       else process.env.HOME = originalHome;
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    }
+  })();
+
+  // Suite 15 — host-specific command-facing bindings
+  suite("Suite 15 — host-specific delegation bindings");
+  (function () {
+    try {
+      const { renderHostBinding } = require("../bin/install.js");
+      const source = "before\n[flow-delegation-binding]\nafter";
+      const opencode = renderHostBinding(source, "opencode");
+      const codex = renderHostBinding(source, "codex");
+      const zed = renderHostBinding(source, "zed");
+      if (opencode.includes("native Task tool") && opencode.includes("flow-planner") && !opencode.includes("spawn_agent")) pass("OpenCode binding uses named native Task delegation");
+      else fail("OpenCode binding must use named native Task delegation only");
+      if (codex.includes("native multi-agent child-thread") && codex.includes("flow-planner") && !codex.includes("spawn_agent")) pass("Codex binding uses named native child-thread delegation");
+      else fail("Codex binding must use named native child-thread delegation only");
+      if (zed.includes("spawn_agent") && zed.includes("self-contained") && !zed.includes("native Task tool")) pass("Zed binding uses generic spawn_agent delegation");
+      else fail("Zed binding must use generic spawn_agent delegation only");
+      let unknownRejected = false;
+      try { renderHostBinding(source, "unknown"); } catch { unknownRejected = true; }
+      if (unknownRejected) pass("Unknown host binding fails closed");
+      else fail("Unknown host binding should fail closed");
+    } catch (e) {
+      fail("host binding renderer test failed — " + e.message);
     }
   })();
 

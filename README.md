@@ -9,7 +9,7 @@
 
 Flow is a spec-driven agentic development workflow for solo developers. It brings structure, memory, and discipline to AI-assisted coding — not by asking you to be more organised, but by making the system carry that weight itself.
 
-Flow installs its command and agent contracts for OpenCode, Codex App / CLI, CommandCode, and Zed Editor on macOS, Linux, and Windows. `/flow` child spawning is supplied by an explicit host runtime adapter; when that capability is not verified, Flow fails closed instead of doing the work inline.
+Flow installs its command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. `/flow` child spawning is supplied by an explicit host runtime adapter; when that capability is not verified, Flow fails closed instead of doing the work inline.
 
 > Install is global-only (`~/.flow/tools` sole home, absolute `C:/…/.flow/tools/flow-tools.js` on Windows via `Platform.normalize` — no `~`). Scaffold (`.flow/` + `AGENTS.md` marker) belongs to `/flow-init` in the repo, not to `npx flow`.
 
@@ -40,7 +40,7 @@ Flow installs its command and agent contracts for OpenCode, Codex App / CLI, Com
 ### New project (greenfield)
 
 ```bash
-npx @linggihlukis/flow --opencode   # or --codex / --commandcode / --zed / --all
+npx @linggihlukis/flow --opencode   # or --codex / --zed / --all
 # then in your runtime:
 /flow-init
 /flow "your first Work Item goal — one sentence"
@@ -49,7 +49,7 @@ npx @linggihlukis/flow --opencode   # or --codex / --commandcode / --zed / --all
 ### Existing codebase (brownfield)
 
 ```bash
-npx @linggihlukis/flow --opencode   # or --codex / --commandcode / --zed / --all
+npx @linggihlukis/flow --opencode   # or --codex / --zed / --all
 # map first, then init:
 /flow-map
 /flow-init
@@ -72,7 +72,7 @@ Most AI coding tools are fast at the start and chaotic by week two. They lose co
 
 Flow is built on the opposite premise: **the discipline lives in the system, not in you.**
 
-Every session starts the same way — `state.md` + `memory.md` + `map.json` are read and the handoff from the last Work Item is loaded. Every task must satisfy the machine-validated contract (`Context / Read First / Scope / Implementation Steps / Files / Verify / Done Condition / Verify Depth / Commit Message / Depends on`). Every commit is one task. Every failure gets a root cause and a revised task in place; verified durable lessons are proposed by the Reviewer and applied by `/flow` only after approval. By the second Work Item, Flow is running with more context about your codebase than any developer could hold in their head.
+Every session starts the same way — `state.md` + `memory.md` + `map.json` are read and the handoff from the last Work Item is loaded. Every task must satisfy the ADR's machine-validated hard contract (`Context / Implementation Steps / Files / Verify / Done Condition / Depends on`) plus lifecycle `status`. `Read First`, `Scope`, verification depth, confidence, complexity, reason, and an explicit commit message are optional guidance for tasks that need them; the task gate supplies a deterministic commit-message fallback when omitted. Every commit is one task. Every failure gets a root cause and a revised task in place; verified durable lessons are proposed by the Reviewer and applied by `/flow` only after approval. By the second Work Item, Flow is running with more context about your codebase than any developer could hold in their head.
 
 This works equally well on greenfield projects and legacy codebases. On clean codebases, Flow keeps them clean. On messy codebases, it maps the mess accurately and works within it — rather than pretending it isn't there.
 
@@ -84,19 +84,17 @@ This works equally well on greenfield projects and legacy codebases. On clean co
 # One home to update — install once, use everywhere (global-only)
 npx @linggihlukis/flow --opencode     # OpenCode
 npx @linggihlukis/flow --codex        # Codex App / CLI
-npx @linggihlukis/flow --commandcode  # CommandCode
 npx @linggihlukis/flow --zed          # Zed Editor (shares ~/.agents/skills with Codex)
-npx @linggihlukis/flow --all          # all four (dedupes ~/.agents/skills once)
+npx @linggihlukis/flow --all          # all three (dedupes ~/.agents/skills once)
 ```
 
 | Flag | Description |
 |---|---|
 | `--opencode` | Install for OpenCode |
 | `--codex` | Install for Codex App / CLI |
-| `--commandcode` | Install for CommandCode |
 | `--zed` | Install for Zed Editor (shares `~/.agents/skills` with Codex — deduped) |
-| `--all` | Install for all four runtimes |
-| `--update` | Update an existing Flow install (overwrites 4 globals idempotently; cleans old `*/flow/` shims) |
+| `--all` | Install for all three runtimes |
+| `--update` | Update an existing Flow install (overwrites supported runtime artifacts idempotently; cleans old `*/flow/` shims) |
 | `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold; prompts to remove `~/.flow/tools`) |
 | `--yes` | Non-interactive — skip prompts / overwrite AGENTS.md marker block without TTY |
 | `--dry-run` | Preview scaffold/AGENTS.md changes without writing |
@@ -132,7 +130,7 @@ The updater auto-detects every runtime where Flow is installed and updates all o
 |---|---|
 | OpenCode | `~/.config/opencode/commands/` (slash commands; `~/.config/opencode/skills` is a separate native skills system, compat `~/.agents/skills` — not used for Flow) |
 | Codex App / CLI | `~/.agents/skills/` (skills) + `~/.codex/agents/` (TOML agents) |
-| CommandCode | `~/.commandcode/commands/` + `~/.commandcode/skills/` (primary; compat `~/.agents/skills`) + `~/.commandcode/agents/` |
+
 | Zed Editor | `~/.agents/skills/` (shared with Codex — deduped, written once on `--all`) |
 
 Skills/commands invoke absolute `~/.flow/tools/flow-tools.js` (on Windows `C:/…/.flow/tools/flow-tools.js` via `Platform.normalize`, no `~` — `cmd.exe` does not expand `~`) directly — no per-runtime `flow/` bridge.
@@ -216,7 +214,7 @@ One-time per repo. Detects greenfield vs brownfield, runs `map index` (file-leve
 
 **2. Plan — `/flow "goal"` → Plan**
 
-`@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the complete task contract, including lifecycle status, confidence/complexity, `VERIFY_DEPTH`, dependencies, a runnable `Verify`, and a commit message. Each task has one deliverable and `Depends on: none|task-NN`.
+`@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the ADR hard task contract: `Context`, `Implementation Steps`, `Files`, `Verify`, `Done Condition`, and `Depends on`, plus lifecycle status. Optional `Read First`, `Scope`, verification depth, confidence, complexity, reason, and an explicit commit message are added when they materially help the task. Each task has one deliverable and `Depends on: none|task-NN`.
 
 **3. Execute — `/flow` → Execute**
 
@@ -242,14 +240,14 @@ Every intensive operation is handled by a subagent with a focused context window
 
 `@flow-reviewer` reads every task cold — no session history. It combines contract review, must-deliver evidence verification, and debugger diagnosis. This preserves a fresh perspective without maintaining separate critic, verifier, and debugger agents.
 
-It checks the complete task contract strictly (`## Context` / `## Read First` / `## Scope` / `## Implementation Steps` / `## Files` / `## Verify` / `## Done Condition` / `## Verify Depth` / `## Commit Message` / `**Depends on:**` plus lifecycle metadata, dependency existence, and plan coverage). The 8 atomic rules below remain review guidance:
+It checks the hard task contract strictly (`## Context` / `## Implementation Steps` / `## Files` / `## Verify` / `## Done Condition` / `**Depends on:**` plus lifecycle metadata, dependency existence, and plan coverage). Optional `Read First`, `Scope`, `Verify Depth`, confidence, complexity, reason, and `Commit Message` metadata is validated when supplied. The 8 atomic rules below remain review guidance:
 
 1. **Single deliverable** — one independently verifiable output
 2. **Single context** — no switching between unrelated systems
 3. **Verifiable done condition** — binary pass/fail
 4. **Minimum file scope** — only files that must change
 5. **Safe failure** — survives a midway stop
-6. **No assumed context** — fresh executor can run from file + `Read First` + source
+6. **No assumed context** — fresh executor can run from the task contract and declared source context
 7. **Context window fit** — fits one agent session
 8. **Nyquist rule** — `Verify` is runnable, non-zero on failure
 

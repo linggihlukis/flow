@@ -36,9 +36,13 @@ Native host delegation is required for every child stage. There is no inline fal
 
 Installation supplies command and agent contracts only. It does not guarantee that a runtime supports native child delegation.
 
-## Native delegation (Zed)
+## Host delegation binding
 
-When the host provides the built-in `spawn_agent` tool, `/flow` delegates each role by calling `spawn_agent` with a self-contained `message` and a short `label`. The `message` carries the complete role instructions, Work Item/task paths, constraints, required files, and expected output contract so the child can operate without hidden parent history. Optional `session_id` may be used to continue a child conversation; no other delegation parameters are required. If `spawn_agent` is absent, denied by profile/permissions, rejected, or the child session fails, stop, report the observed host failure, preserve lifecycle state, and perform no inline substitute role. Do not add Flow-side model routing.
+The installer supplies the host-native binding for this command:
+
+[flow-delegation-binding]
+
+The binding is an integration boundary, not a second Flow protocol. It must preserve the same role order, self-contained child messages, result handling, and fail-closed behavior described below.
 
 ## Lifecycle
 
@@ -57,7 +61,7 @@ At Work Item start, record `git rev-parse --show-toplevel`, `git branch --show-c
 
 Pass the Work Item, goal, execution context, and the minimum required source context to the Planner role. The Planner must return a structured `## Return` in the final task artifact, write only planning artifacts, and never spawn another planning agent.
 
-Through native delegation, the parent reads the Planner role reference and calls the host's `spawn_agent` with a self-contained Planner message (role, Work Item identifier/path, constraints, required artifacts, expected output contract, and verification requirement) and a short label. Do not ask the child to invoke `/flow`. Wait for the Planner result before validation. If delegation is unavailable, stop and report the capability failure.
+Through the installed host binding, the parent reads the Planner role reference and creates the named or generic native child specified by that binding with a self-contained Planner message (role, Work Item identifier/path, constraints, required artifacts, expected output contract, and verification requirement). Do not ask the child to invoke `/flow`. Wait for the Planner result before validation. If delegation is unavailable, stop and report the capability failure.
 
 After the child session returns:
 
@@ -73,7 +77,7 @@ Invalid plan/task output is routed back to Planner via the same role delegation.
 
 Invoke the Executor role once per task according to declared dependencies. The child follows Read → Change → Verify → Report, modifies only declared files, and reports verification and commit information through the host session.
 
-For each task, the parent reads the task contract and the Executor role reference, then calls `spawn_agent` with a self-contained message identifying exactly one task, its required files, verification requirement, and expected compact result. Continue only after that result is available. Do not perform the Executor's implementation work in the parent.
+For each task, the parent reads the task contract and the Executor role reference, then uses the installed host binding to create a native child with a self-contained message identifying exactly one task, its required files, verification requirement, and expected compact result. Continue only after that result is available. Do not perform the Executor's implementation work in the parent.
 
 After a successful child report, `/flow` invokes:
 
@@ -94,7 +98,7 @@ Invoke the Reviewer role with the Work Item after all tasks pass their gates. Th
 - `Route: planner | executor | blocked` when revision is required;
 - optional `Memory Proposal`.
 
-After execution, the parent loads the Reviewer role reference, provides the Work Item and relevant artifacts, and calls `spawn_agent` with a self-contained Reviewer message. Route `accepted`, `planner`, `executor`, or `blocked` exactly as the Flow protocol specifies. Do not perform the review in the parent. The Reviewer proposes memory changes but never writes `.flow/memory.md`.
+After execution, the parent loads the Reviewer role reference, provides the Work Item and relevant artifacts, and uses the installed host binding to create a native child with a self-contained Reviewer message. Route `accepted`, `planner`, `executor`, or `blocked` exactly as the Flow protocol specifies. Do not perform the review in the parent. The Reviewer proposes memory changes but never writes `.flow/memory.md`.
 
 ## Completion
 

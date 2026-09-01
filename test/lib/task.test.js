@@ -21,6 +21,79 @@ function writeTask(name, content) {
 
 const validTask = `---\nstatus: todo\n---\n# Work Item 001 — Task 01: Add fixture\n\n## Context\n**Work Item goal:** prove task contracts\n**This task delivers:** one fixture\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/existing.js — source anchor\n- .flow/map.json — structural index\n\n## Scope\n**Does:** create the fixture.\n**Does NOT do:** modify global state.\n\n## Implementation Steps\n### Step 1: Create fixture\nWrite the file.\n\n## Files\n- src/fixture.js\n\n## Verify\n\`node -e "process.exit(0)"\`\n\n## Done Condition\nThe verification command passes.\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n## Commit Message\nfeat(work-item-001-task-01): add fixture\n\n**Depends on:** none\n`;
 
+const minimalTask = `---
+status: todo
+---
+# Work Item 001 — Minimal Task
+
+## Context
+This task has only the ADR hard contract.
+
+## Implementation Steps
+### Step 1: Implement the deliverable
+Change the declared file.
+
+## Files
+- src/fixture.js
+
+## Verify
+node -e "process.exit(0)"
+
+## Done Condition
+The verification command passes.
+
+**Depends on:** none
+`;
+
+function minimalTaskContract({ status = 'in-progress', verify = 'node -e "process.exit(0)"' } = {}) {
+  return `---
+status: ${status}
+---
+# Work Item 001 — Minimal Git Task
+
+## Context
+This task has only the ADR hard contract.
+
+## Implementation Steps
+### Step 1: Implement the deliverable
+Change the declared file.
+
+## Files
+- src/allowed.js
+
+## Verify
+${verify}
+
+## Done Condition
+The verification command passes.
+
+**Depends on:** none
+`;
+}
+
+function removeTaskSection(content, heading) {
+  if (heading === 'Depends on') return content.replace(/^\*\*Depends on:\*\*.*(?:\r?\n|$)/m, '');
+  const sectionStart = content.indexOf(`\n## ${heading}\n`);
+  if (sectionStart < 0) return content;
+  const nextSection = content.indexOf('\n## ', sectionStart + 1);
+  const dependency = content.indexOf('\n**Depends on:', sectionStart + 1);
+  const sectionEnd = Math.min(
+    ...[nextSection, dependency, content.length].filter(index => index >= 0),
+  );
+  return content.slice(0, sectionStart) + content.slice(sectionEnd);
+}
+
+function assertInvalidOptionalTask(name, content, expectedError) {
+  const file = writeTask(name, content);
+  try {
+    const result = validateTaskFile(file, { cwd: root, workItem: 'work-item-001' });
+    assert.equal(result.valid, false, `${name} should be rejected`);
+    assert.ok(result.errors.some(error => expectedError.test(error)), JSON.stringify(result));
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
+
 try {
   const validPath = writeTask('task-01.md', validTask);
   const valid = validateTaskFile(validPath, { cwd: root, workItem: 'work-item-001' });
@@ -28,6 +101,80 @@ try {
   assert.equal(valid.status, 'todo');
   assert.equal(valid.verifyCommand, 'node -e "process.exit(0)"');
   assert.deepEqual(valid.files, ['src/fixture.js']);
+
+  const minimalPath = writeTask('task-02.md', minimalTask);
+  const minimal = validateTaskFile(minimalPath, { cwd: root, workItem: 'work-item-001' });
+  assert.equal(minimal.valid, true, JSON.stringify(minimal));
+  assert.equal(minimal.confidence, null);
+  assert.equal(minimal.complexity, null);
+  assert.equal(minimal.verifyDepth, null);
+  assert.equal(minimal.commitMessage, 'chore(work-item-001-task-02): complete task');
+  fs.rmSync(minimalPath, { force: true });
+
+  for (const [index, heading] of [
+    'Context',
+    'Implementation Steps',
+    'Files',
+    'Verify',
+    'Done Condition',
+    'Depends on',
+  ].entries()) {
+    assertInvalidOptionalTask(
+      `task-${String(index + 2).padStart(2, '0')}.md`,
+      removeTaskSection(minimalTask, heading),
+      new RegExp(heading === 'Depends on' ? 'Depends on' : heading),
+    );
+  }
+
+  assertInvalidOptionalTask(
+    'task-08.md',
+    validTask.replace('**Confidence:** HIGH', '**Confidence:** MAYBE'),
+    /Confidence/,
+  );
+  assertInvalidOptionalTask(
+    'task-09.md',
+    validTask.replace('**Complexity:** simple', '**Complexity:** huge'),
+    /Complexity/,
+  );
+  assertInvalidOptionalTask(
+    'task-10.md',
+    validTask.replace('**Confidence:** HIGH', '**Confidence:** LOW'),
+    /Reason/,
+  );
+  assertInvalidOptionalTask(
+    'task-11.md',
+    validTask.replace('VERIFY_DEPTH: shallow', 'VERIFY_DEPTH: medium'),
+    /Verify Depth/,
+  );
+  assertInvalidOptionalTask(
+    'task-12.md',
+    validTask.replace('feat(work-item-001-task-01): add fixture', 'not a commit message'),
+    /commit message/,
+  );
+  assertInvalidOptionalTask(
+    'task-13.md',
+    minimalTask.replace('status: todo', 'status: unknown'),
+    /status/,
+  );
+  assertInvalidOptionalTask(
+    'task-14.md',
+    minimalTask.replace('- src/fixture.js', '- ../outside.js'),
+    /declared file/,
+  );
+  assertInvalidOptionalTask(
+    'task-15.md',
+    minimalTask.replace('The verification command passes.', 'The deliverable may be complete.'),
+    /Done Condition/,
+  );
+
+  const missingDependency = writeTask('task-16.md', minimalTask.replace('**Depends on:** none', '**Depends on:** task-99'));
+  try {
+    const directoryResult = validateTaskDirectory(tasksDir, { cwd: root, workItem: 'work-item-001' });
+    assert.equal(directoryResult.valid, false, 'dependencies must reference existing tasks');
+    assert.ok(directoryResult.errors.some(error => /does not exist/.test(error)), JSON.stringify(directoryResult));
+  } finally {
+    fs.rmSync(missingDependency, { force: true });
+  }
 
   const malformedWorkItem = validateTaskFile(validPath, { cwd: root, workItem: '001.*' });
   assert.equal(malformedWorkItem.valid, false, 'malformed Work Item identifiers must be rejected');
@@ -76,7 +223,7 @@ try {
     return `---\nstatus: ${status}\n---\n# Work Item 001 — Task 01: Implement fixture\n\n## Context\n**Work Item goal:** prove task gates\n**This task delivers:** one implementation file\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/allowed.js — implementation target\n\n## Scope\n**Does:** change the declared implementation file.\n**Does NOT do:** modify unrelated files or Flow metadata.\n\n## Implementation Steps\n### Step 1: Implement\nChange the declared file.\n\n## Files\n- src/allowed.js\n\n## Verify\n${verify}\n\n## Done Condition\nThe verification command passes.\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n## Commit Message\nfeat(work-item-001-task-01): implement fixture\n\n**Depends on:** none\n`;
   }
 
-  function createGitFixture({ branch = 'feature/task', verify = 'node -e "process.exit(0)"' } = {}) {
+  function createGitFixture({ branch = 'feature/task', verify = 'node -e "process.exit(0)"', taskBody = null } = {}) {
     const repo = fs.mkdtempSync(path.join(root, 'git-fixture-'));
     fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
     fs.mkdirSync(path.join(repo, '.flow', 'work-items', 'work-item-001', 'tasks'), { recursive: true });
@@ -85,10 +232,21 @@ try {
     execFileSync('git', ['config', 'user.name', 'Flow Test'], { cwd: repo });
     execFileSync('git', ['checkout', '-b', branch], { cwd: repo, stdio: 'ignore' });
     fs.writeFileSync(path.join(repo, 'src', 'allowed.js'), 'module.exports = 1;\n', 'utf8');
-    fs.writeFileSync(path.join(repo, '.flow', 'work-items', 'work-item-001', 'tasks', 'task-01.md'), taskContract({ verify }), 'utf8');
+    fs.writeFileSync(path.join(repo, '.flow', 'work-items', 'work-item-001', 'tasks', 'task-01.md'), taskBody || taskContract({ verify }), 'utf8');
     execFileSync('git', ['add', '.'], { cwd: repo, stdio: 'ignore' });
     execFileSync('git', ['commit', '-m', 'chore(test): initial fixture'], { cwd: repo, stdio: 'ignore' });
     return { repo, task: path.join(repo, '.flow', 'work-items', 'work-item-001', 'tasks', 'task-01.md') };
+  }
+
+  {
+    const fixture = createGitFixture({ taskBody: minimalTaskContract() });
+    const context = captureExecutionContext(fixture.repo, ['src/allowed.js']);
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'allowed.js'), 'module.exports = 2;\n', 'utf8');
+    transitionTaskStatus(fixture.task, { cwd: fixture.repo, status: 'in-progress', actor: 'flow' });
+    const result = runTaskGate({ cwd: fixture.repo, taskFile: fixture.task, workItem: 'work-item-001', executionContext: context });
+    assert.equal(result.valid, true, JSON.stringify(result));
+    assert.equal(result.task.commitMessage, 'chore(work-item-001-task-01): complete task');
+    assert.equal(result.commit.committed, true, JSON.stringify(result));
   }
 
   {

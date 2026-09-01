@@ -19,14 +19,7 @@ const RUNTIMES = {
     agentFormat: 'toml',
     capabilities: { sandbox: true, modelAssignment: true },
   },
-  commandcode: {
-    name: 'commandcode',
-    get commandsDir() { return path.join(Platform.home, '.commandcode', 'commands'); },
-    get agentsDir() { return path.join(Platform.home, '.commandcode', 'agents'); },
-    configPath: null,
-    agentFormat: 'md-frontmatter',
-    capabilities: { sandbox: false, modelAssignment: true },
-  },
+
   zed: {
     name: 'zed',
     get commandsDir() { return path.join(Platform.home, '.agents', 'skills'); },
