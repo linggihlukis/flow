@@ -403,6 +403,9 @@ async function run() {
           if (!manifest[`agents/${agent}`]) { fail(`16c: manifest.json is missing hash for agents/${agent}`); ok = false; }
         }
       }
+      const installedScaffold = path.join(toolsDir, "scaffold", "AGENTS.md");
+      if (fs.existsSync(installedScaffold)) pass("16c: installFlowHome copies scaffold templates for installed scaffold init");
+      else { fail("16c: installFlowHome did not copy scaffold templates"); ok = false; }
       if (ok) pass("16c: installFlowHome copies agents directory and generates manifest hashes correctly");
     } catch (e) {
       fail("16c: installFlowHome test failed — " + e.message);
@@ -413,6 +416,40 @@ async function run() {
       if (originalHome === undefined) delete process.env.HOME;
       else process.env.HOME = originalHome;
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    }
+  })();
+
+  // Suite 17 — installed flow-tools scaffold route
+  suite("Suite 17 — installed scaffold init route");
+  (function () {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-17-"));
+    const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-17-project-"));
+    const originalHomedir = os.homedir;
+    const originalUserProfile = process.env.USERPROFILE;
+    const originalHome = process.env.HOME;
+    os.homedir = () => tmpHome;
+    process.env.USERPROFILE = tmpHome;
+    process.env.HOME = tmpHome;
+    try {
+      const { installFlowHome } = require("../bin/install.js");
+      fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "js-yaml"), { recursive: true });
+      fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "web-tree-sitter"), { recursive: true });
+      fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "tree-sitter-wasms"), { recursive: true });
+      installFlowHome();
+      const tool = path.join(tmpHome, ".flow", "tools", "flow-tools.js");
+      const result = execSync(`${process.execPath} "${tool}" scaffold init --actor flow --cwd "${tmpProject}" --yes`, { encoding: "utf8" });
+      const parsed = JSON.parse(result);
+      const required = [".flow/state.md", ".flow/memory.md", ".flow/map.json", ".flow/work-items", "AGENTS.md"];
+      if (parsed.initialized === true && required.every(file => fs.existsSync(path.join(tmpProject, file)))) pass("17: installed flow-tools scaffold init creates the project scaffold");
+      else fail("17: installed flow-tools scaffold init returned an incomplete result");
+    } catch (e) {
+      fail("17: installed flow-tools scaffold init failed — " + e.message);
+    } finally {
+      os.homedir = originalHomedir;
+      if (originalUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = originalUserProfile;
+      if (originalHome === undefined) delete process.env.HOME; else process.env.HOME = originalHome;
+      try { fs.rmSync(tmpHome, { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(tmpProject, { recursive: true, force: true }); } catch {}
     }
   })();
 

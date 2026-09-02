@@ -244,6 +244,7 @@ function argsFor(command, fixture) {
     case 'audit memory apply': return ['audit', 'memory', 'apply', '--action', 'none', '--actor', 'flow', '--cwd', cwd];
     case 'task validate': return ['task', 'validate', '--work-item', 'work-item-001', '--cwd', cwd];
     case 'work-item create': return ['work-item', 'create', '--input', JSON.stringify({ goal: 'Create a contract Work Item.', constraints: 'Do not mutate global state.', done_condition: 'The created artifact must contain the expected files.' }), '--actor', 'flow', '--cwd', cwd];
+    case 'scaffold init': return ['scaffold', 'init', '--actor', 'flow', '--cwd', cwd, '--yes'];
     case 'task transition': return ['task', 'transition', '--file', fixture.taskFile, '--status', 'in-progress', '--actor', 'flow', '--cwd', cwd];
     case 'task gate': return ['task', 'gate', '--file', fixture.taskFile, '--work-item', 'work-item-001', '--execution-context', JSON.stringify({ repositories: [], outside_git: ['src/fixture.js'] }), '--actor', 'flow', '--cwd', cwd];
     case 'map index': return ['map', 'index', '--scope', '.', '--output', '.flow/contract-map.json', '--cwd', cwd];

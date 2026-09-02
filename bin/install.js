@@ -270,6 +270,16 @@ function installFlowHome() {
     warn("bin/lib/ not found — flow-tools may fail at runtime");
   }
 
+  // Copy scaffold templates required by the installed scaffold primitive.
+  const scaffoldSrc = path.join(REPO_ROOT, "scaffold");
+  const scaffoldDest = path.join(toolsDir, "scaffold");
+  if (fs.existsSync(scaffoldSrc)) {
+    copyRecursiveSync(scaffoldSrc, scaffoldDest);
+    ok(`flow-tools scaffold/ ${dim(`→ ${scaffoldDest}`)}`);
+  } else {
+    warn("scaffold/ directory not found — /flow-init may be unavailable");
+  }
+
   // Copy agents/ directory required by runtimes (e.g. Zed) to load subagent instructions
   const agentsSrc = path.join(REPO_ROOT, "agents");
   const agentsDest = path.join(toolsDir, "agents");

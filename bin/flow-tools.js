@@ -71,6 +71,7 @@ function showHelp() {
       'map search': '--query Q [--max-results N] [--path map] --cwd path',
       'task validate': '--file path --work-item NNN --cwd path',
       'work-item create': '--input JSON --actor flow --cwd path',
+      'scaffold init': '--actor flow --cwd path [--yes] [--dry-run] [--force]',
       'task transition': '--file path --status status --actor flow --cwd path',
       'task gate': '--file path --work-item NNN --execution-context JSON --actor flow --cwd path',
       'audit open': '--cwd path',
@@ -112,6 +113,7 @@ const _libRoutes = {
   'audit': './lib/audit',
   'task': './lib/task',
   'work-item': './lib/work-item',
+  'scaffold': './lib/scaffold',
 };
 
 const _FIELD_TO_FLAG = {

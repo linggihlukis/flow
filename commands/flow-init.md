@@ -4,7 +4,7 @@ agent: build
 subtask: false
 ---
 
-# /flow-init $ARGUMENTS
+# /flow-init
 
 One-time setup. Proposes, never overwrites wholesale. Interactive, reviewable, idempotent.
 
@@ -55,7 +55,7 @@ Prompt: `Write .flow/{state.md, memory.md, map.json} + update AGENTS.md? [y/N/di
 ## Step 5 — Write (only on confirm)
 
 ```bash
-node bin/install.js --scaffold --yes   # --yes is required here after /flow-init approval; omit it only for an interactive installer prompt
+node bin/flow-tools.js scaffold init --actor flow --cwd . --yes
 # ensures .flow/work-items/ exists, never overwrites existing state.md/memory.md, never wholesale-overwrites AGENTS.md
 ```
 
@@ -71,7 +71,7 @@ Next action is `/flow "your goal"`. `/flow` confirms the concrete goal, constrai
 
 Constraints:
 
-- Only recommend commands that exist in the installed Flow command set: `/flow-init`, `/flow`, `/flow-map`, `/flow-status` (+ `flow-tools.js` primitives).
+- Only recommend commands that exist in the installed Flow command set: `/flow-init`, `/flow`, `/flow-map`, `/flow-status` (+ installed `flow-tools.js` primitives).
 - Never suggest `/flow-new`, `/flow-new-project`, or any other nonexistent work-item creation command.
 - Never describe the work-item path as `work-items/NNN-*.md` — correct path is `.flow/work-items/work-item-NNN/work-item.md`.
 
