@@ -13,6 +13,7 @@ const { parseFrontmatter, serializeFrontmatter, nowISO, escapeRegex, extractFiel
 
 async function run() {
   const { pass, fail, skip, suite, getFailures } = createReporter();
+  const testWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), "flow-commands-"));
 
   // Suite 9
   suite("Suite 9 — flow-tools.js function tests");
@@ -87,7 +88,7 @@ async function run() {
     if (ok) pass("config get: deleted command returns UNKNOWN_COMMAND (3 variants)");
   })();
   (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10g");
+    const testDir = path.join(testWorkspace, "flow-test-10g");
     fs.mkdirSync(path.join(testDir, ".flow"), { recursive: true });
     const testFile = path.join(testDir, "10g.md");
     fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
@@ -99,7 +100,7 @@ async function run() {
     finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
   })();
   (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10h");
+    const testDir = path.join(testWorkspace, "flow-test-10h");
     fs.mkdirSync(path.join(testDir, ".flow"), { recursive: true });
     const testFile = path.join(testDir, "10h.md");
     fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
@@ -111,7 +112,7 @@ async function run() {
     finally { try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {} }
   })();
   (function () {
-    const testDir = path.join(ROOT, ".flow", "quick", "flow-test-10i");
+    const testDir = path.join(testWorkspace, "flow-test-10i");
     fs.mkdirSync(path.join(testDir, ".flow"), { recursive: true });
     const testFile = path.join(testDir, "10i.md");
     fs.writeFileSync(testFile, "# No frontmatter\n\nJust prose.\n", "utf8");
@@ -133,7 +134,7 @@ async function run() {
     if (ok) pass("history/patterns: deleted commands return UNKNOWN_COMMAND");
   })();
   (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-basic.md");
+    const testFile = path.join(testWorkspace, "flow-test-fm-set-basic.md");
     fs.writeFileSync(testFile, "---\ntitle: Old\n---\n\nBody text.\n", "utf8");
     try {
       const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New`, { cwd: process.cwd() }).toString();
@@ -146,7 +147,7 @@ async function run() {
     finally { try { fs.unlinkSync(testFile); } catch {} }
   })();
   (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-multi.md");
+    const testFile = path.join(testWorkspace, "flow-test-fm-set-multi.md");
     fs.writeFileSync(testFile, "---\ntitle: Old\nstatus: draft\n---\n\nBody.\n", "utf8");
     try {
       const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New --set status=published`, { cwd: process.cwd() }).toString();
@@ -159,7 +160,7 @@ async function run() {
     finally { try { fs.unlinkSync(testFile); } catch {} }
   })();
   (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-dryrun.md");
+    const testFile = path.join(testWorkspace, "flow-test-fm-set-dryrun.md");
     fs.writeFileSync(testFile, "---\ntitle: Original\n---\n\nBody.\n", "utf8");
     try {
       const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Changed --dry-run`, { cwd: process.cwd() }).toString();
@@ -172,7 +173,7 @@ async function run() {
     finally { try { fs.unlinkSync(testFile); } catch {} }
   })();
   (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-crlf.md");
+    const testFile = path.join(testWorkspace, "flow-test-fm-set-crlf.md");
     fs.writeFileSync(testFile, "---\r\ntitle: Old\r\n---\r\n\r\nBody.\r\n", "utf8");
     try {
       execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New`, { cwd: process.cwd() }).toString();
@@ -184,7 +185,7 @@ async function run() {
     finally { try { fs.unlinkSync(testFile); } catch {} }
   })();
   (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-create.md");
+    const testFile = path.join(testWorkspace, "flow-test-fm-set-create.md");
     fs.writeFileSync(testFile, "# Just a heading\n\nSome prose.\n", "utf8");
     try {
       const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Created`, { cwd: process.cwd() }).toString();
@@ -206,7 +207,7 @@ async function run() {
     }
   })();
   (function () {
-    const testFile = path.join(ROOT, ".flow", "quick", "flow-test-fm-set-coerce.md");
+    const testFile = path.join(testWorkspace, "flow-test-fm-set-coerce.md");
     fs.writeFileSync(testFile, "---\ntitle: Test\n---\n\nBody.\n", "utf8");
     try {
       execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set enabled=true --set count=42 --set removed=null`, { cwd: process.cwd() }).toString();
@@ -279,7 +280,7 @@ async function run() {
   (function () {
     // Canonical `map search` must still work
     const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
-    const mapPath = path.join(ROOT, ".flow", "quick", "flow-test-15-map-search.json");
+    const mapPath = path.join(testWorkspace, "flow-test-15-map-search.json");
     try {
       fs.mkdirSync(path.dirname(mapPath), { recursive: true });
       execSync("node " + FLOW_TOOLS + " map index --cwd " + ROOT + " --output " + mapPath, { stdio: "pipe" });
@@ -294,7 +295,7 @@ async function run() {
   // Suite 17 — work-item primitives coverage (7 primitives: state/frontmatter/files/map/task/audit/work-item)
   suite("Suite 17 — flow-tools 7 primitives coverage");
   (function () {
-    const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-suite17");
+    const tmpDir = path.join(testWorkspace, "flow-test-suite17");
     try {
       fs.mkdirSync(tmpDir, { recursive: true });
       fs.mkdirSync(path.join(tmpDir, ".flow", "work-items", "work-item-001", "tasks"), { recursive: true });
@@ -338,7 +339,9 @@ async function run() {
     finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
 
-  return getFailures();
+  const failures = getFailures();
+  try { fs.rmSync(testWorkspace, { recursive: true, force: true }); } catch {}
+  return failures;
 }
 
 module.exports = { run };
