@@ -72,7 +72,7 @@ Most AI coding tools are fast at the start and chaotic by week two. They lose co
 
 Flow is built on the opposite premise: **the discipline lives in the system, not in you.**
 
-Every session starts the same way — `state.md` + `memory.md` + `map.json` are read and the handoff from the last Work Item is loaded. Every task must satisfy the ADR's machine-validated hard contract (`Context / Implementation Steps / Files / Verify / Done Condition / Depends on`) plus lifecycle `status`. `Read First`, `Scope`, verification depth, confidence, complexity, reason, and an explicit commit message are optional guidance for tasks that need them; the task gate supplies a deterministic commit-message fallback when omitted. Every commit is one task. Every failure gets a root cause and a revised task in place; verified durable lessons are proposed by the Reviewer and applied by `/flow` only after approval. By the second Work Item, Flow is running with more context about your codebase than any developer could hold in their head.
+Every session starts the same way — `state.md` + `memory.md` + `map.json` are read and the handoff from the last Work Item is loaded. Every task must satisfy the ADR's machine-validated hard contract (`Context / Implementation Steps / Files / Verify / Done Condition / Depends on`) plus lifecycle `status`. `Read First`, `Scope`, confidence, complexity, reason, and an explicit commit message are optional guidance for tasks that need them; the task gate supplies a deterministic commit-message fallback when omitted. Every commit is one task. Every failure gets a root cause and a revised task in place; verified durable lessons are proposed by the Reviewer and applied by `/flow` only after approval. By the second Work Item, Flow is running with more context about your codebase than any developer could hold in their head.
 
 This works equally well on greenfield projects and legacy codebases. On clean codebases, Flow keeps them clean. On messy codebases, it maps the mess accurately and works within it — rather than pretending it isn't there.
 
@@ -214,7 +214,7 @@ One-time per repo. Detects greenfield vs brownfield, runs `map index` (file-leve
 
 **2. Create + Plan — `/flow "goal"` → Work Item → Plan**
 
-For a new goal, `/flow` calls the narrow `work-item create` Flow primitive with the `flow` actor. It allocates the next `work-item-NNN`, writes only the initial `work-item.md` and empty `tasks/`, and returns `planning_required: true`; it does not create `plan.md` or activate `.flow/state.md`. The host then delegates planning. `@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. It writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the ADR hard task contract: `Context`, `Implementation Steps`, `Files`, `Verify`, `Done Condition`, and `Depends on`, plus lifecycle status. Optional `Read First`, `Scope`, verification depth, confidence, complexity, reason, and an explicit commit message are added when they materially help the task. State activation happens only after Planner output and task validation succeed. Each task has one deliverable and `Depends on: none|task-NN`.
+For a new goal, `/flow` calls the narrow `work-item create` Flow primitive with the `flow` actor. It allocates the next `work-item-NNN`, writes only the initial `work-item.md` and empty `tasks/`, and returns `planning_required: true`; it does not create `plan.md` or activate `.flow/state.md`. The host then delegates planning. `@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. It writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the ADR hard task contract: `Context`, `Implementation Steps`, `Files`, `Verify`, `Done Condition`, and `Depends on`, plus lifecycle status. Optional `Read First`, `Scope`, confidence, complexity, reason, and an explicit commit message are added when they materially help the task. State activation happens only after Planner output and task validation succeed. Each task has one deliverable and `Depends on: none|task-NN`.
 
 **3. Execute — `/flow` → Execute**
 
@@ -240,7 +240,7 @@ Every intensive operation is handled by a subagent with a focused context window
 
 `@flow-reviewer` reads every task cold — no session history. It combines contract review, must-deliver evidence verification, and debugger diagnosis. This preserves a fresh perspective without maintaining separate critic, verifier, and debugger agents.
 
-It checks the hard task contract strictly (`## Context` / `## Implementation Steps` / `## Files` / `## Verify` / `## Done Condition` / `**Depends on:**` plus lifecycle metadata, dependency existence, and plan coverage). Optional `Read First`, `Scope`, `Verify Depth`, confidence, complexity, reason, and `Commit Message` metadata is validated when supplied. The 8 atomic rules below remain review guidance:
+It checks the hard task contract strictly (`## Context` / `## Implementation Steps` / `## Files` / `## Verify` / `## Done Condition` / `**Depends on:**` plus lifecycle metadata, dependency existence, and plan coverage). Optional `Read First`, `Scope`, confidence, complexity, reason, and `Commit Message` metadata is validated when supplied. The 8 atomic rules below remain review guidance:
 
 1. **Single deliverable** — one independently verifiable output
 2. **Single context** — no switching between unrelated systems
@@ -249,7 +249,7 @@ It checks the hard task contract strictly (`## Context` / `## Implementation Ste
 5. **Safe failure** — survives a midway stop
 6. **No assumed context** — fresh executor can run from the task contract and declared source context
 7. **Context window fit** — fits one agent session
-8. **Nyquist rule** — `Verify` is runnable, non-zero on failure
+8. **Runnable verification** — `Verify` executes and returns non-zero on failure
 
 Tasks that fail the minimal contract get rewritten before execution begins. There is no override.
 
@@ -278,8 +278,8 @@ Flow is runtime-agnostic. The host runtime performs native child-agent/session c
 
 | Failure | Action |
 |---|---|
-| Task fails verification | Auto-retry up to `node_repair_budget` (default 2), then escalate |
-| Agent confused or looping | Re-read AGENTS.md and task, retry once |
+| Task fails verification | Stop at the deterministic task gate and route the failure to the responsible role |
+| Agent confused or looping | Stop and report the host or contract problem |
 | Destructive action fails | Stop immediately, report state, wait |
 | Task doesn't match codebase reality | Stop, document divergence in state.md, surface options to developer |
 
@@ -300,7 +300,7 @@ Flow is model-agnostic (§18). Reliability comes from evidence + bounded tasks +
 
 **What scales with model capability:**
 
-The quality of task generation, Reviewer enforcement, and Verify command precision improves with stronger models. The Nyquist rule, Extended Checks A/B, and VERIFY_DEPTH calibration all require careful reasoning. A frontier model applies them reliably. A capable mid-tier model follows the structure; some nuances may be enforced less precisely.
+The quality of task generation, Reviewer evidence, and Verify command precision improves with stronger models. The deterministic task validator and gate enforce the minimum contract regardless of model capability.
 
 Flow is model-agnostic — reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default (§12/§18).
 
@@ -316,7 +316,7 @@ The spec-driven agentic workflow space has grown quickly. Flow is one of several
 |---|---|---|---|---|
 | Legacy codebase support | ✅ Deep (zone-aware, amendment layer) | Partial | Partial | ❌ |
 | Cross-session memory | ✅ memory.md (Facts/Decisions/Lessons, curated) | ✅ | ❌ | ❌ |
-| Cold-read Reviewer pass | ✅ 8-rule + Extended Checks A/B | ✅ plan-checker | ✅ reviewer | ❌ |
+| Cold-read Reviewer pass | ✅ contract + evidence checks | ✅ plan-checker | ✅ reviewer | ❌ |
 | Autonomous walk-away mode | ⚠️ Single-phase (`--auto`) | ✅ GSD v2 | Partial | ❌ |
 | Self-improving heuristics | ✅ ERL distillation | ❌ | ❌ | ❌ |
 | Per-agent model routing | Model-agnostic (no config.json) | ✅ model profiles | ❌ | ❌ |

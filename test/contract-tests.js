@@ -149,9 +149,6 @@ node -e "process.exit(0)"
 ## Done Condition
 The verification command passes.
 
-## Verify Depth
-VERIFY_DEPTH: shallow
-
 ## Commit Message
 feat(work-item-001-task-01): exercise fixture
 

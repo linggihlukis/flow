@@ -78,12 +78,11 @@ Add these only when they materially help a complex or risky task; do not add the
 
 - `## Read First` for explicit source/context pointers.
 - `## Scope` for a clear inclusion/exclusion boundary beyond the declared files.
-- `VERIFY_DEPTH: shallow | deep` when the review needs an explicit verification-depth signal.
 - `**Confidence:** HIGH | MEDIUM | LOW` and `**Reason:** ...` when uncertainty is useful to communicate. MEDIUM/LOW confidence requires a non-empty reason.
 - `**Complexity:** simple | moderate | complex` when task sizing helps review.
 - `## Commit Message` when an explicit conventional commit message is useful. If omitted, the task gate supplies a deterministic fallback.
 
-Use `deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor behavior, runtime behavior, public APIs, persistence, authorization, or other behavior whose correctness depends on multiple callers; add `VERIFY_DEPTH: deep` when that explicit signal helps review. Deep tasks require behavior-oriented evidence; a grep/token-presence check is not sufficient. Use `shallow` only when deterministic structure or syntax checks adequately prove the deliverable.
+Choose a Verify command that exercises changed behavior when behavior changes; deterministic structure checks are sufficient only for structural-only changes. The task validator and task gate enforce runnable verification and safety boundaries.
 
 ## Minimal task contract
 
@@ -119,7 +118,7 @@ status: todo
 **Depends on:** none
 ```
 
-For a complex or risky task, optionally add `Read First`, `Scope`, verification depth, confidence/reason, complexity, and an explicit `Commit Message` after the hard contract sections.
+For a complex or risky task, optionally add `Read First`, `Scope`, confidence/reason, complexity, and an explicit `Commit Message` after the hard contract sections.
 
 ## Return
 

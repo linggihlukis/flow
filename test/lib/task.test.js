@@ -19,7 +19,7 @@ function writeTask(name, content) {
   return file;
 }
 
-const validTask = `---\nstatus: todo\n---\n# Work Item 001 — Task 01: Add fixture\n\n## Context\n**Work Item goal:** prove task contracts\n**This task delivers:** one fixture\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/existing.js — source anchor\n- .flow/map.json — structural index\n\n## Scope\n**Does:** create the fixture.\n**Does NOT do:** modify global state.\n\n## Implementation Steps\n### Step 1: Create fixture\nWrite the file.\n\n## Files\n- src/fixture.js\n\n## Verify\n\`node -e "process.exit(0)"\`\n\n## Done Condition\nThe verification command passes.\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n## Commit Message\nfeat(work-item-001-task-01): add fixture\n\n**Depends on:** none\n`;
+const validTask = `---\nstatus: todo\n---\n# Work Item 001 — Task 01: Add fixture\n\n## Context\n**Work Item goal:** prove task contracts\n**This task delivers:** one fixture\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/existing.js — source anchor\n- .flow/map.json — structural index\n\n## Scope\n**Does:** create the fixture.\n**Does NOT do:** modify global state.\n\n## Implementation Steps\n### Step 1: Create fixture\nWrite the file.\n\n## Files\n- src/fixture.js\n\n## Verify\n\`node -e "process.exit(0)"\`\n\n## Done Condition\nThe verification command passes.\n\n\n## Commit Message\nfeat(work-item-001-task-01): add fixture\n\n**Depends on:** none\n`;
 
 const minimalTask = `---
 status: todo
@@ -101,13 +101,19 @@ try {
   assert.equal(valid.status, 'todo');
   assert.equal(valid.verifyCommand, 'node -e "process.exit(0)"');
   assert.deepEqual(valid.files, ['src/fixture.js']);
+  const legacyDepth = validateTaskFile(
+    writeTask('task-07.md', `${validTask.replace(/task-01/g, 'task-07')}\n## Verify Depth\nlegacy metadata\n`),
+    { cwd: root, workItem: 'work-item-001' },
+  );
+  assert.equal(legacyDepth.valid, true, 'retired Verify Depth metadata is ignored');
+  assert.equal(Object.prototype.hasOwnProperty.call(legacyDepth, 'verifyDepth'), false);
+  fs.rmSync(path.join(tasksDir, 'task-07.md'), { force: true });
 
   const minimalPath = writeTask('task-02.md', minimalTask);
   const minimal = validateTaskFile(minimalPath, { cwd: root, workItem: 'work-item-001' });
   assert.equal(minimal.valid, true, JSON.stringify(minimal));
   assert.equal(minimal.confidence, null);
   assert.equal(minimal.complexity, null);
-  assert.equal(minimal.verifyDepth, null);
   assert.equal(minimal.commitMessage, 'chore(work-item-001-task-02): complete task');
   fs.rmSync(minimalPath, { force: true });
 
@@ -140,11 +146,6 @@ try {
     'task-10.md',
     validTask.replace('**Confidence:** HIGH', '**Confidence:** LOW'),
     /Reason/,
-  );
-  assertInvalidOptionalTask(
-    'task-11.md',
-    validTask.replace('VERIFY_DEPTH: shallow', 'VERIFY_DEPTH: medium'),
-    /Verify Depth/,
   );
   assertInvalidOptionalTask(
     'task-12.md',
@@ -180,7 +181,7 @@ try {
   assert.equal(malformedWorkItem.valid, false, 'malformed Work Item identifiers must be rejected');
   assert.ok(malformedWorkItem.errors.some(error => /Work Item|work-item/i.test(error)));
 
-  const emptySections = writeTask('task-02.md', `---\nstatus: todo\n---\n# Task 02\n\n## Context\n\n## Read First\n\n## Scope\n\n## Implementation Steps\n\n## Files\n\n## Verify\n\n## Done Condition\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n**Depends on:** none\n`);
+  const emptySections = writeTask('task-02.md', `---\nstatus: todo\n---\n# Task 02\n\n## Context\n\n## Read First\n\n## Scope\n\n## Implementation Steps\n\n## Files\n\n## Verify\n\n## Done Condition\n\n\n**Depends on:** none\n`);
   const empty = validateTaskFile(emptySections, { cwd: root, workItem: 'work-item-001' });
   assert.equal(empty.valid, false, 'empty required sections must be rejected');
   assert.ok(empty.errors.some(error => error.includes('Read First')));
@@ -220,7 +221,7 @@ try {
   fs.rmSync(task03);
 
   function taskContract({ status = 'in-progress', verify = 'node -e "process.exit(0)"' } = {}) {
-    return `---\nstatus: ${status}\n---\n# Work Item 001 — Task 01: Implement fixture\n\n## Context\n**Work Item goal:** prove task gates\n**This task delivers:** one implementation file\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/allowed.js — implementation target\n\n## Scope\n**Does:** change the declared implementation file.\n**Does NOT do:** modify unrelated files or Flow metadata.\n\n## Implementation Steps\n### Step 1: Implement\nChange the declared file.\n\n## Files\n- src/allowed.js\n\n## Verify\n${verify}\n\n## Done Condition\nThe verification command passes.\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n## Commit Message\nfeat(work-item-001-task-01): implement fixture\n\n**Depends on:** none\n`;
+    return `---\nstatus: ${status}\n---\n# Work Item 001 — Task 01: Implement fixture\n\n## Context\n**Work Item goal:** prove task gates\n**This task delivers:** one implementation file\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- src/allowed.js — implementation target\n\n## Scope\n**Does:** change the declared implementation file.\n**Does NOT do:** modify unrelated files or Flow metadata.\n\n## Implementation Steps\n### Step 1: Implement\nChange the declared file.\n\n## Files\n- src/allowed.js\n\n## Verify\n${verify}\n\n## Done Condition\nThe verification command passes.\n\n\n## Commit Message\nfeat(work-item-001-task-01): implement fixture\n\n**Depends on:** none\n`;
   }
 
   function createGitFixture({ branch = 'feature/task', verify = 'node -e "process.exit(0)"', taskBody = null } = {}) {
@@ -328,7 +329,7 @@ try {
         execFileSync('git', ['commit', '-m', 'chore(test): initial polyrepo fixture'], { cwd: repository, stdio: 'ignore' });
       }
       fs.mkdirSync(path.dirname(polyTask), { recursive: true });
-      fs.writeFileSync(polyTask, `---\nstatus: todo\n---\n# Work Item 001 — Task 01: Polyrepo fixture\n\n## Context\n**Work Item goal:** prove polyrepo task gates\n**This task delivers:** one implementation file\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- repo-a/src/allowed.js — implementation target\n\n## Scope\n**Does:** change the declared implementation file.\n**Does NOT do:** modify repo-b or Flow metadata.\n\n## Implementation Steps\n### Step 1: Implement\nChange repo-a.\n\n## Files\n- repo-a/src/allowed.js\n\n## Verify\nnode -e "process.exit(0)"\n\n## Done Condition\nThe verification command passes.\n\n## Verify Depth\nVERIFY_DEPTH: shallow\n\n## Commit Message\nfeat(work-item-001-task-01): polyrepo fixture\n\n**Depends on:** none\n`, 'utf8');
+      fs.writeFileSync(polyTask, `---\nstatus: todo\n---\n# Work Item 001 — Task 01: Polyrepo fixture\n\n## Context\n**Work Item goal:** prove polyrepo task gates\n**This task delivers:** one implementation file\n**Confidence:** HIGH\n**Complexity:** simple\n\n## Read First\n- repo-a/src/allowed.js — implementation target\n\n## Scope\n**Does:** change the declared implementation file.\n**Does NOT do:** modify repo-b or Flow metadata.\n\n## Implementation Steps\n### Step 1: Implement\nChange repo-a.\n\n## Files\n- repo-a/src/allowed.js\n\n## Verify\nnode -e "process.exit(0)"\n\n## Done Condition\nThe verification command passes.\n\n\n## Commit Message\nfeat(work-item-001-task-01): polyrepo fixture\n\n**Depends on:** none\n`, 'utf8');
       const context = captureExecutionContext(polyRoot, ['repo-a/src/allowed.js', 'repo-b/src/other.js']);
       transitionTaskStatus(polyTask, { cwd: polyRoot, status: 'in-progress', actor: 'flow' });
       fs.writeFileSync(path.join(repoA, 'src', 'allowed.js'), 'module.exports = 2;\n', 'utf8');

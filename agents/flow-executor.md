@@ -48,7 +48,7 @@ If the task contains an error (assumes something that isn't true, references a f
 
 ## After implementing — run the Verify command
 
-Every task has a `## Verify` section with a runnable command. If it passes, return the result to `/flow`, which invokes the deterministic `task gate` with the recorded execution context. If it fails, fix only the specific failure and re-run the Verify command, up to 2 retries. After 2 retries still failing, report the failure; do not stage or commit.
+Every task has a `## Verify` section with a runnable command. If it passes, return the result to `/flow`, which invokes the deterministic `task gate` with the recorded execution context. If it fails, report the failure; do not stage or commit.
 
 Do not bypass the gate with a direct `git commit`. The gate is the executable contract for Verify-before-commit, file scope, repository/branch/HEAD safety, and one commit per task.
 

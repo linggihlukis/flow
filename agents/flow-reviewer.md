@@ -53,7 +53,7 @@ For each must-deliver item, gather evidence with read-only operations:
 - symbol/structure: `node bin/flow-tools.js map search`;
 - behavioral evidence: focused tests or deterministic read-only checks when available.
 
-A task is **deep** if any of these are true: it changes runtime behavior, validation, data flow, authorization, persistence, API/server behavior, shared/base code, refactor behavior, or user-visible behavior. Deep tasks require behavior-oriented evidence; a grep/token-presence check is **not sufficient**. If no suitable check exists, report a verification gap and recommend `revise` rather than inventing evidence.
+For behavioral, persistence, authorization, API, shared-code, refactor, or user-visible changes, require behavioral evidence from the declared Verify command or focused tests; a grep/token-presence check alone is not sufficient. If no suitable check exists, report a verification gap and recommend `revise` rather than inventing evidence.
 
 ## Behavior 3 — Diagnose and route
 

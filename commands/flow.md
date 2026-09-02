@@ -20,7 +20,7 @@ description: Run a Work Item — Plan → Execute → Review → Complete in one
 
 The host runtime creates and manages child-agent sessions. Roles are Flow responsibilities carried by the host's native delegation — not a Flow subprocess API. `/flow` never impersonates a child role and does not perform planning, implementation, or review inline. The user's message that invoked `/flow` is the Work Item request; no shell-style placeholder substitution is required.
 
-There is no inline fallback and no sequential fallback. One commit per task after verify passes. Behavioral changes should prove behavior for behavioral changes, not merely file/token presence. `VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer.
+There is no inline fallback and no sequential fallback. One commit per task after the deterministic task gate verifies it. Behavioral changes must be verified by behavior-oriented commands, not merely file/token presence; the existing task gate centralizes verification, scope, and Git safety checks.
 
 ## Ownership
 
@@ -56,7 +56,7 @@ For a new Work Item, `/flow` obtains/confirms a concrete goal, constraints, and 
 The new Work Item sequence is:
 
 ```text
-/flow receives a goal and obtains/ confirms concrete constraints plus a binary Done Condition
+/flow receives a goal and obtains/confirms concrete constraints plus a binary Done Condition
 → work-item create --actor flow
 → Planner reads work-item.md
 → Planner writes plan.md + tasks/task-XX.md

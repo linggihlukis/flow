@@ -25,8 +25,8 @@ async function run() {
     const mapContent = readFile(mapPath);
 
     if (executorContent.includes("After implementing — run the Verify command") && executorContent.includes("The gate reruns the declared Verify command") && executorContent.includes("Never commit without the gate")) { pass("12a: executor commits only after Verify passes"); } else { fail("12a: executor missing verify-before-commit rule"); }
-    if (executorContent.includes("do not stage or commit")) { pass("12b: executor blocks staging/commit after failed retries"); } else { fail("12b: executor missing failed-verify commit guard"); }
-    if (flowContent.includes("One commit per task after verify passes")) { pass("12c: /flow has one-commit-per-task rule"); } else { fail("12c: /flow missing one-commit-per-task rule"); }
+    if (executorContent.includes("do not stage or commit")) { pass("12b: executor blocks staging/commit after failed verification"); } else { fail("12b: executor missing failed-verify commit guard"); }
+    if (flowContent.includes("One commit per task after the deterministic task gate verifies it")) { pass("12c: /flow has one-commit-per-task rule"); } else { fail("12c: /flow missing one-commit-per-task rule"); }
     if (flowContent.includes("Check `git diff --name-only` matches task `Files`")) { pass("12d: executor verifies Files scope before commit"); } else if (executorContent.includes("git diff --name-only")) { pass("12d: executor verifies Files scope"); } else { fail("12d: executor missing git diff scope check"); }
 
     if (flowContent.includes("## Git Execution Context") && flowContent.includes("git rev-parse --show-toplevel") && flowContent.includes("git branch --show-current") && flowContent.includes("git rev-parse HEAD")) { pass("12e: /flow records Git execution context at Work Item start"); } else { fail("12e: /flow missing Git execution context capture"); }
@@ -46,10 +46,11 @@ async function run() {
     if (flowContent.includes("every task that actually executed is `status: done`") && flowContent.includes("work-item.md` is `status: complete`") && flowContent.includes("no task remains `todo`, `planned`, or otherwise incomplete")) { pass("12m: /flow blocks acceptance with stale Work Item/task lifecycle state"); } else { fail("12m: /flow missing lifecycle consistency gate"); }
     if (reviewerContent.includes("Lifecycle: [synchronized | repaired | blocked]") && reviewerContent.includes("repair the lifecycle frontmatter in place before accepting") && reviewerContent.includes("state validate")) { pass("12n: Reviewer reconciles and validates lifecycle artifacts before acceptance"); } else { fail("12n: Reviewer missing lifecycle reconciliation"); }
 
-    // Verification depth: deep behavioral changes cannot be accepted on token/file-presence checks alone.
-    if (plannerContent.includes("VERIFY_DEPTH: shallow | deep") && plannerContent.includes("Use `deep` when touching shared utility/helper/base class, auth/session/schema/migration/payment, refactor")) { pass("12o: Planner assigns verification depth"); } else { fail("12o: Planner missing verification-depth guidance"); }
-    if (flowContent.includes("should prove behavior for behavioral changes") && flowContent.includes("VERIFY_DEPTH` is advisory for task planning but is enforced by the Reviewer")) { pass("12p: /flow requires behavior-oriented verification for behavioral changes"); } else { fail("12p: /flow missing behavioral verification requirement"); }
-    if (reviewerContent.includes("A task is **deep** if any of these are true") && reviewerContent.includes("grep/token-presence check is **not sufficient**") && reviewerContent.includes("verification gap")) { pass("12q: Reviewer enforces deep verification gate"); } else { fail("12q: Reviewer missing deep verification gate"); }
+    // Behavioral changes cannot be accepted on token/file-presence checks alone.
+    if (!plannerContent.includes("verification-depth") && plannerContent.includes("Verify command")) { pass("12o: Planner keeps verification in the task command"); } else { fail("12o: Planner retains removed verification-depth guidance"); }
+    if (flowContent.includes("behavior-oriented commands") && flowContent.includes("deterministic task gate")) { pass("12p: /flow centralizes behavioral verification and safety"); } else { fail("12p: /flow missing deterministic verification requirement"); }
+    if (!reviewerContent.includes("verification-depth") && reviewerContent.includes("behavioral evidence")) { pass("12q: Reviewer uses evidence without depth metadata"); } else { fail("12q: Reviewer retains removed verification-depth machinery"); }
+    if (flowContent.includes("obtains/confirms concrete constraints") && flowContent.includes("work-item create") && flowContent.includes("state activation only after Planner output and task validation succeed")) { pass("12r: /flow creation and state activation order is explicit"); } else { fail("12r: /flow lifecycle ordering is incomplete"); }
 
     const fs = require("node:fs");
     const milestonesGone = !fs.existsSync(path.join(COMMANDS, "flow-execute-phase.md")) && !fs.existsSync(path.join(COMMANDS, "flow-handoff.md")) && !fs.existsSync(path.join(COMMANDS, "flow-plan-phase.md"));

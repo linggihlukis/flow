@@ -3,6 +3,7 @@
 const fs   = require("node:fs");
 const path = require("node:path");
 const os   = require("node:os");
+const { execSync, execFileSync } = require("node:child_process");
 const {
   createReporter,
   ROOT,
@@ -437,7 +438,7 @@ async function run() {
       fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "tree-sitter-wasms"), { recursive: true });
       installFlowHome();
       const tool = path.join(tmpHome, ".flow", "tools", "flow-tools.js");
-      const result = execSync(`${process.execPath} "${tool}" scaffold init --actor flow --cwd "${tmpProject}" --yes`, { encoding: "utf8" });
+      const result = execFileSync(process.execPath, [tool, "scaffold", "init", "--actor", "flow", "--cwd", tmpProject, "--yes"], { encoding: "utf8" });
       const parsed = JSON.parse(result);
       const required = [".flow/state.md", ".flow/memory.md", ".flow/map.json", ".flow/work-items", "AGENTS.md"];
       if (parsed.initialized === true && required.every(file => fs.existsSync(path.join(tmpProject, file)))) pass("17: installed flow-tools scaffold init creates the project scaffold");

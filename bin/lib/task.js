@@ -242,15 +242,6 @@ function validateTaskFile(filePath, { cwd = process.cwd(), workItem = null } = {
   const doneText = meaningfulLines(sections.get('Done Condition')).join(' ');
   if (!isBinaryDoneCondition(doneText)) errors.push(`${basename}: ## Done Condition must be a non-placeholder binary condition`);
 
-  const depthText = meaningfulLines(sections.get('Verify Depth')).join('\n');
-  const depthMatch = depthText.match(/^\s*VERIFY_DEPTH:\s*(shallow|deep)\s*$/im);
-  const verifyDepth = depthMatch ? depthMatch[1].toLowerCase() : null;
-  if (sections.has('Verify Depth') && !verifyDepth) errors.push(`${basename}: Verify Depth must be shallow | deep when provided`);
-  if (verifyDepth === 'deep') {
-    const reasonLines = meaningfulLines(sections.get('Verify Depth')).filter(line => !/^VERIFY_DEPTH:/i.test(line) && !/^#?\s*Reason:/i.test(line));
-    if (reasonLines.length === 0 || reasonLines.every(isPlaceholder)) errors.push(`${basename}: deep Verify Depth requires a reason`);
-  }
-
   const dependencyResult = parseDependencies(content, basename);
   errors.push(...dependencyResult.errors);
   const commitResult = parseCommitMessage(sections.get('Commit Message'), basename);
@@ -271,7 +262,6 @@ function validateTaskFile(filePath, { cwd = process.cwd(), workItem = null } = {
     task_number: taskNumber,
     confidence: confidence ? confidence.toUpperCase() : null,
     complexity: complexity ? complexity.toLowerCase() : null,
-    verifyDepth,
     verifyCommand,
     verify_text: verifyText,
     done_condition: doneText,
