@@ -15,7 +15,12 @@ const ERROR_CODES = {
   ACTOR_REQUIRED:          'ACTOR_REQUIRED',
   INVALID_ACTOR:           'INVALID_ACTOR',
   ACTOR_NOT_ALLOWED:       'ACTOR_NOT_ALLOWED',
-  PROTECTED_PATH:          'PROTECTED_PATH',
+  PROTECTED_PATH:           'PROTECTED_PATH',
+  WORK_ITEMS_NOT_FOUND:     'WORK_ITEMS_NOT_FOUND',
+  WORK_ITEM_LOCKED:         'WORK_ITEM_LOCKED',
+  WORK_ITEM_LIMIT:          'WORK_ITEM_LIMIT',
+  WORK_ITEM_COLLISION:      'WORK_ITEM_COLLISION',
+  WORK_ITEM_CONTEXT_FAILED: 'WORK_ITEM_CONTEXT_FAILED',
 };
 
 class FlowError extends Error {
@@ -150,7 +155,7 @@ const KNOWN_VALUED_FLAGS = new Set([
   '--max-results', '--path', '--scope', '--symbols', '--hash',
   '--newer', '--line-count', '--touch', '--dry-run', '--actor', '--output',
   '--query', '--section', '--action', '--fact', '--evidence', '--reason',
-  '--approval', '--expected-memory-digest', '--commit-message', '--task',
+  '--approval', '--expected-memory-digest', '--commit-message', '--task', '--input',
   '--execution-context', '--timeout', '--status',
 ]);
 

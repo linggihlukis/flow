@@ -243,6 +243,7 @@ function argsFor(command, fixture) {
     case 'audit memory validate': return ['audit', 'memory', 'validate', '--action', 'none', '--cwd', cwd];
     case 'audit memory apply': return ['audit', 'memory', 'apply', '--action', 'none', '--actor', 'flow', '--cwd', cwd];
     case 'task validate': return ['task', 'validate', '--work-item', 'work-item-001', '--cwd', cwd];
+    case 'work-item create': return ['work-item', 'create', '--input', JSON.stringify({ goal: 'Create a contract Work Item.', constraints: 'Do not mutate global state.', done_condition: 'The created artifact must contain the expected files.' }), '--actor', 'flow', '--cwd', cwd];
     case 'task transition': return ['task', 'transition', '--file', fixture.taskFile, '--status', 'in-progress', '--actor', 'flow', '--cwd', cwd];
     case 'task gate': return ['task', 'gate', '--file', fixture.taskFile, '--work-item', 'work-item-001', '--execution-context', JSON.stringify({ repositories: [], outside_git: ['src/fixture.js'] }), '--actor', 'flow', '--cwd', cwd];
     case 'map index': return ['map', 'index', '--scope', '.', '--output', '.flow/contract-map.json', '--cwd', cwd];
@@ -260,6 +261,77 @@ function checkMinimalTaskContract() {
     else fail(`minimal task contract should be accepted — ${JSON.stringify(result.data || result)}`);
   } finally {
     fs.rmSync(fixture.cwd, { recursive: true, force: true });
+  }
+}
+
+function checkWorkItemCreateRoute() {
+  const fixture = createFixture();
+  try {
+    const statePath = path.join(fixture.cwd, '.flow', 'state.md');
+    const memoryPath = path.join(fixture.cwd, '.flow', 'memory.md');
+    const stateBefore = fs.readFileSync(statePath, 'utf8');
+    const memoryBefore = fs.readFileSync(memoryPath, 'utf8');
+    const input = JSON.stringify({ goal: 'Create a route Work Item.', constraints: 'Keep global artifacts unchanged.', done_condition: 'The Work Item artifact must be created.' });
+    const created = invoke(['work-item', 'create', '--input', input, '--actor', 'flow', '--cwd', fixture.cwd], fixture.cwd);
+    if (!created.ok || !created.data?.created || created.data?.planning_required !== true) {
+      fail(`work-item create route should return an initial creation result — ${JSON.stringify(created.data || created)}`);
+      return;
+    }
+    if (created.data.work_item !== 'work-item-002') {
+      fail(`work-item create route should allocate work-item-002 in the fixture — ${JSON.stringify(created.data)}`);
+      return;
+    }
+    const createdDirectory = path.join(fixture.cwd, '.flow', 'work-items', 'work-item-002');
+    const entries = fs.readdirSync(createdDirectory).sort();
+    if (JSON.stringify(entries) !== JSON.stringify(['tasks', 'work-item.md']) || fs.existsSync(path.join(createdDirectory, 'plan.md'))) {
+      fail(`work-item create route created the wrong artifact set — ${JSON.stringify(entries)}`);
+    } else if (fs.readFileSync(statePath, 'utf8') !== stateBefore || fs.readFileSync(memoryPath, 'utf8') !== memoryBefore) {
+      fail('work-item create route must not mutate state.md or memory.md');
+    } else {
+      pass('work-item create route creates only the initial artifact and preserves global files');
+    }
+
+    for (const [name, args, expectedCode] of [
+      ['missing actor', ['work-item', 'create', '--input', input, '--cwd', fixture.cwd], 'INVALID_INPUT'],
+      ['non-flow actor', ['work-item', 'create', '--input', input, '--actor', 'planner', '--cwd', fixture.cwd], 'ACTOR_NOT_ALLOWED'],
+      ['malformed JSON', ['work-item', 'create', '--input', '{', '--actor', 'flow', '--cwd', fixture.cwd], 'INVALID_INPUT'],
+    ]) {
+      const rejected = invoke(args, fixture.cwd);
+      if (rejected.ok || rejected.data?.code !== expectedCode || rejected.data?.error !== true) {
+        fail(`work-item create ${name} should return ${expectedCode} — ${JSON.stringify(rejected.data || rejected)}`);
+      } else {
+        pass(`work-item create ${name} fails with ${expectedCode}`);
+      }
+    }
+  } finally {
+    fs.rmSync(fixture.cwd, { recursive: true, force: true });
+  }
+}
+
+function checkFlowCreationSequenceDocumentation() {
+  const flowCommand = fs.readFileSync(path.join(ROOT, 'commands', 'flow.md'), 'utf8');
+  const sequence = [
+    'work-item create',
+    'Planner reads work-item.md',
+    'Planner writes plan.md + tasks/task-XX.md',
+    'task validate --work-item NNN',
+    'state patch active_work_item/status',
+  ];
+  let previous = -1;
+  for (const phrase of sequence) {
+    const position = flowCommand.indexOf(phrase);
+    if (position <= previous) {
+      fail(`flow lifecycle documentation should order '${phrase}' after the previous creation step`);
+      return;
+    }
+    previous = position;
+  }
+  if (!flowCommand.includes('does not create `plan.md`, task files, or activate `.flow/state.md`') || !flowCommand.includes('do not plan inline')) {
+    fail('flow lifecycle documentation must preserve the pre-planning and fail-closed boundaries');
+  } else if (flowCommand.includes('/flow-new')) {
+    fail('flow lifecycle documentation must not advertise a nonexistent /flow-new command');
+  } else {
+    pass('flow lifecycle documentation orders creation before planning and guarded state activation');
   }
 }
 
@@ -329,6 +401,8 @@ else fail('additionalProperties: false does not reject undeclared output fields'
 
 checkMinimalTaskContract();
 checkInvalidInputs();
+checkWorkItemCreateRoute();
+checkFlowCreationSequenceDocumentation();
 
 if (failures === 0) {
   console.log(`\n${colors.green}${colors.bold}All contract tests passed${colors.reset}\n`);

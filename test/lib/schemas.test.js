@@ -45,7 +45,7 @@ const REQUIRED = [
   'state get', 'state patch', 'state validate', 'state sync',
   'frontmatter get', 'frontmatter set', 'files check',
   'audit open', 'audit memory check', 'audit memory validate', 'audit memory apply',
-  'task validate', 'task transition', 'task gate', 'map index', 'map search',
+  'task validate', 'work-item create', 'task transition', 'task gate', 'map index', 'map search',
 ];
 let requiredOk = true;
 for (const key of REQUIRED) if (!check(SCHEMAS[key] != null, `missing schema for ${key}`)) requiredOk = false;
@@ -68,6 +68,13 @@ let bannedOk = true;
 for (const route of BANNED) if (!check(SCHEMAS[route] == null, `${route} should be deleted — not a route`)) bannedOk = false;
 if (bannedOk) pass('banned workflow-policy routes are absent');
 if (check(SCHEMAS['repo-map search'] == null, 'repo-map search is a duplicate route')) pass('repo-map duplicate absent');
+
+const workItemCreateInput = SCHEMAS['work-item create'].input;
+let workItemCreateOk = true;
+if (!check(workItemCreateInput.required.includes('cwd') && workItemCreateInput.required.includes('input') && workItemCreateInput.required.includes('actor'), 'work-item create requires cwd + input + actor')) workItemCreateOk = false;
+if (!check(workItemCreateInput.properties.actor.enum.includes('flow'), 'work-item create actor is restricted to flow')) workItemCreateOk = false;
+if (!check(workItemCreateInput.properties.input.maxLength === 8192, 'work-item create input has a bounded length')) workItemCreateOk = false;
+if (workItemCreateOk) pass('work-item create requires bounded input and the flow actor');
 
 const statePatchInput = SCHEMAS['state patch'].input;
 let statePatchOk = true;

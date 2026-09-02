@@ -4,10 +4,11 @@ description: Run a Work Item — Plan → Execute → Review → Complete in one
 
 # /flow
 
-`/flow` is the sole Work Item lifecycle orchestrator. It delegates three Flow roles through the host runtime's native subagent mechanism:
+`/flow` is the sole Work Item lifecycle orchestrator. For a new goal it first obtains/ confirms the concrete constraints and binary Done Condition required by the creation primitive, then delegates three Flow roles through the host runtime's native subagent mechanism:
 
 ```text
 /flow
+  → work-item create (new goal)
   → Planner role
   → validate plan/tasks
   → Executor role per task
@@ -28,7 +29,7 @@ There is no inline fallback and no sequential fallback. One commit per task afte
 - Executor role: one task at a time, declared source changes, verification, and Git commit.
 - Reviewer role: independent evidence review, failure diagnosis, task-file repair when required, and memory proposals.
 
-Only `/flow` writes global `state.md` and `memory.md`. Children report through their host sessions and must not mutate those global files. Children are workers inside this orchestration and must not invoke `/flow` themselves.
+Only `/flow` writes global `state.md` and `memory.md`. The `work-item create` primitive does not activate or patch `state.md`; it creates only the pre-planning artifact set. Children report through their host sessions and must not mutate those global files. Children are workers inside this orchestration and must not invoke `/flow` themselves.
 
 ## Delegation contract
 
@@ -50,7 +51,24 @@ The binding is an integration boundary, not a second Flow protocol. It must pres
 
 At Work Item start, record `git rev-parse --show-toplevel`, `git branch --show-current`, and `git rev-parse HEAD` for every repository in scope. Before commit, the task gate compares the current repository root, branch, and HEAD against the Work Item's recorded execution context.
 
-1. Accept or continue a Work Item from the user's invoking message and establish its Git execution context.
+For a new Work Item, `/flow` obtains/confirms a concrete goal, constraints, and binary Done Condition; if any is missing or ambiguous, it stops rather than inventing placeholder content. It then requests the narrow Flow tool operation `work-item create --input JSON --actor flow --cwd .` first. Creation allocates the next ID and writes only the initial `work-item.md` and empty `tasks/`; it does not create `plan.md`, task files, or activate `.flow/state.md`. Creation success means planning is still required.
+
+The new Work Item sequence is:
+
+```text
+/flow receives a goal and obtains/ confirms concrete constraints plus a binary Done Condition
+→ work-item create --actor flow
+→ Planner reads work-item.md
+→ Planner writes plan.md + tasks/task-XX.md
+→ task validate --work-item NNN
+→ establish/finalize task-scoped execution context
+→ state patch active_work_item/status
+→ Execute → Review → Complete
+```
+
+State activation must occur only after the Planner has returned valid `plan.md` and task files and `task validate` succeeds. If native Planner delegation is unavailable, stop and report the host capability failure; do not plan inline.
+
+1. Accept or continue a Work Item from the user's invoking message. For a new goal, create the initial Work Item through `work-item create` before delegation.
 2. Delegate planning via the Planner role; validate the returned plan and task files with `task validate`.
 3. Delegate each task, one at a time, via the Executor role; run the canonical `task gate` after each reported verification. The gate compares the current repository root, branch, and HEAD against the Work Item's recorded execution context.
 4. Delegate independent review via the Reviewer role.

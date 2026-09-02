@@ -67,7 +67,7 @@ After a Work Item is accepted, `@flow-reviewer` may return a durable-memory prop
 
 Report the scaffold result using the actual generated paths (`.flow/map.json`, `.flow/state.md` with `status: ready` and `active_work_item: null`, `.flow/memory.md`, `AGENTS.md` marker block, `.flow/work-items/`).
 
-Next action is `/flow "your goal"` — this creates `.flow/work-items/work-item-NNN/work-item.md` (see `flow.md` Step 1). Use `/flow-status` to check state.
+Next action is `/flow "your goal"`. `/flow` confirms the concrete goal, constraints, and binary Done Condition, then uses the `work-item create` Flow tool primitive to allocate `.flow/work-items/work-item-NNN/work-item.md` and an empty `tasks/` directory before delegating planning; it does not activate state until valid planning artifacts exist. If required inputs are missing or ambiguous, clarify them rather than creating placeholders. Use `/flow-status` to check state.
 
 Constraints:
 

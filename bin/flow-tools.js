@@ -70,6 +70,7 @@ function showHelp() {
       'map index': '--scope dir [--symbols] [--hash] [--cwd path]',
       'map search': '--query Q [--max-results N] [--path map] --cwd path',
       'task validate': '--file path --work-item NNN --cwd path',
+      'work-item create': '--input JSON --actor flow --cwd path',
       'task transition': '--file path --status status --actor flow --cwd path',
       'task gate': '--file path --work-item NNN --execution-context JSON --actor flow --cwd path',
       'audit open': '--cwd path',
@@ -110,6 +111,7 @@ const _libRoutes = {
   'map': './lib/flow-map',
   'audit': './lib/audit',
   'task': './lib/task',
+  'work-item': './lib/work-item',
 };
 
 const _FIELD_TO_FLAG = {
@@ -126,6 +128,7 @@ const _FIELD_TO_FLAG = {
   output: '--output',
   status: '--status',
   'work-item': '--work-item',
+  input: '--input',
   'execution-context': '--execution-context',
   timeout: '--timeout',
   action: '--action',

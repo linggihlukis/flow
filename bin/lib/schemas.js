@@ -82,6 +82,10 @@ const SCHEMAS = {
       ],
     },
   },
+  'work-item create': {
+    input: { type: 'object', required: ['cwd', 'input', 'actor'], properties: { cwd: PATH, input: { type: 'string', minLength: 2, maxLength: 8192 }, actor: ACTOR }, additionalProperties: false },
+    output: { type: 'object', required: ['created', 'work_item', 'planning_required', 'execution_context', 'paths', 'warnings'], properties: { created: { type: 'boolean' }, work_item: { type: 'string', pattern: '^work-item-\\d{3}$' }, planning_required: { type: 'boolean' }, execution_context: EXECUTION_CONTEXT, paths: { type: 'object', required: ['directory', 'workItem', 'plan', 'tasks'], properties: { directory: PATH, workItem: PATH, plan: PATH, tasks: PATH }, additionalProperties: false }, warnings: { type: 'array', items: STRING } }, additionalProperties: false },
+  },
   'task transition': {
     input: { type: 'object', required: ['cwd', 'file', 'status', 'actor'], properties: { cwd: PATH, file: PATH, status: { type: 'string', enum: ['todo', 'in-progress', 'done', 'blocked'] }, actor: ACTOR }, additionalProperties: false },
     output: { type: 'object', required: ['transitioned', 'file', 'from', 'status'], properties: { transitioned: { type: 'boolean' }, file: PATH, from: { type: 'string' }, status: { type: 'string', enum: ['todo', 'in-progress', 'done', 'blocked'] } }, additionalProperties: false },

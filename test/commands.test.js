@@ -250,7 +250,7 @@ async function run() {
     finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   })();
 
-  // ——— 6-primitive gates (Task 2: only state/frontmatter/files/map/task/audit remain) ———
+  // ——— 7-primitive gates (state/frontmatter/files/map/task/audit/work-item) ———
   (function () {
     // Deleted commands must return UNKNOWN_COMMAND — not crash
     const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
@@ -291,8 +291,8 @@ async function run() {
     finally { try { fs.unlinkSync(mapPath); } catch {} }
   })();
 
-  // Suite 17 — work-item primitives coverage (6 primitives: state/frontmatter/files/map/task/audit)
-  suite("Suite 17 — flow-tools 6 primitives coverage");
+  // Suite 17 — work-item primitives coverage (7 primitives: state/frontmatter/files/map/task/audit/work-item)
+  suite("Suite 17 — flow-tools 7 primitives coverage");
   (function () {
     const tmpDir = path.join(ROOT, ".flow", "quick", "flow-test-suite17");
     try {

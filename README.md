@@ -182,7 +182,7 @@ bin/
 └── lib/
     ├── platform.js           ← Cross-platform path/shell abstraction
     ├── cache.js              ← In-process LRU with mtime invalidation
-    ├── schemas.js            ← JSON Schema contracts (6 primitives: state/frontmatter/files/map/task/audit)
+    ├── schemas.js              ← JSON Schema contracts (7 primitives: state/frontmatter/files/map/task/audit/work-item)
     ├── path-resolver.js      ← Symlink-aware safe path resolution
     ├── state.js              ← state.md read/patch/validate/sync
     ├── frontmatter.js        ← YAML frontmatter get/set
@@ -190,7 +190,7 @@ bin/
     ├── audit.js              ← .flow integrity (state.md + work-items/ + map.json)
     ├── flow-map.js           ← File-level index + search (flow-map-v1, WASM opt-in)
     ├── task.js                ← Task validation, lifecycle transitions, Verify and commit gate
-    ├── work-item.js           ← Work Item, task graph, and lifecycle validation
+    ├── work-item.js           ← Initial Work Item creation, task graph, and lifecycle validation
     ├── git-safety.js          ← Repository, branch, HEAD, scope, and commit checks
     ├── memory.js              ← Durable-memory validation, locking, and atomic apply
 
@@ -198,7 +198,7 @@ bin/
 ```
 
 **Key design properties:**
-- **Deterministic:** All tools are pure functions — same input always produces same output
+- **Deterministic:** Tool contracts, allocation, and validation are deterministic; guarded mutation routes report structured results
 - **Cross-platform:** Every path is normalized to forward slashes; Windows shell is handled correctly
 - **Cached:** In-process LRU for `state.md` reads (single-file, mtime-guarded) — minimal batch cost
 - **Validated:** Lightweight flag guard at dispatcher level; strict task, Work Item, lifecycle, memory, path, and Git validation lives in the supporting `lib/` modules
@@ -212,9 +212,9 @@ bin/
 
 One-time per repo. Detects greenfield vs brownfield, runs `map index` (file-level, sensitive-safe), infers 1–3 starter facts from manifests/entrypoints, proposes `.flow/{state.md,memory.md,map.json}` + marker `AGENTS.md` diff. Writes only on `[y/N/diff]` (or `--yes` in CI). Seeds `memory.md` bullets as `[unverified from map]` until first `accepted` Review.
 
-**2. Plan — `/flow "goal"` → Plan**
+**2. Create + Plan — `/flow "goal"` → Work Item → Plan**
 
-`@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. Writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the ADR hard task contract: `Context`, `Implementation Steps`, `Files`, `Verify`, `Done Condition`, and `Depends on`, plus lifecycle status. Optional `Read First`, `Scope`, verification depth, confidence, complexity, reason, and an explicit commit message are added when they materially help the task. Each task has one deliverable and `Depends on: none|task-NN`.
+For a new goal, `/flow` calls the narrow `work-item create` Flow primitive with the `flow` actor. It allocates the next `work-item-NNN`, writes only the initial `work-item.md` and empty `tasks/`, and returns `planning_required: true`; it does not create `plan.md` or activate `.flow/state.md`. The host then delegates planning. `@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. It writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the ADR hard task contract: `Context`, `Implementation Steps`, `Files`, `Verify`, `Done Condition`, and `Depends on`, plus lifecycle status. Optional `Read First`, `Scope`, verification depth, confidence, complexity, reason, and an explicit commit message are added when they materially help the task. State activation happens only after Planner output and task validation succeed. Each task has one deliverable and `Depends on: none|task-NN`.
 
 **3. Execute — `/flow` → Execute**
 
@@ -332,9 +332,24 @@ Four only.
 | Command | Role | Replaces |
 |---|---|---|
 | `/flow-init` | Once per repo — Detect → Map → Infer → Propose → Write. Flags: `--yes`, `--dry-run`, `--update-agents`, `--hash`, `--scope <dir>` | `flow-new-project` (heavy: questions → research → requirements → roadmap) |
-| `/flow` | Every Work Item — `Plan → Execute → Review → Complete`. Usage: `/flow "goal sentence"` | `flow-discuss-phase`, `flow-plan-phase`, `flow-execute-phase`, `flow-verify-work`, `flow-quick`, `flow-do` and phase variants |
+| `/flow` | Every Work Item — create/continue → `Plan → Execute → Review → Complete`. Usage: `/flow "goal sentence"` | `flow-discuss-phase`, `flow-plan-phase`, `flow-execute-phase`, `flow-verify-work`, `flow-quick`, `flow-do` and phase variants |
 | `/flow-map` | Explicit `map index` / `map search` over `.flow/map.json`. Flags: `--scope`, `--symbols` (opt-in), `--hash` (opt-in) | `flow-map-codebase` (minus PATTERNS.md prose) |
 | `/flow-status` | Show `state.md` + `work-items/` + `map.json` staleness + `memory.md` count | `flow-progress` (minus milestone/phase table) |
+
+### Creating a Work Item
+
+`/flow` uses the narrow `work-item create` primitive for a new goal. Before calling it, the host must have a concrete goal, constraints, and binary Done Condition; missing or ambiguous inputs are clarified rather than replaced with placeholders.
+
+The primitive requires the initialized `.flow/work-items/` scaffold and the `flow` actor:
+
+```bash
+node bin/flow-tools.js work-item create \
+  --input '{"goal":"Add a feature.","constraints":"Preserve existing APIs.","done_condition":"The focused tests pass."}' \
+  --actor flow \
+  --cwd .
+```
+
+Creation allocates the next `work-item-NNN` using max-plus-one numbering (starting at `001`, without hole reuse, with case-insensitive canonical collision handling, and a hard `999` limit). It uses an exclusive allocation lock and atomic no-overwrite publication, and writes only the new Work Item directory, `work-item.md`, and empty `tasks/`. It returns `planning_required: true`; it does not create `plan.md`, task files, or activate `.flow/state.md`. Run `/flow-init` first when the scaffold is absent.
 
 Health checks are now `flow-tools` primitives: `audit open` / `state validate` / `state sync` — not a workflow command. `map --help`:
 
@@ -410,7 +425,7 @@ project-root/
 
 > **Runtime tools:** `~/.flow/tools/` (outside your project, managed by the installer) holds `flow-tools.js` and its npm dependencies. Do not commit or edit manually.
 
-> **Project tools:** `bin/` contains `flow-tools.js` thin dispatcher + `bin/lib/` 6 primitives (state/frontmatter/files/map/task/audit).
+> **Project tools:** `bin/` contains `flow-tools.js` thin dispatcher + `bin/lib/` 7 primitives (state/frontmatter/files/map/task/audit/work-item). `work-item create` writes only the initial pre-planning artifact and requires the `flow` actor.
 
 > Do not add `.flow/` to `.gitignore`. It is your project's persistent memory. Losing it means losing all state, lessons, and context.
 

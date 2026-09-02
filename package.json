@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node bin/install.js",
     "test": "node test/flow-test.js && node test/state-regression.test.js && npm run test:lib && npm run test:contracts",
-    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/flow-map.test.js && node test/lib/primitives.test.js && node test/lib/input-safety.test.js && node test/lib/task.test.js && node test/lib/lifecycle.test.js && node test/lib/memory.test.js",
+    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/flow-map.test.js && node test/lib/primitives.test.js && node test/lib/input-safety.test.js && node test/lib/task.test.js && node test/lib/work-item.test.js && node test/lib/lifecycle.test.js && node test/lib/memory.test.js",
     "test:contracts": "node test/contract-tests.js",
 
     "docs": "node scripts/generate-docs.js > docs/api-reference.md"

@@ -21,7 +21,7 @@ npm test    # Suites 1-17 + ts-extractor, zero failures expected
 
 ```
 agents/        — 3 subagent definitions (flow-planner, flow-executor, flow-reviewer)
-bin/           — installer (install.js) + flow-tools.js (6 top-level namespaces: state/frontmatter/files/map/task/audit) + supporting safety/orchestration modules
+bin/           — installer (install.js) + flow-tools.js (7 top-level namespaces: state/frontmatter/files/map/task/audit/work-item) + supporting safety modules
 commands/      — 4 commands (flow, flow-init, flow-map, flow-status)
 scaffold/      — template files installed into user projects (.flow/{state,memory,map,work-items} + AGENTS.md marker)
 test/          — test suite
@@ -49,7 +49,7 @@ Flow is a Work Item system — `Work Item → Plan → Execute → Review`.
 
 - `scaffold/AGENTS.md` Flow block is ~10 lines (`flow:generated` markers) — workflow only, not repo facts.
 - `bin/install.js` scaffold is `.flow/{state.md,memory.md,map.json,work-items/}` only — no `config.json`/`state.json`.
-- 6 top-level namespaces only: `state/frontmatter/files/map/task/audit` — memory remains under `audit memory`, task verification/commit safety under `task`; no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
+- 7 top-level namespaces only: `state/frontmatter/files/map/task/audit/work-item` — memory remains under `audit memory`, task verification/commit safety under `task`, and initial Work Item allocation under `work-item create`; no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
 - `test/flow-test.js` has inline canonical data — update both the test and the source when paths change.
 - Keep `agents/flow-reviewer.md` task reads cold — context isolation is the point.
 - Native child-agent creation belongs to the host runtime. Installation does not claim runtime capability; unsupported or unavailable delegation must fail closed with no inline/sequential fallback.
