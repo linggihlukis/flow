@@ -66,7 +66,7 @@ The new Work Item sequence is:
 → Execute → Review → Complete
 ```
 
-State activation must occur only after the Planner has returned valid `plan.md` and task files and `task validate` succeeds. If native Planner delegation is unavailable, stop and report the host capability failure; do not plan inline.
+The Planner must return valid `plan.md` and task files and `task validate` must succeed — state activation only after Planner output and task validation succeed. If native Planner delegation is unavailable, stop and report the host capability failure; do not plan inline.
 
 1. Accept or continue a Work Item from the user's invoking message. For a new goal, create the initial Work Item through `work-item create` before delegation.
 2. Delegate planning via the Planner role; validate the returned plan and task files with `task validate`.

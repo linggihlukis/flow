@@ -93,7 +93,7 @@ async function run() {
     const testFile = path.join(testDir, "10g.md");
     fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
     try {
-      const raw = execSync("node bin/flow-tools.js frontmatter get " + testFile, { cwd: process.cwd() }).toString();
+      const raw = execSync("node bin/flow-tools.js frontmatter get 10g.md --cwd " + testDir, { cwd: process.cwd() }).toString();
       const parsed = JSON.parse(raw);
       if (parsed._prose_body !== undefined && typeof parsed._prose_body === "string") { pass("frontmatter get: returns frontmatter with _prose_body"); } else { fail("frontmatter get: should include _prose_body field"); }
     } catch (e) { fail("frontmatter get: command failed — " + e.message); }
@@ -105,7 +105,7 @@ async function run() {
     const testFile = path.join(testDir, "10h.md");
     fs.writeFileSync(testFile, "---\ntitle: Test\nStatus: active\n---\n\nBody text.\n", "utf8");
     try {
-      const raw = execSync("node bin/flow-tools.js frontmatter get " + testFile + " --field Status", { cwd: process.cwd() }).toString();
+      const raw = execSync("node bin/flow-tools.js frontmatter get 10h.md --field Status --cwd " + testDir, { cwd: process.cwd() }).toString();
       const parsed = JSON.parse(raw);
       if (parsed.Status !== undefined && !parsed._prose_body) { pass("frontmatter get: --field returns only requested field"); } else { fail("frontmatter get: --field should return only requested fields, no _prose_body"); }
     } catch (e) { fail("frontmatter get (--field): command failed — " + e.message); }
@@ -117,7 +117,7 @@ async function run() {
     const testFile = path.join(testDir, "10i.md");
     fs.writeFileSync(testFile, "# No frontmatter\n\nJust prose.\n", "utf8");
     try {
-      execSync("node bin/flow-tools.js frontmatter get " + testFile, { stdio: "pipe", cwd: process.cwd() });
+      execSync("node bin/flow-tools.js frontmatter get 10i.md --cwd " + testDir, { stdio: "pipe", cwd: process.cwd() });
       fail("frontmatter get: should exit with error for file without frontmatter");
     } catch (e) {
       const output = e.stdout ? e.stdout.toString() : "";
@@ -137,7 +137,7 @@ async function run() {
     const testFile = path.join(testWorkspace, "flow-test-fm-set-basic.md");
     fs.writeFileSync(testFile, "---\ntitle: Old\n---\n\nBody text.\n", "utf8");
     try {
-      const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New`, { cwd: process.cwd() }).toString();
+      const raw = execSync(`node bin/flow-tools.js frontmatter set flow-test-fm-set-basic.md --set title=New --cwd ${testWorkspace}`, { cwd: process.cwd() }).toString();
       const parsed = JSON.parse(raw);
       if (parsed.patched === true && Array.isArray(parsed.fields) && parsed.fields.includes("title")) { pass("frontmatter set: basic single key set works"); } else { fail("frontmatter set: unexpected output — " + raw.slice(0, 100)); }
       const content = fs.readFileSync(testFile, "utf8");
@@ -150,7 +150,7 @@ async function run() {
     const testFile = path.join(testWorkspace, "flow-test-fm-set-multi.md");
     fs.writeFileSync(testFile, "---\ntitle: Old\nstatus: draft\n---\n\nBody.\n", "utf8");
     try {
-      const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New --set status=published`, { cwd: process.cwd() }).toString();
+      const raw = execSync(`node bin/flow-tools.js frontmatter set flow-test-fm-set-multi.md --set title=New --set status=published --cwd ${testWorkspace}`, { cwd: process.cwd() }).toString();
       const parsed = JSON.parse(raw);
       if (parsed.patched === true && parsed.fields.length === 2) { pass("frontmatter set: multiple --set flags work"); } else { fail("frontmatter set: multiple --set unexpected output — " + raw.slice(0, 100)); }
       const content = fs.readFileSync(testFile, "utf8");
@@ -163,7 +163,7 @@ async function run() {
     const testFile = path.join(testWorkspace, "flow-test-fm-set-dryrun.md");
     fs.writeFileSync(testFile, "---\ntitle: Original\n---\n\nBody.\n", "utf8");
     try {
-      const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Changed --dry-run`, { cwd: process.cwd() }).toString();
+      const raw = execSync(`node bin/flow-tools.js frontmatter set flow-test-fm-set-dryrun.md --set title=Changed --dry-run --cwd ${testWorkspace}`, { cwd: process.cwd() }).toString();
       const parsed = JSON.parse(raw);
       if (parsed.patched === false && parsed.dry_run === true && parsed.changes && parsed.changes.title) { pass("frontmatter set: dry-run output shape correct"); } else { fail("frontmatter set: dry-run unexpected output — " + raw.slice(0, 150)); }
       const content = fs.readFileSync(testFile, "utf8");
@@ -176,7 +176,7 @@ async function run() {
     const testFile = path.join(testWorkspace, "flow-test-fm-set-crlf.md");
     fs.writeFileSync(testFile, "---\r\ntitle: Old\r\n---\r\n\r\nBody.\r\n", "utf8");
     try {
-      execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=New`, { cwd: process.cwd() }).toString();
+      execSync(`node bin/flow-tools.js frontmatter set flow-test-fm-set-crlf.md --set title=New --cwd ${testWorkspace}`, { cwd: process.cwd() }).toString();
       const content = fs.readFileSync(testFile, "utf8");
       if (content.includes("\r\n")) { pass("frontmatter set: CRLF line endings preserved"); } else { fail("frontmatter set: CRLF line endings not preserved"); }
       const fm = parseFrontmatter(content);
@@ -188,7 +188,7 @@ async function run() {
     const testFile = path.join(testWorkspace, "flow-test-fm-set-create.md");
     fs.writeFileSync(testFile, "# Just a heading\n\nSome prose.\n", "utf8");
     try {
-      const raw = execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set title=Created`, { cwd: process.cwd() }).toString();
+      const raw = execSync(`node bin/flow-tools.js frontmatter set flow-test-fm-set-create.md --set title=Created --cwd ${testWorkspace}`, { cwd: process.cwd() }).toString();
       const parsed = JSON.parse(raw);
       if (parsed.patched === true && parsed.fields.includes("title")) { pass("frontmatter set: creates frontmatter when missing"); } else { fail("frontmatter set: create frontmatter unexpected output — " + raw.slice(0, 100)); }
       const content = fs.readFileSync(testFile, "utf8");
@@ -210,7 +210,7 @@ async function run() {
     const testFile = path.join(testWorkspace, "flow-test-fm-set-coerce.md");
     fs.writeFileSync(testFile, "---\ntitle: Test\n---\n\nBody.\n", "utf8");
     try {
-      execSync(`node bin/flow-tools.js frontmatter set ${testFile} --set enabled=true --set count=42 --set removed=null`, { cwd: process.cwd() }).toString();
+      execSync(`node bin/flow-tools.js frontmatter set flow-test-fm-set-coerce.md --set enabled=true --set count=42 --set removed=null --cwd ${testWorkspace}`, { cwd: process.cwd() }).toString();
       const content = fs.readFileSync(testFile, "utf8");
       const fm = parseFrontmatter(content);
       let ok = true;
@@ -280,11 +280,12 @@ async function run() {
   (function () {
     // Canonical `map search` must still work
     const FLOW_TOOLS = path.join(ROOT, "bin", "flow-tools.js");
-    const mapPath = path.join(testWorkspace, "flow-test-15-map-search.json");
+    const mapDir = path.join(testWorkspace, "flow-test-15-map");
+    const mapPath = path.join(mapDir, "flow-test-15-map-search.json");
     try {
-      fs.mkdirSync(path.dirname(mapPath), { recursive: true });
-      execSync("node " + FLOW_TOOLS + " map index --cwd " + ROOT + " --output " + mapPath, { stdio: "pipe" });
-      const raw = execSync("node " + FLOW_TOOLS + " map search --query flow-map --path " + mapPath + " --cwd " + ROOT).toString();
+      fs.mkdirSync(mapDir, { recursive: true });
+      execSync("node " + FLOW_TOOLS + " map index --cwd " + mapDir + " --output flow-test-15-map-search.json", { stdio: "pipe" });
+      const raw = execSync("node " + FLOW_TOOLS + " map search --query flow-map --path flow-test-15-map-search.json --cwd " + mapDir).toString();
       const parsed = JSON.parse(raw);
       if (parsed.total_matches !== undefined) pass("15b: map search returns {total_matches:" + parsed.total_matches + "} (canonical primitive)");
       else fail("15b: map search expected {total_matches} — " + raw.slice(0, 200));
