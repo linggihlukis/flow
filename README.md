@@ -7,26 +7,22 @@
 > Built for codebases you didn't start clean.
 > Discipline in the system. Execution in the model.
 
-Flow is a spec-driven agentic development workflow for solo developers. It brings structure, memory, and discipline to AI-assisted coding — not by asking you to be more organised, but by making the system carry that weight itself.
+Flow is a spec-driven agentic development workflow for solo developers. It carries planning discipline, cross-session memory, and verification in the system — so messy codebases get mapped accurately and worked within, not pretended clean.
 
-Flow installs its command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. `/flow` child creation is performed by each host's native subagent mechanism via per-runtime delegation bindings; when that capability is not verified, Flow fails closed instead of doing the work inline.
-
-> Install is global-only (`~/.flow/tools` sole home, absolute `C:/…/.flow/tools/flow-tools.js` on Windows via `Platform.normalize` — no `~`). Scaffold (`.flow/` + `AGENTS.md` marker) belongs to `/flow-init` in the repo, not to `npx flow`.
+Flow installs command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. Child creation is performed by each host's native subagent mechanism; when that capability is unavailable, Flow fails closed instead of doing the work inline.
 
 ---
 
 ## Table of Contents
 
 - [Quick Start](#quick-start)
-- [What Flow Is](#what-flow-is)
 - [Install](#install)
-- [How Flow Works](#how-flow-works)
-- [The Work Item Loop](#the-work-item-loop)
-- [Three Agents](#three-agents)
-- [Safety and Guard Rails](#safety-and-guard-rails)
-- [Model Agnosticism](#model-agnosticism)
-- [How Flow Compares](#how-flow-compares)
+- [How It Works](#how-it-works)
 - [Commands](#commands)
+- [Agents](#agents)
+- [Safety](#safety)
+- [Model Agnosticism](#model-agnosticism)
+- [Configuration](#configuration)
 - [Folder Structure](#folder-structure)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -37,290 +33,79 @@ Flow installs its command and agent contracts for OpenCode, Codex App / CLI, and
 
 ## Quick Start
 
-### New project (greenfield)
+### Any repo — new or existing
 
 ```bash
 npx @linggihlukis/flow --opencode   # or --codex / --zed / --all
 # then in your runtime:
-/flow-init
+/flow-init   # detects greenfield vs brownfield, maps, scaffolds
 /flow "your first Work Item goal — one sentence"
-```
-
-### Existing codebase (brownfield)
-
-```bash
-npx @linggihlukis/flow --opencode   # or --codex / --zed / --all
-# map first, then init:
-/flow-map
-/flow-init
-/flow "your first Work Item goal"
 ```
 
 ### Every Work Item
 
 ```
 /flow "goal sentence — one Work Item"   ← Plan → Execute → Review → Complete
-/flow-status                              ← where am I, is the map stale, how big is memory.md
+/flow-status                              ← where am I, is the map stale
 /flow-map [--scope dir] [--symbols]       ← refresh .flow/map.json when stale
 ```
-
----
-
-## What Flow Is
-
-Most AI coding tools are fast at the start and chaotic by week two. They lose context between sessions, generate plans that assume a clean codebase, skip verification, and require the developer to carry the overhead of knowing what the agent understood and what it didn't. The more complex the project, the more this costs.
-
-Flow is built on the opposite premise: **the discipline lives in the system, not in you.**
-
-Every session starts the same way — `state.md` + `memory.md` + `map.json` are read and the handoff from the last Work Item is loaded. Every task must satisfy the ADR's machine-validated hard contract (`Context / Implementation Steps / Files / Verify / Done Condition / Depends on`) plus lifecycle `status`. `Read First`, `Scope`, confidence, complexity, reason, and an explicit commit message are optional guidance for tasks that need them; the task gate supplies a deterministic commit-message fallback when omitted. Every commit is one task. Every failure gets a root cause and a revised task in place; verified durable lessons are proposed by the Reviewer and applied by `/flow` only after approval. By the second Work Item, Flow is running with more context about your codebase than any developer could hold in their head.
-
-This works equally well on greenfield projects and legacy codebases. On clean codebases, Flow keeps them clean. On messy codebases, it maps the mess accurately and works within it — rather than pretending it isn't there.
 
 ---
 
 ## Install
 
 ```bash
-# One home to update — install once, use everywhere (global-only)
 npx @linggihlukis/flow --opencode     # OpenCode
 npx @linggihlukis/flow --codex        # Codex App / CLI
 npx @linggihlukis/flow --zed          # Zed Editor (shares ~/.agents/skills with Codex)
-npx @linggihlukis/flow --all          # all three (dedupes ~/.agents/skills once)
+npx @linggihlukis/flow --all          # all three (dedupes shared skills once)
 ```
 
 | Flag | Description |
 |---|---|
-| `--opencode` | Install for OpenCode |
-| `--codex` | Install for Codex App / CLI |
-| `--zed` | Install for Zed Editor (shares `~/.agents/skills` with Codex — deduped) |
-| `--all` | Install for all three runtimes |
-| `--update` | Update an existing Flow install (overwrites supported runtime artifacts idempotently; cleans old `*/flow/` shims) |
-| `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold; prompts to remove `~/.flow/tools`) |
-| `--yes` | Non-interactive — skip prompts / overwrite AGENTS.md marker block without TTY |
-| `--dry-run` | Preview scaffold/AGENTS.md changes without writing |
+| `--update` | Update in place (runtime artifacts overwritten; `.flow/` data preserved) |
+| `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold) |
+| `--yes` | Non-interactive — skip prompts without TTY |
+| `--dry-run` | Preview scaffold/`AGENTS.md` changes without writing |
 | `--force` | Overwrite scaffold even when work-items/ is non-empty |
-| `--update-agents` | Re-diff AGENTS.md marker block |
 
-
-### Updating an existing install
-
-Run this from inside your project directory:
+Update from inside your project:
 
 ```bash
 npx @linggihlukis/flow@latest --update
 ```
 
-The updater auto-detects every runtime where Flow is installed and updates all of them in one shot. No flags needed.
+Install is global-only: tools live in `~/.flow/tools`, the scaffold (`.flow/` + `AGENTS.md` marker) lives in your repo and belongs to `/flow-init`. Updates never touch `.flow/state.md`, `.flow/memory.md`, `.flow/map.json`, or `.flow/work-items/`.
 
-> **Why `@latest`?** Without it, `npx` may serve a locally cached version of the package rather than fetching the newest one from npm. Always include `@latest` to guarantee you get the current release.
-
-| File | Action |
+| Runtime | Global path |
 |---|---|
-| Runtime files (commands, agents) | Always overwritten with latest versions |
-| `AGENTS.md` (project root) | Marker block `<!-- flow:generated:start/end -->` replaced only — other content preserved |
-| `.flow/state.md` | **Never touched** |
-| `.flow/memory.md` | **Never touched** (only `/flow` applies approved Reviewer proposals) |
-| `.flow/map.json` | **Never touched** — refresh with `/flow-map` |
-| `.flow/work-items/` | **Never touched** |
-| New scaffold directories | Created if missing, never deleted |
+| OpenCode | `~/.config/opencode/commands/` |
+| Codex App / CLI | `~/.agents/skills/` + `~/.codex/agents/` (TOML agents) |
+| Zed Editor | `~/.agents/skills/` (shared with Codex — written once) |
 
 ---
 
-| Runtime | Global path (Mac/Linux — Windows: `C:/Users/…` via `Platform.normalize`) |
-|---|---|
-| OpenCode | `~/.config/opencode/commands/` (slash commands; `~/.config/opencode/skills` is a separate native skills system, compat `~/.agents/skills` — not used for Flow) |
-| Codex App / CLI | `~/.agents/skills/` (skills) + `~/.codex/agents/` (TOML agents) |
-
-| Zed Editor | `~/.agents/skills/` (shared with Codex — deduped, written once on `--all`) |
-
-Skills/commands invoke absolute `~/.flow/tools/flow-tools.js` (on Windows `C:/…/.flow/tools/flow-tools.js` via `Platform.normalize`, no `~` — `cmd.exe` does not expand `~`) directly — no per-runtime `flow/` bridge.
-
----
-
-## How Flow Works
-
-### The lifecycle
+## How It Works
 
 ```
 /flow-init             →  once per repo — Detect → Map → Infer → Propose → Write
        ↓
 /flow "goal"          →  every Work Item — Plan → Execute → Review → Complete
        ↓
-     Plan    →  @flow-planner reads map.json + memory.md + source → plan.md + tasks/
+     Plan    →  @flow-planner reads map + memory + source → plan.md + tasks/
      Execute →  @flow-executor per task: Read → Change → Verify → Report (one commit)
-     Review  →  @flow-reviewer (contract + evidence + diagnosis) → accepted | revise
+     Review  →  @flow-reviewer reads cold → accepted | revise
        ↓
 repeat per Work Item — scales by tasks (1 → N), not ceremony
 ```
 
-Use `/flow-map` to refresh `.flow/map.json` when stale (`map is N commits old — run /flow-map`) and `/flow-status` to check where you are.
+- **Work Items** are the fundamental unit — one goal, one `work-item.md` contract. No milestones or phases.
+- **Tasks** are atomic execution units: one deliverable, one runnable `Verify` (non-zero on fail), `Depends on: none | task-NN`. The hard contract (`Context / Implementation Steps / Files / Verify / Done Condition / Depends on`, plus lifecycle `status`) is machine-validated; `Read First`, `Scope`, confidence, and commit message are optional guidance.
+- **memory.md** is cross–Work Item truth (`Facts / Decisions / Lessons`), curated not appended. Only `/flow` writes it, applying validated Reviewer proposals after approval.
+- **map.json** is a file-level structural index (`flow-map-v1`), git-aware and sensitive-safe. Symbols (`--symbols`) and hashes (`--hash`) are opt-in. The map narrows discovery; source is always truth.
+- **state.md** records lifecycle position (`active_work_item`, `status`, `updated_at`, `git_commit`, per-repo execution context). Only `/flow` mutates it.
 
----
-
-### Core concepts
-
-**Work Items** are the fundamental unit — one goal, one `work-item.md` contract, `Plan → Execute → Review`. No milestones or phases — scale by tasks (1 → N), not ceremony.
-
-**Tasks** are atomic execution units inside a Work Item. Each task has one deliverable, one runnable `Verify` command (non-zero on fail), machine-readable lifecycle metadata, and an explicit `Depends on: none | task-NN` field. `/flow` dispatches one task per Executor child in dependency order.
-
-**memory.md** is your cross-Work Item memory — `Facts / Decisions / Lessons` that accumulate across every Work Item. The Reviewer proposes verified durable changes; only `/flow`, after proposal validation and explicit approval, writes them. Memory is atomically curated, not appended blindly.
-
-**map.json** is your structural index — file-level by default (`flow-map-v1`), git-aware, sensitive-safe. Symbols opt-in via `--symbols` (WASM). Planner reads it via `map search` before source.
-
-**state.md** is the source of truth for where you are — `active_work_item`, `status` (`ready|planned|in-progress|in-review|complete`), `updated_at`, `git_commit`, and the recorded per-repository `execution_context`. YAML frontmatter every agent reads at session start; only `/flow` mutates it.
-
----
-
-## Architecture
-
-Flow's tool layer is a modular dispatcher + library architecture:
-
-```
-bin/
-├── flow-tools.js             ← Thin dispatcher (~250 lines)
-├── install.js                ← Runtime installer + template engine
-└── lib/
-    ├── platform.js           ← Cross-platform path/shell abstraction
-    ├── cache.js              ← In-process LRU with mtime invalidation
-    ├── schemas.js              ← JSON Schema contracts (7 primitives: state/frontmatter/files/map/task/audit/work-item)
-    ├── path-resolver.js      ← Symlink-aware safe path resolution
-    ├── state.js              ← state.md read/patch/validate/sync
-    ├── frontmatter.js        ← YAML frontmatter get/set
-    ├── files.js              ← File existence + metadata checks
-    ├── audit.js              ← .flow integrity (state.md + work-items/ + map.json)
-    ├── flow-map.js           ← File-level index + search (flow-map-v1, WASM opt-in)
-    ├── task.js                ← Task validation, lifecycle transitions, Verify and commit gate
-    ├── work-item.js           ← Initial Work Item creation, task graph, and lifecycle validation
-    ├── git-safety.js          ← Repository, branch, HEAD, scope, and commit checks
-    ├── memory.js              ← Durable-memory validation, locking, and atomic apply
-
-    └── ts-extractor.js        ← Tree-sitter extractors (opt-in via --symbols)
-```
-
-**Key design properties:**
-- **Deterministic:** Tool contracts, allocation, and validation are deterministic; guarded mutation routes report structured results
-- **Cross-platform:** Every path is normalized to forward slashes; Windows shell is handled correctly
-- **Cached:** In-process LRU for `state.md` reads (single-file, mtime-guarded) — minimal batch cost
-- **Validated:** Lightweight flag guard at dispatcher level; strict task, Work Item, lifecycle, memory, path, and Git validation lives in the supporting `lib/` modules
-- **Runtimes:** Skills/commands invoke absolute `~/.flow/tools/flow-tools.js` directly at install time (no per-runtime shim); only `[flow-version]` is templated
-
----
-
-## The Work Item Loop
-
-**1. Init — `/flow-init`**
-
-One-time per repo. Detects greenfield vs brownfield, runs `map index` (file-level, sensitive-safe), infers 1–3 starter facts from manifests/entrypoints, proposes `.flow/{state.md,memory.md,map.json}` + marker `AGENTS.md` diff. Writes only on `[y/N/diff]` (or `--yes` in CI). Seeds `memory.md` bullets as `[unverified from map]` until first `accepted` Review.
-
-**2. Create + Plan — `/flow "goal"` → Work Item → Plan**
-
-For a new goal, `/flow` calls the narrow `work-item create` Flow primitive with the `flow` actor. It allocates the next `work-item-NNN`, writes only the initial `work-item.md` and empty `tasks/`, and returns `planning_required: true`; it does not create `plan.md` or activate `.flow/state.md`. The host then delegates planning. `@flow-planner` reads `work-item.md` + `.flow/map.json` (via `map search`) + `.flow/memory.md` + source anchors. Research is part of planning — no separate researcher. It writes `plan.md` (evidence, unknowns, solution, task breakdown) + `tasks/task-XX.md`. Flow's validator requires the ADR hard task contract: `Context`, `Implementation Steps`, `Files`, `Verify`, `Done Condition`, and `Depends on`, plus lifecycle status. Optional `Read First`, `Scope`, confidence, complexity, reason, and an explicit commit message are added when they materially help the task. State activation happens only after Planner output and task validation succeed. Each task has one deliverable and `Depends on: none|task-NN`.
-
-**3. Execute — `/flow` → Execute**
-
-`@flow-executor` per task: `Read → Change → Verify → Report`. `/flow` then invokes `task gate`, which reruns the declared Verify command, checks repository/branch/HEAD and declared-file scope, and stages only the implementation files before creating one commit. A failed gate is routed or blocked; it is never bypassed.
-
-**4. Review — `/flow` → Review**
-
-`@flow-reviewer` reads tasks cold — three behaviors: Critic (contract and lifecycle), Verifier (must-deliver evidence via `files check` / `map search`), Debugger (trace → hypothesis → revise `task-XX.md` in place). It returns `accepted` or `revise` plus an optional memory proposal. `/flow` validates and applies an approved proposal, then persists terminal lifecycle state.
-
----
-
-## Three Agents
-
-Every intensive operation is handled by a subagent with a focused context window — only the files it needs, nothing else. Each agent receives explicit constraints on what it may read, write, and run.
-
-| Agent | When spawned | What it does |
-|---|---|---|
-| `@flow-planner` | Plan stage | Research evidence + atomic task files + dependency graph |
-| `@flow-executor` | Execute stage per task | Implements one task, verifies, commits, reports |
-| `@flow-reviewer` | Review stage | Contract/evidence verification + failure diagnosis; proposes memory changes but never writes `.flow/memory.md` |
-
-### Reviewer is the quality gate
-
-`@flow-reviewer` reads every task cold — no session history. It combines contract review, must-deliver evidence verification, and debugger diagnosis. This preserves a fresh perspective without maintaining separate critic, verifier, and debugger agents.
-
-It checks the hard task contract strictly (`## Context` / `## Implementation Steps` / `## Files` / `## Verify` / `## Done Condition` / `**Depends on:**` plus lifecycle metadata, dependency existence, and plan coverage). Optional `Read First`, `Scope`, confidence, complexity, reason, and `Commit Message` metadata is validated when supplied. The 8 atomic rules below remain review guidance:
-
-1. **Single deliverable** — one independently verifiable output
-2. **Single context** — no switching between unrelated systems
-3. **Verifiable done condition** — binary pass/fail
-4. **Minimum file scope** — only files that must change
-5. **Safe failure** — survives a midway stop
-6. **No assumed context** — fresh executor can run from the task contract and declared source context
-7. **Context window fit** — fits one agent session
-8. **Runnable verification** — `Verify` executes and returns non-zero on failure
-
-Tasks that fail the minimal contract get rewritten before execution begins. There is no override.
-
-### Runtime support
-
-Flow is runtime-agnostic. The host runtime performs native child-agent/session creation and interprets the `@flow-planner`, `@flow-executor`, and `@flow-reviewer` delegations. Installation provides command, agent, and skill contracts only; it cannot guarantee host delegation support. If the host cannot delegate a required child, `/flow` fails closed without inline or sequential fallback.
-
----
-
-## Safety and Guard Rails
-
-**Intent verification** — `/flow` confirms the concrete goal, constraints, and binary Done Condition before creating a Work Item, and stops on missing or ambiguous input rather than inventing placeholders. Tasks may declare `**Confidence:** HIGH | MEDIUM | LOW` with a reason when uncertainty matters; the Executor stops for explicit user confirmation before staging or committing on `main`/`master`.
-
-**Evidence before code** — the Planner consults `map search`, then reads actual source before writing the plan; the map is an index, never the source of truth. Confirmed findings go in `plan.md ## Discoveries` with evidence; unresolved items stay in `## Unknowns` and are never promoted to durable memory.
-
-**Destructive-action safety** — there is no tier system. The enforced boundaries are the deterministic task gate, Git safety checks (repository root, branch, HEAD, declared scope), and an explicit user-confirmation stop before staging or committing on `main`/`master`. Unsafe states fail closed rather than proceeding on assumption.
-
-**Atomic commit discipline** — one task, one commit, immediately after verification passes. Never batched. The task gate blocks commits on failed verification, scope violations, or unsafe Git state.
-
-**File size limits** — `memory.md` is curated durable truth (Facts/Decisions/Lessons), not a transcript; writes above the input size cap are rejected. `map.json` is file-level by default with opt-in symbols. Context is reduced structurally — small tasks, focused roles, Read First — not by token accounting.
-
-**Child permissions (known debt)** — Planner, Executor, and Reviewer contracts restrict artifact ownership and require the `flow` actor on supported mutation routes, but hosts still grant children shell and file tools, so a child could bypass those routes by writing directly. Ownership is enforced by instruction plus the `--actor flow` gate on Flow's own tools, not by host-level permissions. Until per-host permission enforcement keyed to actor identity is verified, this remains documented security debt: fail closed where safe operation depends on it, and never invent a Flow-side permission adapter.
-
-### Recovery when things go wrong
-
-| Failure | Action |
-|---|---|
-| Task fails verification | Stop at the deterministic task gate and route the failure to the responsible role |
-| Agent confused or looping | Stop and report the host or contract problem |
-| Destructive action fails | Stop immediately, report state, wait |
-| Task doesn't match codebase reality | Stop, document divergence in state.md, surface options to developer |
-
----
-
-## Model Agnosticism
-
-Flow is model-agnostic. Reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default.
-
-**What is always guaranteed, regardless of model:**
-
-| Guarantee | Why it holds |
-|---|---|
-| State persists across sessions | Written to disk after every meaningful action |
-| One task, one commit | Enforced by the commit protocol, not by inference |
-| Work Item gates require your input | Human-gated checkpoints; no model can skip them |
-| Curated memory | `/flow` applies only validated, approved Reviewer proposals — never blindly appends or rewrites wholesale |
-
-**What scales with model capability:**
-
-The quality of task generation, Reviewer evidence, and Verify command precision improves with stronger models. The deterministic task validator and gate enforce the minimum contract regardless of model capability.
-
-Flow is model-agnostic — reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default.
-
-**Improving the model-agnostic floor is an active goal.** Future versions aim to move more enforcement out of instruction-space and into structural checks — post-task shell validation, machine-readable task fields, and rule sets calibrated to declared model capability. The intent is that Flow's quality guarantees become less dependent on any single model's instruction-following precision over time.
-
----
-
-## How Flow Compares
-
-The spec-driven agentic workflow space has grown quickly. Flow is one of several systems solving the same core problem — context rot and quality degradation over long AI-assisted projects.
-
-| | Flow | GSD | cc-SDD | GitHub Spec Kit |
-|---|---|---|---|---|
-| Legacy codebase support | ✅ Deep (map-first, source-evidence planning) | Partial | Partial | ❌ |
-| Cross-session memory | ✅ memory.md (Facts/Decisions/Lessons, curated) | ✅ | ❌ | ❌ |
-| Cold-read Reviewer pass | ✅ contract + evidence checks | ✅ plan-checker | ✅ reviewer | ❌ |
-| Autonomous walk-away mode | ❌ (human-gated checkpoints; no walk-away mode) | ✅ GSD v2 | Partial | ❌ |
-| Self-improving heuristics | ❌ (curated memory.md only, no automated distillation) | ❌ | ❌ | ❌ |
-| Per-agent model routing | Model-agnostic (no config.json) | ✅ model profiles | ❌ | ❌ |
-| Architecture | Instruction-layer | Instruction-layer (v1) / TypeScript SDK (v2) | Instruction-layer | Instruction-layer |
-| Runtime support | 3 | 14+ | 8 | 3 |
+The tool layer (`bin/flow-tools.js` + `bin/lib/`) is a deterministic dispatcher: contract validation, Work Item allocation, task gates, Git safety checks, and memory apply. It never spawns agents — the host owns execution.
 
 ---
 
@@ -328,157 +113,110 @@ The spec-driven agentic workflow space has grown quickly. Flow is one of several
 
 Four only.
 
-| Command | Role | Replaces |
+| Command | What it does |
+|---|---|
+| `/flow-init` | Once per repo — Detect → Map → Infer → Propose → Write. Flags: `--yes`, `--dry-run`, `--force`, `--scope <dir>` |
+| `/flow "goal"` | Every Work Item — create/continue → `Plan → Execute → Review → Complete` |
+| `/flow-map` | Refresh `.flow/map.json`. Flags: `--scope`, `--symbols` and `--hash` (opt-in) |
+| `/flow-status` | Show `state.md` + Work Items + map staleness + memory count |
+
+For a new goal, `/flow` confirms a concrete goal, constraints, and binary Done Condition, then calls the narrow `work-item create` primitive (`--actor flow`). It allocates the next `work-item-NNN`, writes only `work-item.md` plus empty `tasks/`, and returns `planning_required: true` — no `plan.md`, no state activation until Planner output validates.
+
+---
+
+## Agents
+
+| Agent | When | What it does |
 |---|---|---|
-| `/flow-init` | Once per repo — Detect → Map → Infer → Propose → Write. Flags: `--yes`, `--dry-run`, `--update-agents`, `--hash`, `--scope <dir>` | `flow-new-project` (heavy: questions → research → requirements → roadmap) |
-| `/flow` | Every Work Item — create/continue → `Plan → Execute → Review → Complete`. Usage: `/flow "goal sentence"` | `flow-discuss-phase`, `flow-plan-phase`, `flow-execute-phase`, `flow-verify-work`, `flow-quick`, `flow-do` and phase variants |
-| `/flow-map` | Explicit `map index` / `map search` over `.flow/map.json`. Flags: `--scope`, `--symbols` (opt-in), `--hash` (opt-in) | `flow-map-codebase` (minus PATTERNS.md prose) |
-| `/flow-status` | Show `state.md` + `work-items/` + `map.json` staleness + `memory.md` count | `flow-progress` (minus milestone/phase table) |
+| `@flow-planner` | Plan stage | Research evidence + `plan.md` + atomic task files. Never edits source. |
+| `@flow-executor` | Per task | Implements one task, runs Verify, commits, reports. Never touches state/memory. |
+| `@flow-reviewer` | Review stage | Cold contract + evidence check, failure diagnosis; proposes memory changes but never writes them. |
 
-### Creating a Work Item
+The Reviewer combines critic, verifier, and debugger in one pass — no separate agents, no extra handoffs. Tasks failing the minimal contract are rewritten before execution; there is no override. If the host cannot create a required child, `/flow` stops and reports the capability failure. No inline fallback, no sequential fallback.
 
-`/flow` uses the narrow `work-item create` primitive for a new goal. Before calling it, the host must have a concrete goal, constraints, and binary Done Condition; missing or ambiguous inputs are clarified rather than replaced with placeholders.
+---
 
-The primitive requires the initialized `.flow/work-items/` scaffold and the `flow` actor:
+## Safety
 
-```bash
-node bin/flow-tools.js work-item create \
-  --input '{"goal":"Add a feature.","constraints":"Preserve existing APIs.","done_condition":"The focused tests pass."}' \
-  --actor flow \
-  --cwd .
-```
+- **Confirm before creating** — `/flow` stops on missing or ambiguous goal, constraints, or Done Condition rather than inventing placeholders.
+- **Evidence before code** — confirmed findings land in `plan.md ## Discoveries` with evidence; unresolved items stay in `## Unknowns`, never promoted to memory.
+- **Task gate** — every task passes deterministic verification, declared-scope, and Git safety (repo root, branch, HEAD) checks before its one commit. Failed gates route or block; never bypassed.
+- **Protected branches** — the Executor stops for explicit user confirmation before staging or committing on `main`/`master`.
+- **Ownership** — only `/flow` writes `state.md` and `memory.md`. Children report through host sessions.
+- **Child permissions (known debt)** — hosts still grant children shell and file tools, so ownership is enforced by instruction plus the `--actor flow` gate, not host permissions. Fail closed where safe operation depends on it.
 
-Creation allocates the next `work-item-NNN` using max-plus-one numbering (starting at `001`, without hole reuse, with case-insensitive canonical collision handling, and a hard `999` limit). It uses an exclusive allocation lock and atomic no-overwrite publication, and writes only the new Work Item directory, `work-item.md`, and empty `tasks/`. It returns `planning_required: true`; it does not create `plan.md`, task files, or activate `.flow/state.md`. Run `/flow-init` first when the scaffold is absent.
+| Failure | Action |
+|---|---|
+| Task fails verification | Stop at the gate, route to the responsible role |
+| Agent confused or looping | Stop, report the host or contract problem |
+| Task doesn't match codebase reality | Stop, document divergence, surface options |
 
-Health checks are now `flow-tools` primitives: `audit open` / `state validate` / `state sync` — not a workflow command. `map --help`:
+---
 
-```bash
-node bin/flow-tools.js --help
-node bin/flow-tools.js map index --cwd . --scope server --symbols
-node bin/flow-tools.js map search --query "flow-map" --cwd . --max-results 10
-```
+## Model Agnosticism
+
+Flow is model-agnostic: no `config.json`, no model routing. Reliability comes from evidence plus bounded tasks plus explicit verification, not from model choice. Stronger models produce better plans and sharper Verify commands; the validator and gate enforce the minimum regardless.
+
+| Guarantee | Why it holds |
+|---|---|
+| State persists across sessions | Written to disk after every meaningful action |
+| One task, one commit | Enforced by the gate, not by inference |
+| Human-gated checkpoints | No model can skip them |
+| Curated memory | Only validated, approved proposals applied |
 
 ---
 
 ## Configuration
 
-Flow is model-agnostic and has no `config.json` by default. Reliability comes from evidence + bounded tasks + explicit verification, not routing. When a need proves itself, configuration is added — not before.
+No configuration by default. Two opt-ins:
 
-### Adding tree-sitter languages
-
-Flow auto-discovers all `tree-sitter-*.wasm` files installed in `node_modules/tree-sitter-wasms/out/` and maps them to file extensions. **No code changes needed** — just re-run the installer and it picks up every available WASM file:
-
-```bash
-npx @linggihlukis/flow --update
-```
-
-The installer automatically installs the required npm dependencies (`js-yaml`) into `~/.flow/tools/` during install and update. `tree-sitter-wasms` + `web-tree-sitter` are optional — only for `map index --symbols`. If `map index` fails, check that directory first — see [Troubleshooting](#troubleshooting).
-
-**Supported extensions** are mapped automatically for common languages:
-
-| Language | Extensions | AST extractor |
-|---|---|---|
-| `php` | `.php` | Language-specific |
-| `javascript` | `.js`, `.jsx`, `.mjs`, `.cjs` | Language-specific |
-| `typescript` | `.ts`, `.tsx` | Language-specific |
-| `python` | `.py` | Language-specific |
-| `ruby` | `.rb` | Language-specific |
-| `go` | `.go` | Language-specific |
-| `java` | `.java` | Language-specific |
-| `rust` | `.rs` | Language-specific |
-| `c_sharp` | `.cs` | Generic fallback |
-| `c` | `.c`, `.h` | Generic fallback |
-| `cpp` | `.cpp`, `.hpp`, `.cc`, `.cxx` | Generic fallback |
-| `vue` | `.vue` | Generic fallback |
-
-Languages without a built-in mapping default to `.{language}` (e.g. `scala` → `.scala`). Languages with a language-specific extractor produce accurate `functions`, `classes`, and `includes` arrays. Generic-fallback languages still parse but with lower yield rates — check `lang_coverage` in the `index` command output.
-
-**Custom extension mappings** — when a need proves itself, add a `languages` block to `.flow/map.json` options. This merges with the built-in map — any language name here overrides the default extensions for that language. The corresponding `tree-sitter-{language}.wasm` file must exist in the WASM directory (only relevant when using `--symbols`).
-
-### Indexer settings
-
-By default, `flow-tools` skips `node_modules`, `.git`, `.flow`, and `vendor` during indexing. Everything else is scanned. Symbols are file-level only (`flow-map-v1`); pass `--symbols` with WASM available to include `functions[]`/`classes[]`/`includes[]`, and `--hash` to include SHA-256 per file.
+- **Symbols** — `map index --symbols` needs `tree-sitter-wasms` + `web-tree-sitter@0.20.8` in `~/.flow/tools`. Default indexing is file-level and needs nothing. New languages are picked up from installed `tree-sitter-*.wasm` files on `--update`.
+- **Index scope** — `map index` skips `node_modules`, `.git`, `.flow`, and `vendor`. Everything else is scanned.
 
 ---
 
 ## Folder Structure
 
-Flow installs a `.flow/` directory into your project. This is your project's persistent memory. Commit it to git.
+Commit `.flow/` to git — it is your project's persistent memory.
 
 ```
 project-root/
-│
-├── AGENTS.md                              ← system rules, every agent reads this first
-│
+├── AGENTS.md                              ← system rules, every agent reads first
 └── .flow/
-    ├── state.md                           ← active_work_item + status + updated_at + git_commit + execution_context
-    ├── memory.md                          ← Facts / Decisions / Lessons (approved proposals applied by /flow only)
-    ├── map.json                           ← file-level index (flow-map-v1; refresh via /flow-map)
+    ├── state.md                           ← active_work_item + status + git context
+    ├── memory.md                          ← Facts / Decisions / Lessons
+    ├── map.json                           ← file-level index (refresh via /flow-map)
     └── work-items/
         └── work-item-NNN/
             ├── work-item.md               ← the contract (goal, constraints, done condition)
             ├── plan.md                    ← the solution record
             └── tasks/
-                └── task-XX.md             ← atomic task (Verify is runnable; revise in place on fix)
+                └── task-XX.md             ← atomic task (runnable Verify; revise in place)
 ```
 
-> **Runtime tools:** `~/.flow/tools/` (outside your project, managed by the installer) holds `flow-tools.js` and its npm dependencies. Do not commit or edit manually.
-
-> **Project tools:** `bin/` contains `flow-tools.js` thin dispatcher + `bin/lib/` 7 primitives (state/frontmatter/files/map/task/audit/work-item). `work-item create` writes only the initial pre-planning artifact and requires the `flow` actor.
-
-> Do not add `.flow/` to `.gitignore`. It is your project's persistent memory. Losing it means losing all state, lessons, and context.
+Runtime tools live in `~/.flow/tools/` (managed by the installer — do not edit). Never add `.flow/` to `.gitignore`.
 
 ---
 
 ## Troubleshooting
 
 **Commands not showing up?**
-Restart your runtime after installing. Flow installs to the runtime's standard command/skill directory — check the [runtime paths table](#install) for your specific runtime.
+Restart your runtime after installing. Check the [runtime paths](#install) above.
 
 **`npx` serving a stale version?**
-Always use `@latest` when updating:
-```bash
-npx @linggihlukis/flow@latest --update
-```
+Always update with `@latest`: `npx @linggihlukis/flow@latest --update`.
 
 **Flow cannot delegate a child agent?**
-Native child delegation is intentionally fail-closed. The host runtime owns child-agent creation; installation of command/agent files alone cannot verify that capability. Report the host limitation. Flow does not perform Planner, Executor, or Reviewer work inline and does not fall back to sequential mode.
+Fail-closed by design — the host owns child creation and install files alone can't verify it. Report the host limitation; Flow never performs Planner, Executor, or Reviewer work inline.
 
-**`map index` fails or shows `symbols requested but WASM unavailable`?**
-`tree-sitter-wasms` + `web-tree-sitter` are opt-in (only for `--symbols`). Default `map index` is file-level and needs no WASM. For symbols:
-```bash
-# macOS / Linux
-ls ~/.flow/tools/node_modules/web-tree-sitter ~/.flow/tools/node_modules/tree-sitter-wasms
-
-# Windows
-dir "%USERPROFILE%\.flow\tools\node_modules"
-```
-If missing and you need symbols:
-```bash
-# macOS / Linux
-cd ~/.flow/tools && npm install web-tree-sitter@0.20.8 tree-sitter-wasms
-
-# Windows
-cd %USERPROFILE%\.flow\tools && npm install web-tree-sitter@0.20.8 tree-sitter-wasms
-```
-If you see `Parser.init is not a function`, `web-tree-sitter` is the wrong version — pin it to `@0.20.8`.
-
-**Environment variables consumed by the installer?**
-The `bin/install.js` installer reads these environment variables at runtime:
-
-| Variable | Purpose |
-|---|---|
-| `USERPROFILE` | Windows user home directory (fallback for `os.homedir()`) |
-| `npm_config_argv` | JSON-serialised argv forwarded by npm/npx |
-| `npm_config_<name>` | Individual flags forwarded by npm/npx (e.g. `--opencode` → `npm_config_opencode`) |
-
-No `.env` file is used. These are set automatically by npm/npx at install time.
+**`map index --symbols` fails?**
+Symbols are opt-in. File-level indexing needs no WASM. For symbols, install `web-tree-sitter@0.20.8` + `tree-sitter-wasms` into `~/.flow/tools` (`Parser.init is not a function` means wrong `web-tree-sitter` version — pin `0.20.8`).
 
 ---
 
 ## Contributing
 
-Flow is a solo-maintained project. Issues and feature requests are welcome — open a [GitHub issue](https://github.com/linggihlukis/flow/issues).
+Solo-maintained. Issues and feature requests welcome — open a [GitHub issue](https://github.com/linggihlukis/flow/issues).
 
 ---
 
@@ -490,4 +228,4 @@ MIT
 
 ## Acknowledgement
 
-Flow was developed with reference to [GSD](https://github.com/gsd-build/get-shit-done) by TÂCHES, which provided early insight into the shape of a spec-driven agentic workflow. Flow has since evolved into a different system with different goals, architecture, and design decisions — but GSD was the starting point and deserves the credit.
+Developed with reference to [GSD](https://github.com/gsd-build/get-shit-done) by TÂCHES, which shaped early thinking about spec-driven agentic workflows. Flow has since become a different system with different goals and architecture.
