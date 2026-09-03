@@ -12,7 +12,7 @@ You are the Executor. You implement exactly one task. You do not plan, research,
 
 ## Ownership
 
-You may modify only the files declared by the assigned task. Do not write `.flow/state.md` or `.flow/memory.md`, and do not modify the plan or other tasks unless the task explicitly declares that file in its `Files` section.
+You may modify only the files declared by the assigned task. Do not write `.flow/state.md` or `.flow/memory.md`, and do not modify the plan or other tasks unless the task explicitly declares that file in its `Files` section. Supported Flow mutation routes require the `flow` actor; do not attempt to bypass them through shell commands. `DEBT:` the host still grants shell and file tools to children, so host-level permissions keyed to actor identity remain the concrete future enforcement boundary.
 
 ## What you must read first
 

@@ -9,7 +9,7 @@
 
 Flow is a spec-driven agentic development workflow for solo developers. It brings structure, memory, and discipline to AI-assisted coding — not by asking you to be more organised, but by making the system carry that weight itself.
 
-Flow installs its command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. `/flow` child spawning is supplied by an explicit host runtime adapter; when that capability is not verified, Flow fails closed instead of doing the work inline.
+Flow installs its command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. `/flow` child creation is performed by each host's native subagent mechanism via per-runtime delegation bindings; when that capability is not verified, Flow fails closed instead of doing the work inline.
 
 > Install is global-only (`~/.flow/tools` sole home, absolute `C:/…/.flow/tools/flow-tools.js` on Windows via `Platform.normalize` — no `~`). Scaffold (`.flow/` + `AGENTS.md` marker) belongs to `/flow-init` in the repo, not to `npx flow`.
 
@@ -261,18 +261,17 @@ Flow is runtime-agnostic. The host runtime performs native child-agent/session c
 
 ## Safety and Guard Rails
 
-**Intent verification** — before executing any routed action, Flow echoes what it understood in one sentence and declares a confidence level: HIGH, MEDIUM, or LOW. LOW confidence is a hard stop. In `yolo` mode, the echo still prints — only the pause is skipped.
+**Intent verification** — `/flow` confirms the concrete goal, constraints, and binary Done Condition before creating a Work Item, and stops on missing or ambiguous input rather than inventing placeholders. Tasks may declare `**Confidence:** HIGH | MEDIUM | LOW` with a reason when uncertainty matters; the Executor stops for explicit user confirmation before staging or committing on `main`/`master`.
 
-**Evidence before code** — Planner runs `map search` before reading source; modification tasks carry verbatim anchor lines (±2). Low-confidence zones noted in `memory.md` add `## Unknowns` to `plan.md` until you clarify.
+**Evidence before code** — the Planner consults `map search`, then reads actual source before writing the plan; the map is an index, never the source of truth. Confirmed findings go in `plan.md ## Discoveries` with evidence; unresolved items stay in `## Unknowns` and are never promoted to durable memory.
 
-**Destructive action tiers** — every action is classified before it runs:
-- 🟢 **Safe** — read, write new files, edit source, run tests, git add/commit. Proceed.
-- 🟡 **Caution** — delete files, modify config, install packages. Announce, then proceed.
-- 🔴 **Destructive** — database migrations, `.env` files, git history rewrites, deployment scripts. Full stop: shows the exact command, consequence, and reversibility. Requires explicit `CONFIRM` before proceeding.
+**Destructive-action safety** — there is no tier system. The enforced boundaries are the deterministic task gate, Git safety checks (repository root, branch, HEAD, declared scope), and an explicit user-confirmation stop before staging or committing on `main`/`master`. Unsafe states fail closed rather than proceeding on assumption.
 
-**Atomic commit discipline** — one task, one commit, immediately after verification passes. Never batched. Never committed broken. Baseline-aware: pre-existing test failures don't block new commits — only new failures do.
+**Atomic commit discipline** — one task, one commit, immediately after verification passes. Never batched. The task gate blocks commits on failed verification, scope violations, or unsafe Git state.
 
-**File size limits** — `memory.md` is curated (<150 lines); `map.json` is file-level by default. Every accumulating file has soft and hard limits — warn, then archive. Context rot is a managed failure mode, not an inevitability.
+**File size limits** — `memory.md` is curated durable truth (Facts/Decisions/Lessons), not a transcript; writes above the input size cap are rejected. `map.json` is file-level by default with opt-in symbols. Context is reduced structurally — small tasks, focused roles, Read First — not by token accounting.
+
+**Child permissions (known debt)** — Planner, Executor, and Reviewer contracts restrict artifact ownership and require the `flow` actor on supported mutation routes, but hosts still grant children shell and file tools, so a child could bypass those routes by writing directly. Ownership is enforced by instruction plus the `--actor flow` gate on Flow's own tools, not by host-level permissions. Until per-host permission enforcement keyed to actor identity is verified, this remains documented security debt: fail closed where safe operation depends on it, and never invent a Flow-side permission adapter.
 
 ### Recovery when things go wrong
 
@@ -287,7 +286,7 @@ Flow is runtime-agnostic. The host runtime performs native child-agent/session c
 
 ## Model Agnosticism
 
-Flow is model-agnostic (§18). Reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default.
+Flow is model-agnostic. Reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default.
 
 **What is always guaranteed, regardless of model:**
 
@@ -302,7 +301,7 @@ Flow is model-agnostic (§18). Reliability comes from evidence + bounded tasks +
 
 The quality of task generation, Reviewer evidence, and Verify command precision improves with stronger models. The deterministic task validator and gate enforce the minimum contract regardless of model capability.
 
-Flow is model-agnostic — reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default (§12/§18).
+Flow is model-agnostic — reliability comes from evidence + bounded tasks + explicit verification, not routing. No `config.json` or `model_tiers` by default.
 
 **Improving the model-agnostic floor is an active goal.** Future versions aim to move more enforcement out of instruction-space and into structural checks — post-task shell validation, machine-readable task fields, and rule sets calibrated to declared model capability. The intent is that Flow's quality guarantees become less dependent on any single model's instruction-following precision over time.
 
@@ -314,14 +313,14 @@ The spec-driven agentic workflow space has grown quickly. Flow is one of several
 
 | | Flow | GSD | cc-SDD | GitHub Spec Kit |
 |---|---|---|---|---|
-| Legacy codebase support | ✅ Deep (zone-aware, amendment layer) | Partial | Partial | ❌ |
+| Legacy codebase support | ✅ Deep (map-first, source-evidence planning) | Partial | Partial | ❌ |
 | Cross-session memory | ✅ memory.md (Facts/Decisions/Lessons, curated) | ✅ | ❌ | ❌ |
 | Cold-read Reviewer pass | ✅ contract + evidence checks | ✅ plan-checker | ✅ reviewer | ❌ |
-| Autonomous walk-away mode | ⚠️ Single-phase (`--auto`) | ✅ GSD v2 | Partial | ❌ |
-| Self-improving heuristics | ✅ ERL distillation | ❌ | ❌ | ❌ |
+| Autonomous walk-away mode | ❌ (human-gated checkpoints; no walk-away mode) | ✅ GSD v2 | Partial | ❌ |
+| Self-improving heuristics | ❌ (curated memory.md only, no automated distillation) | ❌ | ❌ | ❌ |
 | Per-agent model routing | Model-agnostic (no config.json) | ✅ model profiles | ❌ | ❌ |
 | Architecture | Instruction-layer | Instruction-layer (v1) / TypeScript SDK (v2) | Instruction-layer | Instruction-layer |
-| Runtime support | 4 | 14+ | 8 | 3 |
+| Runtime support | 3 | 14+ | 8 | 3 |
 
 ---
 
@@ -363,7 +362,7 @@ node bin/flow-tools.js map search --query "flow-map" --cwd . --max-results 10
 
 ## Configuration
 
-Flow is model-agnostic and has no `config.json` by default (§12/§18). Reliability comes from evidence + bounded tasks + explicit verification, not routing. When a need proves itself, configuration is added — not before.
+Flow is model-agnostic and has no `config.json` by default. Reliability comes from evidence + bounded tasks + explicit verification, not routing. When a need proves itself, configuration is added — not before.
 
 ### Adding tree-sitter languages
 
