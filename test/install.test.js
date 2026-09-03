@@ -15,6 +15,21 @@ const {
 } = require("./helpers");
 const { parseFrontmatter } = require("../bin/flow-tools");
 
+function seedInstalledToolDependencies(toolsDir) {
+  const nodeModules = path.join(toolsDir, "node_modules");
+  for (const dependency of ["js-yaml", "argparse"]) {
+    fs.cpSync(path.join(ROOT, "node_modules", dependency), path.join(nodeModules, dependency), { recursive: true });
+  }
+  for (const dependency of ["web-tree-sitter", "tree-sitter-wasms"]) {
+    const destination = path.join(nodeModules, dependency);
+    fs.mkdirSync(destination, { recursive: true });
+    fs.copyFileSync(
+      path.join(ROOT, "node_modules", dependency, "package.json"),
+      path.join(destination, "package.json")
+    );
+  }
+}
+
 async function run() {
   const { pass, fail, suite, getFailures } = createReporter();
 
@@ -281,9 +296,7 @@ async function run() {
     process.env.USERPROFILE = tmpDir;
     process.env.HOME = tmpDir;
     const toolsDir = path.join(tmpDir, ".flow", "tools");
-    fs.mkdirSync(path.join(toolsDir, "node_modules", "js-yaml"), { recursive: true });
-    fs.mkdirSync(path.join(toolsDir, "node_modules", "web-tree-sitter"), { recursive: true });
-    fs.mkdirSync(path.join(toolsDir, "node_modules", "tree-sitter-wasms"), { recursive: true });
+    seedInstalledToolDependencies(toolsDir);
     try {
       const first = installFlowHome();
       const hash1 = fs.existsSync(path.join(toolsDir, "manifest.json")) ? fs.readFileSync(path.join(toolsDir, "manifest.json"), "utf8") : "";
@@ -381,9 +394,7 @@ async function run() {
     process.env.USERPROFILE = tmpDir;
     process.env.HOME = tmpDir;
     const toolsDir = path.join(tmpDir, ".flow", "tools");
-    fs.mkdirSync(path.join(toolsDir, "node_modules", "js-yaml"), { recursive: true });
-    fs.mkdirSync(path.join(toolsDir, "node_modules", "web-tree-sitter"), { recursive: true });
-    fs.mkdirSync(path.join(toolsDir, "node_modules", "tree-sitter-wasms"), { recursive: true });
+    seedInstalledToolDependencies(toolsDir);
     try {
       const success = installFlowHome();
       if (!success) { fail("16c: installFlowHome returned false"); return; }
@@ -433,9 +444,7 @@ async function run() {
     process.env.HOME = tmpHome;
     try {
       const { installFlowHome } = require("../bin/install.js");
-      fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "js-yaml"), { recursive: true });
-      fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "web-tree-sitter"), { recursive: true });
-      fs.mkdirSync(path.join(tmpHome, ".flow", "tools", "node_modules", "tree-sitter-wasms"), { recursive: true });
+      seedInstalledToolDependencies(path.join(tmpHome, ".flow", "tools"));
       installFlowHome();
       const tool = path.join(tmpHome, ".flow", "tools", "flow-tools.js");
       const result = execFileSync(process.execPath, [tool, "scaffold", "init", "--actor", "flow", "--cwd", tmpProject, "--yes"], { encoding: "utf8" });

@@ -338,7 +338,7 @@ function installNodeDeps(toolsDir) {
   const missing = deps.filter(dep => {
     const at = dep.lastIndexOf("@");
     const depName = at > 0 ? dep.slice(0, at) : dep;
-    return !fs.existsSync(path.join(toolsDir, "node_modules", depName));
+    return !fs.existsSync(path.join(toolsDir, "node_modules", depName, "package.json"));
   });
 
   if (missing.length === 0) {
