@@ -1,7 +1,6 @@
 'use strict';
 const fs   = require('node:fs');
 const path = require('node:path');
-const { Platform } = require('./platform');
 
 const ERROR_CODES = {
   PATH_NOT_FOUND: 'PATH_NOT_FOUND',

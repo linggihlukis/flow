@@ -171,7 +171,7 @@ const legacyShims = [
   path.join(Platform.home, ".gemini", "antigravity", "flow"),
   path.join(Platform.home, ".gemini", "antigravity-ide", "flow"),
 ];
-const LEGACY_SHIMS = legacyShims;
+
 const LEGACY_FLAT_FILES = [
   path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.js"),
   path.join(Platform.home, ".config", "opencode", "flow", "flow-tools.cmd"),

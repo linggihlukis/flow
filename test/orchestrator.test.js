@@ -27,6 +27,10 @@ async function run() {
     "execution defects to Executor",
     "Recommendation: accepted | revise",
     "Route: planner | executor | blocked",
+    "resolve every non-`none` Reviewer `Memory Proposal` before persisting completion",
+    "audit memory validate",
+    "audit memory apply --actor flow",
+    "exact current memory entry as `Target`",
   ]) {
     if (flow.includes(text)) pass(`flow.md contains protocol rule: ${text}`);
     else fail(`flow.md missing protocol rule: ${text}`);
@@ -77,6 +81,8 @@ async function run() {
   else fail("Executor ownership boundary missing");
   if (reviewer.includes("must not write `.flow/state.md` or `.flow/memory.md`") && reviewer.includes("Memory Proposal")) pass("Reviewer proposal/state boundary is present");
   else fail("Reviewer proposal/state boundary missing");
+  if (reviewer.includes("compare it with existing entries") && reviewer.includes("exact current entry in `Target`") && reviewer.includes("Action: add` only for genuinely new durable truth")) pass("Reviewer classifies existing memory as update/supersede");
+  else fail("Reviewer existing-memory update rule missing");
 
   const reviewerFm = parseFrontmatter(reviewer);
   if (reviewerFm && reviewerFm.mode === "subagent") pass("Reviewer remains a host-loadable subagent");
@@ -108,9 +114,7 @@ async function run() {
   let skillContent = null;
   let refsOk = false;
   try {
-    const { installZedSkill } = require("../bin/install.js");
-    // shallow check: function exists (exported indirectly via install flow)
-    // invoke directly via temp install: use installZedSkill if available, else simulate via child
+    // Invoke the installer through its CLI so the Zed packaging path is exercised.
     const binInstall = require("../bin/install.js");
     // installZedSkill not exported; test via generating manually
     const gen = binInstall.generateSkillMarkdown;

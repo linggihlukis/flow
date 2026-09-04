@@ -6,15 +6,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const ERROR_CODES = {
-  UNKNOWN_COMMAND:  'UNKNOWN_COMMAND',
-  STATE_NOT_FOUND:  'STATE_NOT_FOUND',
-  STATE_PARSE_ERROR:'STATE_PARSE_ERROR',
-  PATH_NOT_FOUND:   'PATH_NOT_FOUND',
-  FRONTMATTER_NOT_FOUND: 'FRONTMATTER_NOT_FOUND',
-  WRITE_FAILED:        'WRITE_FAILED',
+  UNKNOWN_COMMAND: 'UNKNOWN_COMMAND',
+  PATH_NOT_FOUND:  'PATH_NOT_FOUND',
 };
-
-const KB = 1024;
 
 function exitErr(code, message) {
   if (require.main === module) {
@@ -25,35 +19,6 @@ function exitErr(code, message) {
 }
 function output(data) { process.stdout.write(JSON.stringify(data) + '\n'); }
 
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) {
-      const cwdDir = process.cwd();
-      const relative = path.relative(cwdDir, resolved);
-      if (relative.startsWith('..')) exitErr(ERROR_CODES.PATH_NOT_FOUND, `--cwd path '${resolved}' is outside the working directory`);
-    }
-    return resolved;
-  }
-  return process.cwd();
-}
-
-function collectFlagValues(args, flagName) {
-  const values = [];
-  let collecting = false;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flagName) { collecting = true; continue; }
-    if (collecting) {
-      if (args[i].startsWith('--')) { collecting = false; continue; }
-      values.push(args[i]);
-    }
-  }
-  return values;
-}
-
-const VALID_STATUSES = new Set(['ready', 'planned', 'in-progress', 'in-review', 'complete']);
 
 function showHelp() {
   output({

@@ -7,8 +7,6 @@ try { Parser = require('web-tree-sitter'); } catch { /* optional dep */ }
 const KB = 1024;
 const MAX_AST_DEPTH = 200;
 
-/** Singleton parser instance — lazy-initialized */
-let _parser = null;
 
 /**
  * Find the WASM directory for tree-sitter grammars.
@@ -27,21 +25,6 @@ function findWasmDir() {
   return null;
 }
 
-/**
- * Initialize the tree-sitter WASM parser singleton.
- * Returns true on success, false if tree-sitter is not available.
- */
-async function initParser() {
-  if (_parser) return true;
-  if (!Parser) return false;
-  try {
-    await Parser.init();
-    _parser = new Parser();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Synchronous check — returns true if web-tree-sitter was loaded successfully.
@@ -85,12 +68,6 @@ async function createLanguageParsers(wasmDir, availableLangs) {
   return { parsers, wasmStatus };
 }
 
-/**
- * Returns the list of languages supported by the dedicated extractors.
- */
-function getSupportedLanguages() {
-  return ['php', 'javascript', 'typescript', 'python', 'ruby', 'go', 'java', 'rust'];
-}
 
 // ─── Language-specific extractors ───────────────────────────────────────────
 

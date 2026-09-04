@@ -233,7 +233,7 @@ async function run() {
   // Suite 11 — Updated for Task 3 minimal scaffold
   suite("Suite 11 — Scaffold updater (minimal shape)");
   const installModule = require("../bin/install.js");
-  const { updateScaffold, installScaffold, getFlowToolsAbsPath } = installModule;
+  const { installScaffold, getFlowToolsAbsPath } = installModule;
   (function () {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "flow-test-11a-"));
     try {

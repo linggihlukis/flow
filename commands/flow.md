@@ -15,7 +15,8 @@ description: Run a Work Item — Plan → Execute → Review → Complete in one
   → validate task result/gate
   → Reviewer role
   → route revisions
-  → persist terminal state and approved memory
+  → resolve approved Memory Proposal
+  → persist terminal state
 ```
 
 The host runtime creates and manages child-agent sessions. Roles are Flow responsibilities carried by the host's native delegation — not a Flow subprocess API. `/flow` never impersonates a child role and does not perform planning, implementation, or review inline. The user's message that invoked `/flow` is the Work Item request; no shell-style placeholder substitution is required.
@@ -73,7 +74,7 @@ The Planner must return valid `plan.md` and task files and `task validate` must 
 3. Delegate each task, one at a time, via the Executor role; run the canonical `task gate` after each reported verification. The gate compares the current repository root, branch, and HEAD against the Work Item's recorded execution context.
 4. Delegate independent review via the Reviewer role.
 5. Route planning defects to Planner, execution defects to Executor, and blocked or insufficiently evidenced results to a stop/report outcome.
-6. On acceptance, validate lifecycle consistency, apply only an explicitly approved memory proposal through `audit memory`, and persist completion. Acceptance requires that every task that actually executed is `status: done`, `work-item.md` is `status: complete`, and no task remains `todo`, `planned`, or otherwise incomplete.
+6. On acceptance, resolve every non-`none` Reviewer `Memory Proposal` before persisting completion: obtain explicit approval, run `audit memory validate`, then run `audit memory apply --actor flow`. If it is not applied or explicitly declined, do not complete. Use `update` or `supersede` with the exact current memory entry as `Target` for an existing or equivalent fact; never append it with `add`.
 
 ## Planner delegation
 
@@ -114,7 +115,7 @@ Invoke the Reviewer role with the Work Item after all tasks pass their gates. Th
 - root-cause diagnosis when needed;
 - `Recommendation: accepted | revise`;
 - `Route: planner | executor | blocked` when revision is required;
-- optional `Memory Proposal`.
+- optional `Memory Proposal` for durable memory changes.
 
 After execution, the parent loads the Reviewer role reference, provides the Work Item and relevant artifacts, and uses the installed host binding to create a native child with a self-contained Reviewer message. Route `accepted`, `planner`, `executor`, or `blocked` exactly as the Flow protocol specifies. Do not perform the review in the parent. The Reviewer proposes memory changes but never writes `.flow/memory.md`.
 
@@ -128,6 +129,6 @@ node bin/flow-tools.js task validate --work-item NNN --cwd .
 node bin/flow-tools.js files check .flow/work-items/work-item-NNN/work-item.md --cwd .
 ```
 
-Memory proposals are validated, explicitly approved outside the Reviewer response, and applied by `/flow` only through `audit memory apply --actor flow`. Unresolved discoveries and contradictory current facts are never promoted.
+Memory resolution is part of acceptance: approve, validate, and apply every non-`none` proposal before completing. Existing or equivalent facts use exact-target `update`/`supersede`, not `add`.
 
 Do not introduce phases, milestones, waves, context budgets, token accounting, extra agents, or another orchestration subsystem.

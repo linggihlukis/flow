@@ -84,9 +84,11 @@ When a Work Item produces verified, durable, cross-Work-Item knowledge, return a
 - Expected memory digest: [SHA-256 from the read-only memory check]
 ```
 
-The proposal is not approval. `/flow` must pass the proposal through `audit memory validate`, obtain the required approval, and call `audit memory apply --actor flow`; the Reviewer never supplies the approval by writing memory.
+The proposal is not approval. `/flow` must resolve every non-`none` proposal in the same run before completion: obtain explicit approval, run `audit memory validate`, and call `audit memory apply --actor flow`; the Reviewer never writes `.flow/memory.md`. If validation or apply fails, completion remains blocked.
 
 When an **Existing fact contradicted or obsolete** by verified source evidence, propose `update` or `supersede`; **Do not leave two contradictory current facts**. Do not propose unresolved discoveries, Work Item-local conclusions, research transcripts, or duplicate facts. Source and verified behavior outrank stale memory. An **Unresolved discovery** must not be promoted to durable memory; **do not promote it to durable memory**. `/flow` applies only an approved proposal.
+
+Before returning a non-`none` proposal, compare it with existing entries. Use `Action: update` or `supersede` with the exact current entry in `Target` for an existing or equivalent fact; use `Action: add` only for genuinely new durable truth. Approval is handled by `/flow`, so do not turn a valid proposal into `Action: none` merely because approval is pending.
 
 ## Lifecycle
 
