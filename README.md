@@ -36,8 +36,9 @@ Flow installs command and agent contracts for OpenCode, Codex App / CLI, and Zed
 ### Any repo — new or existing
 
 ```bash
+cd path/to/your-repo
 npx @linggihlukis/flow --opencode   # or --codex / --zed / --all
-# then in your runtime:
+# restart or reload your runtime, then:
 /flow-init   # detects greenfield vs brownfield, maps, scaffolds
 /flow "your first Work Item goal — one sentence"
 ```
@@ -66,8 +67,9 @@ npx @linggihlukis/flow --all          # all three (dedupes shared skills once)
 | `--update` | Update in place (runtime artifacts overwritten; `.flow/` data preserved) |
 | `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold) |
 | `--yes` | Non-interactive — skip prompts without TTY |
-| `--dry-run` | Preview scaffold/`AGENTS.md` changes without writing |
-| `--force` | Overwrite scaffold even when work-items/ is non-empty |
+| `--dry-run` | Preview project scaffold/`AGENTS.md` changes with `--scaffold` |
+| `--force` | Allow scaffold replacement when `.flow/work-items/` is non-empty |
+| `--update-agents` | With `--scaffold`, update the Flow section in `AGENTS.md` |
 
 Update from inside your project:
 
@@ -92,9 +94,9 @@ Install is global-only: tools live in `~/.flow/tools`, the scaffold (`.flow/` + 
        ↓
 /flow "goal"          →  every Work Item — Plan → Execute → Review → Complete
        ↓
-     Plan    →  @flow-planner reads map + memory + source → plan.md + tasks/
-     Execute →  @flow-executor per task: Read → Change → Verify → Report (one commit)
-     Review  →  @flow-reviewer reads cold → accepted | revise
+     Plan    →  Planner role reads map + memory + source → plan.md + tasks/
+     Execute →  Executor role per task: Read → Change → Verify → Report (one commit)
+     Review  →  Reviewer role reads cold → accepted | revise
        ↓
 repeat per Work Item — scales by tasks (1 → N), not ceremony
 ```
@@ -128,9 +130,9 @@ For a new goal, `/flow` confirms a concrete goal, constraints, and binary Done C
 
 | Agent | When | What it does |
 |---|---|---|
-| `@flow-planner` | Plan stage | Research evidence + `plan.md` + atomic task files. Never edits source. |
-| `@flow-executor` | Per task | Implements one task, runs Verify, commits, reports. Never touches state/memory. |
-| `@flow-reviewer` | Review stage | Cold contract + evidence check, failure diagnosis; proposes memory changes but never writes them. |
+| Planner role | Plan stage | Research evidence + `plan.md` + atomic task files. Never edits source. |
+| Executor role | Per task | Implements one task, runs Verify, commits, reports. Never touches state/memory. |
+| Reviewer role | Review stage | Cold contract + evidence check, failure diagnosis; proposes memory changes but never writes them. |
 
 The Reviewer combines critic, verifier, and debugger in one pass — no separate agents, no extra handoffs. Tasks failing the minimal contract are rewritten before execution; there is no override. If the host cannot create a required child, `/flow` stops and reports the capability failure. No inline fallback, no sequential fallback.
 
@@ -210,7 +212,14 @@ Always update with `@latest`: `npx @linggihlukis/flow@latest --update`.
 Fail-closed by design — the host owns child creation and install files alone can't verify it. Report the host limitation; Flow never performs Planner, Executor, or Reviewer work inline.
 
 **`map index --symbols` fails?**
-Symbols are opt-in. File-level indexing needs no WASM. For symbols, install `web-tree-sitter@0.20.8` + `tree-sitter-wasms` into `~/.flow/tools` (`Parser.init is not a function` means wrong `web-tree-sitter` version — pin `0.20.8`).
+Symbols are opt-in. File-level indexing needs no WASM. For symbols, run:
+
+```bash
+cd ~/.flow/tools
+npm install js-yaml web-tree-sitter@0.20.8 tree-sitter-wasms
+```
+
+`Parser.init is not a function` means the wrong `web-tree-sitter` version is installed; pin `0.20.8`.
 
 ---
 
