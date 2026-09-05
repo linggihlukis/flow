@@ -5,7 +5,5 @@ node_modules/
 Thumbs.db
 /AGENTS.md
 /.flow/
-/docs/designs/
-/docs/plans/
 /HANDOVER.md
 /.context/
