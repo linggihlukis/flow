@@ -8,6 +8,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { validateTaskFile, validateTaskDirectory, runTaskGate, transitionTaskStatus } = require('../../bin/lib/task');
 const { captureExecutionContext } = require('../../bin/lib/git-safety');
+const { parseFrontmatter, serializeFrontmatter } = require('../../bin/lib/frontmatter');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-task-contract-'));
 const tasksDir = path.join(root, 'tasks');
@@ -248,6 +249,73 @@ try {
     assert.equal(result.valid, true, JSON.stringify(result));
     assert.equal(result.task.commitMessage, 'chore(work-item-001-task-01): complete task');
     assert.equal(result.commit.committed, true, JSON.stringify(result));
+  }
+
+  {
+    const fixture = createGitFixture();
+    const secondTask = path.join(path.dirname(fixture.task), 'task-02.md');
+    const secondTaskContent = fs.readFileSync(fixture.task, 'utf8')
+      .replaceAll('task-01', 'task-02')
+      .replaceAll('Task 01', 'Task 02')
+      .replaceAll('src/allowed.js', 'src/second.js')
+      .replace('status: todo', 'status: todo');
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'second.js'), 'module.exports = 1;\n', 'utf8');
+    fs.writeFileSync(secondTask, secondTaskContent, 'utf8');
+    const workItemBody = '# Work Item 001 — Sequential task fixture\n\n## Goal\nExercise successive task execution.\n\n## Constraints\nUse only declared fixture files.\n\n## Done Condition\nBoth task gates commit their declared changes and the result is complete.\n';
+    const plan = '# Plan\n\n## Tasks\n### Task 01: First fixture\n- tasks/task-01.md\n### Task 02: Second fixture\n- tasks/task-02.md\n';
+    fs.writeFileSync(path.join(fixture.repo, '.flow', 'work-items', 'work-item-001', 'plan.md'), plan, 'utf8');
+    fs.writeFileSync(path.join(fixture.repo, '.flow', 'map.json'), '{"schema_version":"flow-map-v1","files":{}}\n', 'utf8');
+    fs.writeFileSync(path.join(fixture.repo, '.flow', 'memory.md'), '# memory.md\n\n## Facts\n', 'utf8');
+    fs.writeFileSync(path.join(fixture.repo, '.flow', 'state.md'), serializeFrontmatter({ active_work_item: 'work-item-001', status: 'in-progress', updated_at: '2026-09-05T00:00:00.000Z', git_commit: null, execution_context: null }) + '\n', 'utf8');
+    execFileSync('git', ['add', '.'], { cwd: fixture.repo, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'chore(test): second task fixture'], { cwd: fixture.repo, stdio: 'ignore' });
+    const initialContext = captureExecutionContext(fixture.repo, ['src/allowed.js', 'src/second.js']);
+    fs.writeFileSync(path.join(fixture.repo, '.flow', 'work-items', 'work-item-001', 'work-item.md'), serializeFrontmatter({ work_item: 'work-item-001', status: 'in-progress', task_count: 2, execution_context: initialContext }) + '\n' + workItemBody, 'utf8');
+    fs.writeFileSync(path.join(fixture.repo, '.flow', 'state.md'), serializeFrontmatter({ active_work_item: 'work-item-001', status: 'in-progress', updated_at: '2026-09-05T00:00:00.000Z', git_commit: null, execution_context: initialContext }) + '\n', 'utf8');
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'allowed.js'), 'module.exports = 2;\n', 'utf8');
+    transitionTaskStatus(fixture.task, { cwd: fixture.repo, status: 'in-progress', actor: 'flow' });
+    const first = runTaskGate({ cwd: fixture.repo, taskFile: fixture.task, workItem: 'work-item-001', executionContext: initialContext });
+    assert.equal(first.valid, true, JSON.stringify(first));
+    const firstHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.repo, encoding: 'utf8' }).trim();
+    assert.equal(first.commit.commit, firstHead);
+    assert.equal(execFileSync('git', ['rev-parse', 'HEAD^'], { cwd: fixture.repo, encoding: 'utf8' }).trim(), initialContext.repositories[0].starting_head);
+    assert.equal(parseFrontmatter(fs.readFileSync(path.join(fixture.repo, '.flow', 'state.md'), 'utf8')).execution_context.repositories[0].starting_head, initialContext.repositories[0].starting_head, 'the gate must not write global state');
+
+    transitionTaskStatus(fixture.task, { cwd: fixture.repo, status: 'done', actor: 'flow' });
+    transitionTaskStatus(secondTask, { cwd: fixture.repo, status: 'in-progress', actor: 'flow' });
+    const carriedContext = JSON.parse(JSON.stringify(initialContext));
+    carriedContext.repositories[0].starting_head = firstHead;
+    execFileSync(process.execPath, [path.join(__dirname, '..', '..', 'bin', 'flow-tools.js'), 'state', 'patch', '--set', `execution_context=${JSON.stringify(carriedContext)}`, '--set', `git_commit=${firstHead}`, '--actor', 'flow', '--cwd', fixture.repo], { cwd: fixture.repo, stdio: 'ignore' });
+    const persistedState = parseFrontmatter(fs.readFileSync(path.join(fixture.repo, '.flow', 'state.md'), 'utf8'));
+    assert.deepEqual(persistedState.execution_context, carriedContext);
+    assert.equal(persistedState.git_commit, firstHead);
+
+    const stale = runTaskGate({ cwd: fixture.repo, taskFile: secondTask, workItem: 'work-item-001', executionContext: initialContext });
+    assert.equal(stale.valid, false, 'a stale initial HEAD must reject the next task');
+    assert.ok(stale.errors.some(error => error.includes('HEAD changed')));
+    assert.equal(stale.commit.committed, false);
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'second.js'), 'module.exports = 2;\n', 'utf8');
+    const second = runTaskGate({ cwd: fixture.repo, taskFile: secondTask, workItem: 'work-item-001', executionContext: persistedState.execution_context });
+    assert.equal(second.valid, true, JSON.stringify(second));
+    const secondHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.repo, encoding: 'utf8' }).trim();
+    assert.equal(second.commit.commit, secondHead);
+    assert.equal(execFileSync('git', ['rev-parse', 'HEAD^'], { cwd: fixture.repo, encoding: 'utf8' }).trim(), firstHead);
+  }
+
+  {
+    const fixture = createGitFixture();
+    const context = captureExecutionContext(fixture.repo, ['src/allowed.js']);
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'allowed.js'), 'module.exports = 2;\n', 'utf8');
+    const first = runTaskGate({ cwd: fixture.repo, taskFile: fixture.task, workItem: 'work-item-001', executionContext: context });
+    assert.equal(first.valid, true, JSON.stringify(first));
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'external.js'), 'module.exports = 3;\n', 'utf8');
+    execFileSync('git', ['add', 'src/external.js'], { cwd: fixture.repo, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'chore(test): external follow-up'], { cwd: fixture.repo, stdio: 'ignore' });
+    fs.writeFileSync(path.join(fixture.repo, 'src', 'allowed.js'), 'module.exports = 4;\n', 'utf8');
+    const result = runTaskGate({ cwd: fixture.repo, taskFile: fixture.task, workItem: 'work-item-001', executionContext: { ...context, repositories: context.repositories.map(repository => ({ ...repository, starting_head: first.commit.commit })) } });
+    assert.equal(result.valid, false, 'an unexplained external commit after a task must fail closed');
+    assert.ok(result.errors.some(error => error.includes('HEAD changed')));
+    assert.equal(result.commit.committed, false);
   }
 
   {

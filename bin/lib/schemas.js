@@ -95,7 +95,7 @@ const SCHEMAS = {
     output: { type: 'object', required: ['transitioned', 'file', 'from', 'status'], properties: { transitioned: { type: 'boolean' }, file: PATH, from: { type: 'string' }, status: { type: 'string', enum: ['todo', 'in-progress', 'done', 'blocked'] } }, additionalProperties: false },
   },
   'task gate': {
-    input: { type: 'object', required: ['cwd', 'file', 'work-item', 'execution-context', 'actor'], properties: { cwd: PATH, file: PATH, actor: ACTOR, 'work-item': { type: 'string', pattern: '^(?:\\d{1,3}|work-item-\\d{3})$' }, 'execution-context': EXECUTION_CONTEXT, timeout: { type: 'integer', minimum: 1, maximum: 120000 }, 'allow-protected-branch': { type: 'boolean' } }, additionalProperties: false },
+    input: { type: 'object', required: ['cwd', 'file', 'work-item', 'execution-context', 'actor'], properties: { cwd: PATH, file: PATH, actor: { type: 'string', enum: ['executor'] }, 'work-item': { type: 'string', pattern: '^(?:\\d{1,3}|work-item-\\d{3})$' }, 'execution-context': EXECUTION_CONTEXT, timeout: { type: 'integer', minimum: 1, maximum: 120000 }, 'allow-protected-branch': { type: 'boolean' } }, additionalProperties: false },
     output: { type: 'object', required: ['valid', 'task', 'verification', 'scope', 'git', 'commit', 'errors'], properties: { valid: { type: 'boolean' }, task: { type: 'object' }, verification: { type: 'object' }, scope: { type: 'object' }, git: { type: 'object' }, commit: { type: 'object' }, errors: { type: 'array', items: STRING } }, additionalProperties: false },
   },
   'map index': {

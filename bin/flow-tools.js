@@ -38,7 +38,7 @@ function showHelp() {
       'work-item create': '--input JSON --actor flow --cwd path',
       'scaffold init': '--actor flow --cwd path [--yes] [--dry-run] [--force]',
       'task transition': '--file path --status status --actor flow --cwd path',
-      'task gate': '--file path --work-item NNN --execution-context JSON --actor flow --cwd path',
+      'task gate': '--file path --work-item NNN --execution-context JSON --actor executor --cwd path',
       'audit open': '--cwd path',
       'audit memory check': '--cwd path',
       'audit memory validate': '--action action --fact fact --cwd path',

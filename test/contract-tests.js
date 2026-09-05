@@ -243,7 +243,7 @@ function argsFor(command, fixture) {
     case 'work-item create': return ['work-item', 'create', '--input', JSON.stringify({ goal: 'Create a contract Work Item.', constraints: 'Do not mutate global state.', done_condition: 'The created artifact must contain the expected files.' }), '--actor', 'flow', '--cwd', cwd];
     case 'scaffold init': return ['scaffold', 'init', '--actor', 'flow', '--cwd', cwd, '--yes'];
     case 'task transition': return ['task', 'transition', '--file', fixture.taskFile, '--status', 'in-progress', '--actor', 'flow', '--cwd', cwd];
-    case 'task gate': return ['task', 'gate', '--file', fixture.taskFile, '--work-item', 'work-item-001', '--execution-context', JSON.stringify({ repositories: [], outside_git: ['src/fixture.js'] }), '--actor', 'flow', '--cwd', cwd];
+    case 'task gate': return ['task', 'gate', '--file', fixture.taskFile, '--work-item', 'work-item-001', '--execution-context', JSON.stringify({ repositories: [], outside_git: ['src/fixture.js'] }), '--actor', 'executor', '--cwd', cwd];
     case 'map index': return ['map', 'index', '--scope', '.', '--output', '.flow/contract-map.json', '--cwd', cwd];
     case 'map search': return ['map', 'search', '--query', 'fixture', '--cwd', cwd];
     default: throw new Error(`No contract fixture for ${command}`);
@@ -306,6 +306,17 @@ function checkWorkItemCreateRoute() {
   }
 }
 
+function checkExecutionOwnershipDocumentation() {
+  const flowCommand = fs.readFileSync(path.join(ROOT, 'commands', 'flow.md'), 'utf8');
+  const executor = fs.readFileSync(path.join(ROOT, 'agents', 'flow-executor.md'), 'utf8');
+  if (!(flowCommand.includes('--actor executor') && flowCommand.includes('--execution-context <active-context-json>'))) { fail('flow must delegate the complete Executor gate invocation'); return; }
+  if (!(flowCommand.includes('advance') && flowCommand.includes('starting_head') && flowCommand.includes('state patch --actor flow'))) { fail('flow must document active execution-context advancement'); return; }
+  if (!(executor.includes('--actor executor') && executor.includes('--execution-context <active-context-json>'))) { fail('Executor must own the deterministic gate invocation'); return; }
+  if (!(executor.includes('The gate reruns the declared Verify command') && executor.includes('creates the one task commit'))) { fail('Executor contract must assign verification and commit to the gate'); return; }
+  if (executor.includes('git add [only files modified by this task]') || executor.includes('git commit -m')) { fail('Executor contract must not provide a manual second commit path'); return; }
+  pass('Flow and Executor contracts agree on gate ownership and expected HEAD handoff');
+}
+
 function checkFlowCreationSequenceDocumentation() {
   const flowCommand = fs.readFileSync(path.join(ROOT, 'commands', 'flow.md'), 'utf8');
   const sequence = [
@@ -330,6 +341,58 @@ function checkFlowCreationSequenceDocumentation() {
     fail('flow lifecycle documentation must not advertise a nonexistent /flow-new command');
   } else {
     pass('flow lifecycle documentation orders creation before planning and guarded state activation');
+  }
+}
+
+function checkTaskGateActorContract() {
+  const cwd = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'flow-gate-actor-'));
+  try {
+    const taskDirectory = path.join(cwd, '.flow', 'work-items', 'work-item-001', 'tasks');
+    fs.mkdirSync(taskDirectory, { recursive: true });
+    fs.mkdirSync(path.join(cwd, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, 'src', 'fixture.js'), 'module.exports = 1;\n', 'utf8');
+    const taskFile = path.join(taskDirectory, 'task-01.md');
+    fs.writeFileSync(taskFile, taskContent('in-progress'), 'utf8');
+    execFileSync('git', ['init'], { cwd, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'flow-test@example.invalid'], { cwd });
+    execFileSync('git', ['config', 'user.name', 'Flow Test'], { cwd });
+    execFileSync('git', ['checkout', '-b', 'feature/gate-actor'], { cwd, stdio: 'ignore' });
+    execFileSync('git', ['add', '.'], { cwd, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'chore(test): gate actor fixture'], { cwd, stdio: 'ignore' });
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+    const executionContext = JSON.stringify({
+      captured_at: '2026-09-05T00:00:00.000Z',
+      repositories: [{ root: cwd, branch: 'feature/gate-actor', starting_head: head }],
+      outside_git: [],
+    });
+    const gateArgs = ['task', 'gate', '--file', taskFile, '--work-item', 'work-item-001', '--execution-context', executionContext, '--cwd', cwd];
+
+    const executor = invoke([...gateArgs, '--actor', 'executor'], cwd);
+    if (!executor.ok || executor.data?.valid !== false || executor.data?.commit?.committed !== false) {
+      fail(`task gate executor actor should reach deterministic evaluation without committing — ${JSON.stringify(executor.data || executor)}`);
+    } else {
+      pass('task gate accepts the executor actor and preserves deterministic gate results');
+    }
+
+    for (const actor of ['flow', 'planner', 'reviewer']) {
+      const rejected = invoke([...gateArgs, '--actor', actor], cwd);
+      const currentHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+      if (rejected.ok || rejected.data?.code !== 'ACTOR_NOT_ALLOWED' || currentHead !== head) {
+        fail(`task gate rejects ${actor} without changing HEAD — ${JSON.stringify(rejected.data || rejected)}`);
+      } else {
+        pass(`task gate rejects ${actor} without changing HEAD`);
+      }
+    }
+
+    const missing = invoke(gateArgs, cwd);
+    const currentHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+    if (missing.ok || missing.data?.code !== 'INVALID_INPUT' || currentHead !== head) {
+      fail(`task gate rejects a missing actor without changing HEAD — ${JSON.stringify(missing.data || missing)}`);
+    } else {
+      pass('task gate rejects a missing actor without changing HEAD');
+    }
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
   }
 }
 
@@ -400,6 +463,8 @@ else fail('additionalProperties: false does not reject undeclared output fields'
 checkMinimalTaskContract();
 checkInvalidInputs();
 checkWorkItemCreateRoute();
+checkTaskGateActorContract();
+checkExecutionOwnershipDocumentation();
 checkFlowCreationSequenceDocumentation();
 
 if (failures === 0) {

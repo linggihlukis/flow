@@ -92,7 +92,7 @@ let constraintOk = true;
 const mapSearchInput = SCHEMAS['map search'].input;
 if (!check(mapSearchInput.properties['max-results'].minimum === 1 && mapSearchInput.properties['max-results'].maximum === 10000, 'map search max-results has bounded limits')) constraintOk = false;
 const gateInput = SCHEMAS['task gate'].input;
-if (!check(gateInput.required.includes('actor') && gateInput.properties.actor.enum.includes('flow'), 'task gate requires the flow actor')) constraintOk = false;
+if (!check(gateInput.required.includes('actor') && gateInput.properties.actor.enum.length === 1 && gateInput.properties.actor.enum.includes('executor'), 'task gate requires the executor actor')) constraintOk = false;
 if (!check(gateInput.properties.timeout.minimum === 1 && gateInput.properties.timeout.maximum === 120000, 'task gate timeout has bounded limits')) constraintOk = false;
 const memoryInput = SCHEMAS['audit memory apply'].input;
 if (!check(memoryInput.properties.action.enum.includes('supersede') && memoryInput.properties.section.enum.includes('Lessons'), 'memory apply action and section enums are complete')) constraintOk = false;

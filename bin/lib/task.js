@@ -562,7 +562,7 @@ function runTaskGate({
 }
 
 function cmdTaskGate(args) {
-  requireActor(args, 'flow');
+  requireActor(args, 'executor');
   const cwd = getCwd(args);
   const taskFile = getFlagValue(args, '--file');
   const workItemRaw = getFlagValue(args, '--work-item');
