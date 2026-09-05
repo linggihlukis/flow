@@ -121,7 +121,7 @@ After execution, the parent loads the Reviewer role reference, provides the Work
 
 ## Completion
 
-Acceptance requires every executed task to be `done`, `work-item.md` to be `complete`, and synchronized global lifecycle metadata. Before returning success, `/flow` runs:
+Acceptance requires that every task that actually executed is `status: done`, that `work-item.md` is `status: complete`, and that no task remains `todo`, `planned`, or otherwise incomplete, with synchronized global lifecycle metadata. Before returning success, `/flow` runs:
 
 ```bash
 node bin/flow-tools.js state validate --cwd .
