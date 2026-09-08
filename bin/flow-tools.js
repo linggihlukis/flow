@@ -48,9 +48,19 @@ function showHelp() {
 }
 
 // ─── Helpers (re-exported from lib/ for test suite compatibility) ────────────
-
-const { parseFrontmatter, serializeFrontmatter } = require('./lib/frontmatter');
-const { nowISO } = require('./lib/state');
+// Keep these compatibility exports lazy: legacy --version must work before its
+// separately installed runtime dependencies are available.
+let _frontmatter;
+let _state;
+function getFrontmatter() {
+  return _frontmatter || (_frontmatter = require('./lib/frontmatter'));
+}
+function getState() {
+  return _state || (_state = require('./lib/state'));
+}
+function parseFrontmatter(...args) { return getFrontmatter().parseFrontmatter(...args); }
+function serializeFrontmatter(...args) { return getFrontmatter().serializeFrontmatter(...args); }
+function nowISO(...args) { return getState().nowISO(...args); }
 
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function extractField(body, fieldName) {
