@@ -254,6 +254,12 @@ async function run() {
     "read-only operations must not require approval");
 
   const toolsTs = readFile(path.join(EXT_DIR, "tools.ts"));
+  check(/parameters:\s*Type\.Object\([\s\S]*paths:\s*Type\.Optional\(Type\.Array\(Type\.String\(\)\)\)/.test(toolsTs), pass, fail,
+    "flow_tools schema exposes files_check paths",
+    "flow_tools schema must expose files_check paths");
+  check(/lineCount:\s*Type\.Optional\(Type\.Boolean\(\)\)/.test(toolsTs), pass, fail,
+    "flow_tools schema exposes files_check lineCount",
+    "flow_tools schema must expose files_check lineCount");
   for (const [needle, okMsg, badMsg] of [
     ["flow-tools.js", "tools.ts invokes the package-local flow-tools CLI", "tools.ts must invoke the package-local flow-tools CLI"],
     ["process.execPath", "tools.ts runs the CLI through node without a shell", "tools.ts must run the CLI through process.execPath"],
