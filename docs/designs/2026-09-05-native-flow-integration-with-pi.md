@@ -1,9 +1,10 @@
 # Native Flow Integration with Pi
 
-**Status:** Draft
+**Status:** Approved for v0.5.0 first-slice implementation
 **Date:** 2026-09-05
-**Scope:** Design note for a Pi-native Flow package
-**Decision:** Pending implementation and validation
+**Updated:** 2026-09-08
+**Scope:** Pi-native Flow package, constrained by the 0.5.0 redesign
+**Decision:** Adopted. First slice adds a host-native Pi integration without changing the Flow protocol or the OpenCode/Codex/Zed installer.
 
 ## Summary
 
@@ -105,8 +106,8 @@ flow/
         ├── agents.ts                      Fixed package-local agent discovery
         ├── runner.ts                      Isolated Pi child-process runner
         ├── tools.ts                       flow_tools implementation
-        ├── render.ts                      Pi prompt/agent rendering helpers
-        ├── agents/                        Pi-compatible generated agent files
+        ├── operations.js                  Testable operation-to-CLI mapping
+        ├── agents/                        Checked-in Pi-compatible agent files
         │   ├── flow-planner.md
         │   ├── flow-executor.md
         │   └── flow-reviewer.md
@@ -117,7 +118,7 @@ flow/
             └── flow-status.md
 ```
 
-`extensions/flow/` is an adapter boundary, not a second Flow implementation. The existing `commands/` and `agents/` remain available to the legacy installer. Pi-specific files can be generated from those source contracts so that host-specific differences are explicit and drift is testable.
+`extensions/flow/` is an adapter boundary, not a second Flow implementation. The existing `commands/` and `agents/` remain available to the legacy installer. For the v0.5.0 first slice, Pi-specific files are checked-in host artifacts whose invariant tests preserve the source contracts' lifecycle, ownership, and safety rules. A generator is deferred until drift demonstrates a need.
 
 The package manifest should declare only the Pi resources it needs:
 
@@ -182,7 +183,7 @@ C:\Users\user\.pi\
                             ├── agents.ts
                             ├── runner.ts
                             ├── tools.ts
-                            ├── render.ts
+                            ├── operations.js
                             ├── agents\
                             │   ├── flow-planner.md
                             │   ├── flow-executor.md
@@ -251,9 +252,9 @@ flow_agent
 
 They must not tell the Pi parent to invoke a host-specific Task tool, `spawn_agent`, or Codex child-thread mechanism.
 
-The existing runtime command files should not be rewritten in place merely to support Pi. A small generation or rendering step should produce the Pi prompt artifacts from the current contracts. Add a check that fails when generated files differ from their source transformation.
+The existing runtime command files should not be rewritten in place merely to support Pi. For the v0.5.0 first slice, maintain the Pi prompt artifacts as checked-in host files and add invariant tests that preserve the source contracts' lifecycle ordering, ownership boundaries, tool routing, and fail-closed behavior.
 
-Prompt generation must be non-recursive and must preserve user arguments literally. Do not use shell interpolation to build the prompt.
+Pi template expansion must preserve user arguments literally. Do not use shell interpolation to build the prompt.
 
 ## Pi Flow agents
 
@@ -573,7 +574,7 @@ The existing Flow limitation remains explicit: child processes require shell and
 - `$ARGUMENTS` is preserved and substituted correctly;
 - host-specific binding text is absent from Pi prompts;
 - Pi prompts refer to `flow_agent` and `flow_tools`;
-- generated artifacts match their source transformation;
+- checked-in Pi artifacts preserve the source contracts' lifecycle, ownership, and failure invariants;
 - all three roles have the required names, descriptions, and tool policy;
 - package-local agent discovery does not search or overwrite user agents.
 
@@ -649,37 +650,62 @@ This would remove the CLI subprocess but duplicate tested state, task, memory, m
 
 This is convenient but violates installation ownership and makes a Pi package update change unrelated runtimes. It is rejected.
 
+## v0.5.0 first slice
+
+The 0.5.0 redesign still governs this work: Flow owns the protocol and artifacts; Pi owns execution. This package is a host-native integration, not a second Flow runtime, not a universal adapter, and not a reason to grow the protocol.
+
+### Implement now
+
+- `package.json` `pi-package` keyword plus `pi.extensions` / `pi.prompts` only. No `pi.agents`. No lifecycle scripts. No Pi peer packages bundled as runtime dependencies.
+- Checked-in Pi prompts under `extensions/flow/prompts/` and Pi agents under `extensions/flow/agents/`, derived from `commands/` and `agents/` by a documented transform. Invariant tests catch drift. No generator, no release-time render step, no `render.ts`.
+- Package-owned discovery of the three fixed roles only. Do not search `~/.pi/agent/agents/` or `.pi/agents/`.
+- `flow_agent`: single-role isolated child (`pi --mode json -p --no-session`). No chain, parallel, arbitrary agent names, or caller-chosen cwd.
+- `flow_tools`: native custom tool over package-local `bin/flow-tools.js` via `pi.exec(process.execPath, ...)`. Model cannot pass `cwd`, `actor`, `allow-protected-branch`, or `approval`.
+- Protected-branch and memory confirmation through `ctx.ui.confirm()` when `ctx.hasUI` is true; fail closed in print/JSON/non-interactive modes. A Reviewer proposal is not approval.
+- Recursion guard: if `PI_FLOW_CHILD_ROLE` is set, register `flow_tools` only. Do not disable unrelated Pi extensions.
+- Package-local `--version` reads nearby `package.json`. Legacy integrity check runs only when the executing file is the installed `~/.flow/tools/flow-tools.js` copy.
+- Existing OpenCode, Codex, and Zed installer behavior stays unchanged. Runtime registry stays those three hosts. Pi is not a fourth installer runtime.
+
+### Deferred
+
+- Extracting `bin/lib/dispatcher.js` for in-process `flow_tools`.
+- `/flow-status` version-skew display.
+- `--update-tools`.
+- Custom TUI renderers for `flow_agent`.
+- Session-scoped activation of Flow tools.
+- Pinning a minimum Pi version beyond documented APIs (`registerTool`, `exec`, `parseFrontmatter`, `ctx.ui.confirm`, `ctx.hasUI`, `ctx.cwd`, `ctx.model`, `ctx.thinkingLevel`).
+- Live `pi install` / `/flow` end-to-end fixture in CI. First slice proves package shape, isolation, CLI routing, and confirmation fail-closed behavior with Node tests. Manual Pi install remains a local check.
+
+### First-slice decisions
+
+1. **Pi artifacts are checked in**, with invariant tests against the source contracts. A generator is extra machinery; add one later only if drift becomes a demonstrated problem.
+2. **`flow_tools` and `flow_agent` register for the whole session.** Activation-on-prompt is a state machine we do not need. Children skip `flow_agent` via `PI_FLOW_CHILD_ROLE`.
+3. **Use documented Pi APIs** and list `@earendil-works/pi-coding-agent` plus `typebox` as `peerDependencies: "*"`. Do not pin a Flow-owned minimum Pi version in this slice.
+4. **Do not show Pi vs legacy version divergence in `/flow-status` yet.** There is no compatibility incident to report. Patch/minor `.flow/` compatibility still holds.
+5. **Do not add `--update-tools`.** `pi update npm:@linggihlukis/flow` and `npx @linggihlukis/flow@latest --update` are enough.
+
 ## Recommended implementation sequence
 
-1. Add the Pi package manifest and `pi-package` keyword without changing legacy runtime behavior.
-2. Add generated Pi prompt and agent artifacts under `extensions/flow/`.
-3. Add package-local agent discovery and the isolated `flow_agent` runner based on Pi's subagent example.
-4. Add the `flow_tools` custom tool backed by the package-local CLI.
-5. Render the Pi delegation binding and update the four Pi prompts.
-6. Add collision, trust, cancellation, confirmation, and package-isolation tests.
-7. Fix package-local version reporting and scope the legacy integrity check.
-8. Run the existing Flow suite unchanged, then run the Pi package fixture.
-9. Document the separate update commands and version-skew behavior.
+1. Declare the Pi manifest and `pi-package` keyword. Leave the legacy installer untouched.
+2. Add checked-in Pi prompts and agents under `extensions/flow/`.
+3. Add `flow_tools` operation mapping, then the Pi tool wrapper over package-local `bin/flow-tools.js`.
+4. Add package-local agent discovery and the isolated single-role `flow_agent` runner.
+5. Wire `extensions/flow/index.ts` with collision fail-closed and the child recursion guard.
+6. Scope the legacy integrity check and report the real package version from package-local CLI runs.
+7. Add Node tests for package shape, prompt/agent invariants, operation mapping, confirmation fail-closed behavior, and legacy isolation.
+8. Add a short README note for the separate Pi install/update commands.
 
-## Open questions
+## Decision
 
-1. Should Pi-native resources be generated from `commands/` and `agents/` automatically at release time, or should the generated files be maintained manually with a checked-in consistency test?
-2. Should `flow_tools` and `flow_agent` remain active for the whole Pi session, or should the extension activate them only after a package-owned Flow prompt is invoked?
-3. Should Pi package compatibility be pinned to a minimum Pi version, or should the extension use only APIs available across a broader supported range?
-4. Should version divergence be shown by `/flow-status` in the first native release, or deferred until a concrete compatibility issue appears?
-5. Is a separate `--update-tools` command worth adding, or are the two explicit update commands sufficient?
-
-## Proposed decision
-
-Adopt the Pi-native package design described above:
+Adopt the Pi-native package for v0.5.0 first slice:
 
 ```text
 Pi prompts
 + package-owned Pi-style Flow agents
-+ Flow-owned subagent-compatible extension
++ Flow-owned single-role flow_agent
 + native flow_tools custom tool
 + package-local bin/flow-tools.js
 + separate Pi and legacy update lifecycles
 ```
 
-Keep the existing legacy installer and `~/.flow/tools/` installation independent. Share project `.flow/` data, but preserve compatibility through explicit versioning and tests rather than implicit cross-updates.
+Keep the existing legacy installer and `~/.flow/tools/` independent. Share project `.flow/` data. Do not add protocol machinery, a universal host adapter, or a second deterministic implementation.
