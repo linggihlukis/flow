@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node bin/install.js",
-    "test": "node test/flow-test.js && node test/state-regression.test.js && npm run test:lib && npm run test:contracts",
+    "test": "node test/flow-test.js && node test/state-regression.test.js && node test/pi-package.test.js && npm run test:lib && npm run test:contracts",
     "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/flow-map.test.js && node test/lib/primitives.test.js && node test/lib/input-safety.test.js && node test/lib/task.test.js && node test/lib/work-item.test.js && node test/lib/lifecycle.test.js && node test/lib/memory.test.js",
     "test:contracts": "node test/contract-tests.js",
 
@@ -25,9 +25,22 @@
     "spec-driven-development",
     "solo-developer",
     "legacy-codebase",
-    "ai-coding"
+    "ai-coding",
+    "pi-package"
   ],
   "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions/flow/index.ts"],
+    "prompts": ["./extensions/flow/prompts/*.md"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": { "optional": true },
+    "typebox": { "optional": true }
+  },
   "engines": {
     "node": ">=18.0.0"
   },

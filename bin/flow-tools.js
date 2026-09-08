@@ -23,7 +23,7 @@ function output(data) { process.stdout.write(JSON.stringify(data) + '\n'); }
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '[flow-version]',
+    version: getFlowVersion(),
     commands: {
       'state get': '--cwd path',
       'state patch': '--cwd path --actor flow --set key=value ...',
@@ -65,6 +65,34 @@ function resolveSafePath(cwd, filePath) {
     return _resolveSafePath(cwd, filePath);
   } catch (e) {
     exitErr(e.code || ERROR_CODES.PATH_NOT_FOUND, e.message);
+  }
+}
+
+// Package-local copies (repository checkout and the Pi package) report the real
+// package version from the adjacent package.json. Legacy installed copies under
+// the Flow tools home keep the installer-replaced [flow-version] literal as fallback.
+function getFlowVersion() {
+  try {
+    const pkgPath = path.join(__dirname, '..', 'package.json');
+    const pkgData = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkgData && pkgData.name === '@linggihlukis/flow' && typeof pkgData.version === 'string') {
+      return pkgData.version;
+    }
+  } catch (err) { /* fall through to the installer-replaced literal */ }
+  return '[flow-version]';
+}
+
+// The legacy installed copy is the one actually living in the Flow tools home.
+// Integrity checking is scoped to it; package-local execution never inspects an
+// unrelated legacy installation or its manifest.
+function isLegacyInstalledCopy() {
+  const { Platform } = require('./lib/platform');
+  const legacyPath = path.join(Platform.home, '.flow', 'tools', 'flow-tools.js');
+  if (path.resolve(__filename) === path.resolve(legacyPath)) return true;
+  try {
+    return fs.realpathSync(__filename) === fs.realpathSync(legacyPath);
+  } catch (err) {
+    return false;
   }
 }
 
@@ -154,7 +182,7 @@ function main() {
   const args = process.argv.slice(2);
   if (args.length === 0 || args[0] === '--help') { showHelp(); return; }
   if (args[0] === '--version') {
-    output({ version: '[flow-version]' });
+    output({ version: getFlowVersion() });
     return;
   }
   const cmd = args[0];
@@ -164,9 +192,9 @@ function main() {
 
 // ─── Startup integrity check ─────────────────────────────────────────────────
 function runIntegrityCheck() {
-  const { Platform } = require('./lib/platform');
-  const _home = Platform.home;
-  const manifestPath = path.join(_home, '.flow', 'tools', 'manifest.json');
+  if (!isLegacyInstalledCopy()) return;
+
+  const manifestPath = path.join(path.dirname(__filename), 'manifest.json');
   if (!fs.existsSync(manifestPath)) return;
 
   let manifest;
@@ -177,20 +205,9 @@ function runIntegrityCheck() {
     return;
   }
 
-  // When running from source (bin/flow-tools.js in project), __filename contains
-  // the [flow-version] template placeholder — the installed copy at ~/.flow/tools/
-  // has the resolved version. Hash the target file the manifest was built from.
-  const SRC_CONTENT = fs.readFileSync(__filename, 'utf8');
-  const isSourceFile = SRC_CONTENT.includes('[flow-version]');
-  const targetFile = isSourceFile
-    ? path.join(_home, '.flow', 'tools', 'flow-tools.js')
-    : __filename;
-
-  if (!isSourceFile && !fs.existsSync(targetFile)) return;
-
   let actual;
   try {
-    actual = crypto.createHash('sha256').update(fs.readFileSync(targetFile)).digest('hex');
+    actual = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
   } catch (err) {
     if (process.env.DEBUG) process.stderr.write(`flow-tools: integrity hashing failed: ${err.message}\n`);
     return;

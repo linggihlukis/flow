@@ -9,7 +9,7 @@
 
 Flow is a spec-driven agentic development workflow for solo developers. It carries planning discipline, cross-session memory, and verification in the system — so messy codebases get mapped accurately and worked within, not pretended clean.
 
-Flow installs command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. Child creation is performed by each host's native subagent mechanism; when that capability is unavailable, Flow fails closed instead of doing the work inline.
+Flow installs command and agent contracts for OpenCode, Codex App / CLI, and Zed Editor on macOS, Linux, and Windows. For Pi, Flow ships as a native Pi package: the `/flow` prompts, the three package-owned roles, and the `flow_agent` / `flow_tools` tools, managed entirely by Pi. Child creation is performed by each host's native subagent mechanism; when that capability is unavailable, Flow fails closed instead of doing the work inline.
 
 ---
 
@@ -84,6 +84,22 @@ Install is global-only: tools live in `~/.flow/tools`, the scaffold (`.flow/` + 
 | OpenCode | `~/.config/opencode/commands/` |
 | Codex App / CLI | `~/.agents/skills/` + `~/.codex/agents/` (TOML agents) |
 | Zed Editor | `~/.agents/skills/` (shared with Codex — written once) |
+| Pi | `~/.pi/agent/npm/node_modules/@linggihlukis/flow/` (managed by Pi) |
+
+### Pi (native package)
+
+```bash
+pi install npm:@linggihlukis/flow    # /flow prompts + flow_agent + flow_tools, managed by Pi
+pi update npm:@linggihlukis/flow     # update the Pi package only
+pi remove npm:@linggihlukis/flow     # remove the Pi package; project .flow/ data is preserved
+```
+
+Pi owns its managed package directory and never touches `~/.flow/tools/`, OpenCode, Codex, or Zed artifacts. The legacy installer never touches the Pi package or Pi settings. Project `.flow/` data is shared by both installations and is never modified by installing, updating, or removing either one. Updating both installations requires two explicit commands:
+
+```bash
+pi update npm:@linggihlukis/flow
+npx @linggihlukis/flow@latest --update
+```
 
 ---
 
