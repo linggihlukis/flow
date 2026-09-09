@@ -8,7 +8,7 @@
 const scaffoldSuite = require("./scaffold.test");
 const installSuite = require("./install.test");
 const commandsSuite = require("./commands.test");
-
+const orchestratorSuite = require("./orchestrator.test");
 const regressionsSuite = require("./regressions.test");
 const tsExtractorSuite = require("./lib/ts-extractor.test");
 
@@ -25,7 +25,7 @@ async function main() {
     totalFailures += await scaffoldSuite.run();
     totalFailures += await installSuite.run();
     totalFailures += await commandsSuite.run();
-
+    totalFailures += await orchestratorSuite.run();
     totalFailures += await regressionsSuite.run();
     totalFailures += await tsExtractorSuite.run();
 

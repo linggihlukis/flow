@@ -65,10 +65,10 @@ npx @linggihlukis/flow --all          # all three (dedupes shared skills once)
 | Flag | Description |
 |---|---|
 | `--update` | Update in place (runtime artifacts overwritten; `.flow/` data preserved) |
-| `--uninstall` | Remove Flow commands (preserves `.flow/` scaffold) |
+| `--uninstall` | Remove Flow commands/agents/skills (preserves `.flow/` scaffold) |
 | `--yes` | Non-interactive — skip prompts without TTY |
 | `--dry-run` | Preview project scaffold/`AGENTS.md` changes with `--scaffold` |
-| `--force` | Allow scaffold replacement when `.flow/work-items/` is non-empty |
+| `--force` | With `--scaffold`, proceed when `.flow/work-items/` is non-empty (existing Work Items are kept) |
 | `--update-agents` | With `--scaffold`, update the Flow section in `AGENTS.md` |
 
 Update from inside your project:
@@ -78,6 +78,8 @@ npx @linggihlukis/flow@latest --update
 ```
 
 Install is global-only: tools live in `~/.flow/tools`, the scaffold (`.flow/` + `AGENTS.md` marker) lives in your repo and belongs to `/flow-init`. Updates never touch `.flow/state.md`, `.flow/memory.md`, `.flow/map.json`, or `.flow/work-items/`.
+
+Upgrading from `0.4.x` is breaking: `--update` refreshes runtime artifacts and tools but does not migrate project `.flow/` data. `0.4` milestone/phase state (`state.json`, `config.json`, `milestones/`, `codebase/`, milestone-shaped `state.md`) is not compatible with `0.5`. Back up `.flow/`, remove obsolete `0.4` artifacts, and run `/flow-init` for a clean `0.5` scaffold (carry durable memory over manually). `/flow-status` reports whether current state validates.
 
 | Runtime | Global path |
 |---|---|

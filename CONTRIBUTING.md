@@ -14,14 +14,14 @@ Thank you for your interest in contributing to Flow.
 git clone https://github.com/linggihlukis/flow.git
 cd flow
 npm install
-npm test    # Suites 1-17 + ts-extractor, zero failures expected
+npm test    # full suite, zero failures expected
 ```
 
 ## Project Structure
 
 ```
 agents/        — 3 subagent definitions (flow-planner, flow-executor, flow-reviewer)
-bin/           — installer (install.js) + flow-tools.js (7 top-level namespaces: state/frontmatter/files/map/task/audit/work-item) + supporting safety modules
+bin/           — installer (install.js) + flow-tools.js (8 top-level namespaces: state/frontmatter/files/map/task/audit/work-item/scaffold) + supporting safety modules
 commands/      — 4 commands (flow, flow-init, flow-map, flow-status)
 scaffold/      — template files installed into user projects (.flow/{state,memory,map,work-items} + AGENTS.md marker)
 test/          — test suite
@@ -49,7 +49,7 @@ Flow is a Work Item system — `Work Item → Plan → Execute → Review`.
 
 - `scaffold/AGENTS.md` Flow block is ~10 lines (`flow:generated` markers) — workflow only, not repo facts.
 - `bin/install.js` scaffold is `.flow/{state.md,memory.md,map.json,work-items/}` only — no `config.json`/`state.json`.
-- 7 top-level namespaces only: `state/frontmatter/files/map/task/audit/work-item` — memory remains under `audit memory`, and task verification, scope, and Git safety remain centralized under `task`; initial Work Item allocation is under `work-item create`; no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
+- 8 top-level namespaces only: `state/frontmatter/files/map/task/audit/work-item/scaffold` — memory remains under `audit memory`, and task verification, scope, and Git safety remain centralized under `task`; initial Work Item allocation is under `work-item create`; no `phase/context/kb/lessons/patterns/config/batch/repo-map`.
 - `test/flow-test.js` has inline canonical data — update both the test and the source when paths change.
 - Keep `agents/flow-reviewer.md` task reads cold — context isolation is the point.
 - Native child-agent creation belongs to the host runtime. Installation does not claim runtime capability; unsupported or unavailable delegation must fail closed with no inline/sequential fallback.
@@ -75,7 +75,6 @@ Run focused suites as well as the full runner when changing contracts:
 ```bash
 npm run test:lib
 npm run test:contracts
-npm run test:integration
 ```
 
 ## Questions?

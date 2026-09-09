@@ -872,6 +872,7 @@ async function main() {
   let totalCommands = 0;
   let totalSkills = 0;
   let totalAgents = 0;
+  let installFailed = false;
   for (const target of targets) {
     try {
       if (target.kind === "codex") {
@@ -897,6 +898,7 @@ async function main() {
       }
     } catch (e) {
       err(`Failed: ${e.message}`);
+      installFailed = true;
     }
   }
 
@@ -920,7 +922,12 @@ async function main() {
   // Summary
   log("");
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  log(`${c.green}${c.bold}  ✅ FLOW installed${c.reset}`);
+  if (installFailed) {
+    err("  FLOW install completed with errors — see Failed lines above");
+    process.exitCode = 1;
+  } else {
+    log(`${c.green}${c.bold}  ✅ FLOW installed${c.reset}`);
+  }
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   if (runtime === "codex" || runtime === "zed") {
@@ -1028,13 +1035,14 @@ async function runUpdate() {
 
   // Dedup: codex and zed share ~/.agents/skills — write once
   const updatedSkillsDirs = new Set();
+  let updateFailed = false;
 
   if (installed.opencode) {
     try {
       const cmdCount = installCommands(RUNTIMES.opencode.commandsDir);
       const agCount  = installAgents(RUNTIMES.opencode.agentsDir);
       ok(`OpenCode global: ${cmdCount} commands + ${agCount} agents`);
-    } catch (e) { err(`OpenCode global failed: ${e.message}`); }
+    } catch (e) { err(`OpenCode global failed: ${e.message}`); updateFailed = true; }
   }
 
   if (installed.codex.skills || installed.codex.agents) {
@@ -1049,7 +1057,7 @@ async function runUpdate() {
       }
       const agCount    = installed.codex.agents ? installCodexAgents(RUNTIMES.codex.agentsDir) : 0;
       ok(`Codex App / CLI global: ${skillCount} skills + ${agCount} agents`);
-    } catch (e) { err(`Codex App / CLI global failed: ${e.message}`); }
+    } catch (e) { err(`Codex App / CLI global failed: ${e.message}`); updateFailed = true; }
   }
 
 
@@ -1058,7 +1066,7 @@ async function runUpdate() {
     try {
       const skillCount = installZedSkill(RUNTIMES.zed.commandsDir);
       ok(`Zed Editor global: ${skillCount} Skill (flow + references)`);
-    } catch (e) { err(`Zed Editor global failed: ${e.message}`); }
+    } catch (e) { err(`Zed Editor global failed: ${e.message}`); updateFailed = true; }
   }
 
   // One-shot legacy shim cleanup, including retired runtime artifacts.
@@ -1087,6 +1095,7 @@ async function runUpdate() {
   } catch (e) {
     err(`Step 2b — installFlowHome failed: ${e.message}`);
     warn("Flow tools update skipped — project update will continue.");
+    updateFailed = true;
   }
 
   try {
@@ -1113,7 +1122,12 @@ async function runUpdate() {
   // ── Summary ────────────────────────────────────────────────────────────────
   log("");
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-  log(`${c.green}${c.bold}  ✅ FLOW updated to v${pkg.version}${c.reset}`);
+  if (updateFailed) {
+    err("  FLOW update completed with errors — see Failed lines above");
+    process.exitCode = 1;
+  } else {
+    log(`${c.green}${c.bold}  ✅ FLOW updated to v${pkg.version}${c.reset}`);
+  }
   log(bold("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
   log("");
   log(`  Project data untouched (never modified):`);

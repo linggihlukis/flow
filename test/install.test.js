@@ -229,6 +229,16 @@ async function run() {
   } else {
     fail("retired 6-agent files still present: " + stillPresent.join(", "));
   }
+  if (installSource.includes("installFailed = true") && installSource.includes("updateFailed = true") && installSource.includes("process.exitCode = 1")) {
+    pass("install/update track runtime failures and exit non-zero (no false success)");
+  } else {
+    fail("install/update must track runtime failures and set process.exitCode = 1");
+  }
+  if (installSource.includes("if (installFailed)") && installSource.includes("if (updateFailed)")) {
+    pass("install/update success banners are conditional on zero failures");
+  } else {
+    fail("install/update success banners must be conditional on zero failures");
+  }
 
   // Suite 11 — Updated for Task 3 minimal scaffold
   suite("Suite 11 — Scaffold updater (minimal shape)");
