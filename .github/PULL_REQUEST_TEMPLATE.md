@@ -8,12 +8,11 @@
 
 ## Checklist
 
-- [ ] `npm test` passes (8 suites, zero failures)
+- [ ] `npm test` passes (zero failures)
 - [ ] No new files added to `scaffold/` without updating `bin/install.js` scaffold dirs
-- [ ] No new agents added without updating `scaffold/AGENTS.md` §2 and §5
-- [ ] No path changes without updating `test/flow-test.js` canonical data
+- [ ] No new agents added without updating `scaffold/AGENTS.md`
+- [ ] No path changes without updating `test/` canonical data
 - [ ] CHANGELOG.md updated (if this is a version bump)
-- [ ] ROADMAP.md updated (if this closes a planned item)
 
 ## Testing
 

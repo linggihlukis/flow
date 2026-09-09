@@ -3,22 +3,12 @@
 
 const fs   = require('node:fs');
 const path = require('node:path');
-const os   = require('node:os');
 const crypto = require('node:crypto');
 
 const ERROR_CODES = {
-  UNKNOWN_COMMAND:  'UNKNOWN_COMMAND',
-  STATE_NOT_FOUND:  'STATE_NOT_FOUND',
-  STATE_PARSE_ERROR:'STATE_PARSE_ERROR',
-  PHASE_NOT_FOUND:  'PHASE_NOT_FOUND',
-  PATH_NOT_FOUND:   'PATH_NOT_FOUND',
-  FRONTMATTER_NOT_FOUND: 'FRONTMATTER_NOT_FOUND',
-  WRITE_FAILED:        'WRITE_FAILED',
+  UNKNOWN_COMMAND: 'UNKNOWN_COMMAND',
+  PATH_NOT_FOUND:  'PATH_NOT_FOUND',
 };
-
-const KB = 1024;
-const MODEL_CONTEXT_LIMIT_DEFAULT = 200000;
-const MAX_AST_DEPTH = 200;
 
 function exitErr(code, message) {
   if (require.main === module) {
@@ -29,76 +19,48 @@ function exitErr(code, message) {
 }
 function output(data) { process.stdout.write(JSON.stringify(data) + '\n'); }
 
-function getCwd(args) {
-  const idx = args.indexOf('--cwd');
-  if (idx >= 0 && idx + 1 < args.length) {
-    const raw = args[idx + 1];
-    const resolved = path.resolve(raw);
-    if (!path.isAbsolute(raw)) {
-      const cwdDir = process.cwd();
-      const relative = path.relative(cwdDir, resolved);
-      if (relative.startsWith('..')) exitErr(ERROR_CODES.PATH_NOT_FOUND, `--cwd path '${resolved}' is outside the working directory`);
-    }
-    return resolved;
-  }
-  return process.cwd();
-}
-
-function collectFlagValues(args, flagName) {
-  const values = [];
-  let collecting = false;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flagName) { collecting = true; continue; }
-    if (collecting) {
-      if (args[i].startsWith('--')) { collecting = false; continue; }
-      values.push(args[i]);
-    }
-  }
-  return values;
-}
-
-const VALID_STATUSES = new Set([
-  'active', 'planned', 'in-progress', 'paused', 'executed',
-  'verified', 'needs-fixes', 'milestone-complete', 'complete',
-  'not-started', 'ready',
-]);
 
 function showHelp() {
   output({
     description: 'flow-tools.js — deterministic tool layer for FLOW',
-    version: '[flow-version]',
+    version: getFlowVersion(),
     commands: {
-      index: '--scope dir1 dir2 --phase N --cwd path',
       'state get': '--cwd path',
-      'state patch': '--cwd path --set key=value ...',
+      'state patch': '--cwd path --actor flow --set key=value ...',
       'state validate': '--cwd path',
       'state sync': '--cwd path',
-      'config get': '[key] --cwd path',
       'frontmatter get': 'file [--field name ...] --cwd path',
       'frontmatter set': 'file --set key=value [--dry-run] --cwd path',
       'files check': 'file... [--line-count] [--touch] [--newer ref] --cwd path',
-      'context estimate': 'file... --cwd path',
-      'context trace-avg': '--file path --cwd path',
-      'lessons recent': '[--n N] [--type filter] [--query] [--body-filter] [--count-only] --cwd path',
-      'kb search': '--zone ZONE [--n N] [--count-only] --cwd path',
-      'history digest': '[--n N] --cwd path',
-      'patterns extract': '[--section name] [--patterns path] [--query] --cwd path',
-      'extract field': '--file path --field name --cwd path',
-      'phase list': '--phase N --cwd path',
-      'wave resolve': '--phase N --cwd path',
-      'statusline show': '[--phase N] --cwd path',
+      'map index': '--scope dir [--symbols] [--hash] [--cwd path]',
+      'map search': '--query Q [--max-results N] [--path map] --cwd path',
+      'task validate': '--file path --work-item NNN --cwd path',
+      'work-item create': '--input JSON --actor flow --cwd path',
+      'scaffold init': '--actor flow --cwd path [--yes] [--dry-run] [--force]',
+      'task transition': '--file path --status status --actor flow --cwd path',
+      'task gate': '--file path --work-item NNN --execution-context JSON --actor executor --cwd path',
       'audit open': '--cwd path',
-      'task validate': '--file path|--phase N --cwd path',
-      'repo-map search': '--query Q [--max-results N] [--path map] --cwd path',
-      batch: 'reads JSON array from stdin',
+      'audit memory check': '--cwd path',
+      'audit memory validate': '--action action --fact fact --cwd path',
+      'audit memory apply': '--action action --actor flow --cwd path',
     },
   });
 }
 
 // ─── Helpers (re-exported from lib/ for test suite compatibility) ────────────
-
-const { parseFrontmatter, serializeFrontmatter } = require('./lib/frontmatter');
-const { nowISO } = require('./lib/state');
+// Keep these compatibility exports lazy: legacy --version must work before its
+// separately installed runtime dependencies are available.
+let _frontmatter;
+let _state;
+function getFrontmatter() {
+  return _frontmatter || (_frontmatter = require('./lib/frontmatter'));
+}
+function getState() {
+  return _state || (_state = require('./lib/state'));
+}
+function parseFrontmatter(...args) { return getFrontmatter().parseFrontmatter(...args); }
+function serializeFrontmatter(...args) { return getFrontmatter().serializeFrontmatter(...args); }
+function nowISO(...args) { return getState().nowISO(...args); }
 
 function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function extractField(body, fieldName) {
@@ -116,44 +78,72 @@ function resolveSafePath(cwd, filePath) {
   }
 }
 
+// Package-local copies (repository checkout and the Pi package) report the real
+// package version from the adjacent package.json. Legacy installed copies under
+// the Flow tools home keep the installer-replaced [flow-version] literal as fallback.
+function getFlowVersion() {
+  try {
+    const pkgPath = path.join(__dirname, '..', 'package.json');
+    const pkgData = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    if (pkgData && pkgData.name === '@linggihlukis/flow' && typeof pkgData.version === 'string') {
+      return pkgData.version;
+    }
+  } catch (err) { /* fall through to the installer-replaced literal */ }
+  return '[flow-version]';
+}
+
+// The legacy installed copy is the one actually living in the Flow tools home.
+// Integrity checking is scoped to it; package-local execution never inspects an
+// unrelated legacy installation or its manifest.
+function isLegacyInstalledCopy() {
+  const { Platform } = require('./lib/platform');
+  const legacyPath = path.join(Platform.home, '.flow', 'tools', 'flow-tools.js');
+  if (path.resolve(__filename) === path.resolve(legacyPath)) return true;
+  try {
+    return fs.realpathSync(__filename) === fs.realpathSync(legacyPath);
+  } catch (err) {
+    return false;
+  }
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 
 const _libRoutes = {
   'state': './lib/state',
   'frontmatter': './lib/frontmatter',
-  'config': './lib/config',
   'files': './lib/files',
-  'context': './lib/context',
-  'lessons': './lib/lessons',
-  'kb': './lib/kb',
-  'history': './lib/kb',
-  'patterns': './lib/patterns',
-  'phase': './lib/phase',
-  'wave': './lib/phase',
-  'statusline': './lib/phase',
+  'map': './lib/flow-map',
   'audit': './lib/audit',
-  'repo-map': './lib/repo-map',
   'task': './lib/task',
-  'extract': './lib/task',
-  'index': './lib/index',
-  'content': './lib/content',
-  'batch': './lib/batch',
-  'runtime': './lib/runtime',
+  'work-item': './lib/work-item',
+  'scaffold': './lib/scaffold',
 };
 
 const _FIELD_TO_FLAG = {
-  // Only fields where the flag is genuinely required and has no default.
-  // Most fields default to process.cwd() or work with empty values.
   sets: '--set',
   'max-results': '--max-results',
-  'count-only': '--count-only',
-  'body-filter': '--body-filter',
   'dry-run': '--dry-run',
   'line-count': '--line-count',
   touch: '--touch',
   newer: '--newer',
-  type: '--type',
-  n: '--n',
+  actor: '--actor',
+  file: '--file',
+  query: '--query',
+  scope: '--scope',
+  output: '--output',
+  status: '--status',
+  'work-item': '--work-item',
+  input: '--input',
+  'execution-context': '--execution-context',
+  timeout: '--timeout',
+  action: '--action',
+  fact: '--fact',
+  target: '--target',
+  evidence: '--evidence',
+  reason: '--reason',
+  section: '--section',
+  approval: '--approval',
+  'expected-memory-digest': '--expected-memory-digest',
 };
 
 function _validateRequired(args, schema) {
@@ -176,14 +166,13 @@ function _dispatchLib(cmd, args) {
   if (!modPath) return false;
   try {
     const subCmd = args[1] || '';
-    const fullCmd = subCmd ? `${cmd} ${subCmd}` : cmd;
+    const nestedCmd = cmd === 'audit' && subCmd === 'memory' && args[2] && !String(args[2]).startsWith('--') ? args[2] : '';
+    const fullCmd = nestedCmd ? `${cmd} ${subCmd} ${nestedCmd}` : subCmd ? `${cmd} ${subCmd}` : cmd;
     const schema = require('./lib/schemas').SCHEMAS[fullCmd]?.input;
     _validateRequired(args, schema);
     const subArgs = args.slice(1);
     const mod = require(modPath);
-    const result = cmd === 'batch'
-      ? mod.execute(subArgs, Object.fromEntries(Object.entries(_libRoutes).map(([k, v]) => [k, path.resolve(__dirname, v)])))
-      : mod.execute(subArgs);
+    const result = mod.execute(subArgs);
 
     if (result && typeof result.then === 'function') {
       result.then(data => output(data)).catch(e => {
@@ -203,7 +192,7 @@ function main() {
   const args = process.argv.slice(2);
   if (args.length === 0 || args[0] === '--help') { showHelp(); return; }
   if (args[0] === '--version') {
-    output({ version: '[flow-version]' });
+    output({ version: getFlowVersion() });
     return;
   }
   const cmd = args[0];
@@ -213,7 +202,9 @@ function main() {
 
 // ─── Startup integrity check ─────────────────────────────────────────────────
 function runIntegrityCheck() {
-  const manifestPath = path.join(os.homedir(), '.flow', 'tools', 'manifest.json');
+  if (!isLegacyInstalledCopy()) return;
+
+  const manifestPath = path.join(path.dirname(__filename), 'manifest.json');
   if (!fs.existsSync(manifestPath)) return;
 
   let manifest;
@@ -224,20 +215,9 @@ function runIntegrityCheck() {
     return;
   }
 
-  // When running from source (bin/flow-tools.js in project), __filename contains
-  // the [flow-version] template placeholder — the installed copy at ~/.flow/tools/
-  // has the resolved version. Hash the target file the manifest was built from.
-  const SRC_CONTENT = fs.readFileSync(__filename, 'utf8');
-  const isSourceFile = SRC_CONTENT.includes('[flow-version]');
-  const targetFile = isSourceFile
-    ? path.join(os.homedir(), '.flow', 'tools', 'flow-tools.js')
-    : __filename;
-
-  if (!isSourceFile && !fs.existsSync(targetFile)) return;
-
   let actual;
   try {
-    actual = crypto.createHash('sha256').update(fs.readFileSync(targetFile)).digest('hex');
+    actual = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex');
   } catch (err) {
     if (process.env.DEBUG) process.stderr.write(`flow-tools: integrity hashing failed: ${err.message}\n`);
     return;

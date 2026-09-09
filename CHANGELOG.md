@@ -3,6 +3,28 @@
 All notable changes to Flow are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.0] - 2026-09-09
+
+### Added
+- Native Pi package integration with `/flow` prompts, package-owned Planner/Executor/Reviewer roles, and `flow_agent` / `flow_tools` tools.
+- Work Item lifecycle primitives, curated memory operations, Git execution-context safety gates, and a lightweight `.flow/map.json`.
+- Native runtime packaging for OpenCode, Codex, and Zed, including Zed `spawn_agent` guidance and Codex custom-agent definitions.
+
+### Changed
+- Redesigned Flow around `Work Item → Plan → Execute → Review → Complete`, with Work Items replacing milestones and phases.
+- Reduced orchestration to three roles and four commands: `/flow-init`, `/flow-map`, `/flow-status`, and `/flow`.
+- Made `/flow` a thin orchestrator: Flow owns the protocol and durable lifecycle state; each host owns child-agent execution.
+- Simplified the task contract and project scaffold while preserving explicit verification, repository scope, and state consistency.
+- Made installation global-only and deterministic for OpenCode, Codex, and Zed; Pi installation remains host-managed.
+
+### Removed
+- Milestone/phase workflows, context-budget and transcript subsystems, extra critic/verifier/debugger/researcher roles, and obsolete runtime bridges.
+- Inline and sequential role fallbacks; Flow now fails closed when native child delegation is unavailable.
+
+### Fixed
+- Hardened Work Item creation, lifecycle activation/completion, memory proposal application, task gate ownership, and branch/HEAD safety checks.
+- Corrected isolated installs, Windows npm execution, installed version reporting, and runtime-specific command/tool invocation guidance.
+
 ## [0.4.0] - 2026-06-12
 
 ### Added

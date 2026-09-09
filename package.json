@@ -1,17 +1,17 @@
 {
   "name": "@linggihlukis/flow",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": "Linggih Lukis <linggihlukis@gmail.com> (https://github.com/linggihlukis)",
-  "description": "Flow — spec-driven agentic development workflow for solo developers.",
+  "description": "Flow — disciplined AI-assisted development workflow for real codebases.",
   "bin": {
     "flow": "bin/install.js"
   },
   "scripts": {
     "start": "node bin/install.js",
-    "test": "node test/flow-test.js",
-    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/content.test.js",
+    "test": "node test/flow-test.js && node test/state-regression.test.js && node test/pi-package.test.js && npm run test:lib && npm run test:contracts",
+    "test:lib": "node test/lib/platform.test.js && node test/lib/cache.test.js && node test/lib/schemas.test.js && node test/lib/path-resolver.test.js && node test/lib/flow-map.test.js && node test/lib/primitives.test.js && node test/lib/input-safety.test.js && node test/lib/task.test.js && node test/lib/work-item.test.js && node test/lib/lifecycle.test.js && node test/lib/memory.test.js",
     "test:contracts": "node test/contract-tests.js",
-    "test:integration": "node test/integration/flow-execute.test.js",
+
     "docs": "node scripts/generate-docs.js > docs/api-reference.md"
   },
   "keywords": [
@@ -20,19 +20,34 @@
     "ai-workflow",
     "codex",
     "opencode",
-    "claude-code",
+    "zed",
     "context-engineering",
     "spec-driven-development",
     "solo-developer",
     "legacy-codebase",
-    "ai-coding"
+    "ai-coding",
+    "pi-package"
   ],
   "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions/flow/index.ts"],
+    "prompts": ["./extensions/flow/prompts/*.md"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": { "optional": true },
+    "typebox": { "optional": true }
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.3.2"
+  },
+  "optionalDependencies": {
     "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "^0.20.8"
   }

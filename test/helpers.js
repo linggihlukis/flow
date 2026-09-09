@@ -31,31 +31,22 @@ function createReporter() {
 const CANONICAL_FLOW_PREFIXES = [
   ".flow/state.md",
   ".flow/state.md.bak",
-  ".flow/codebase/",
-  ".flow/milestones/",
-  ".flow/memory/",
-  ".flow/config.json",
-  ".flow/quick/",
-  ".flow/docs/",
-  ".flow/tools/",
-  ".flow/tools",
+  ".flow/memory.md",
+  ".flow/map.json",
+  ".flow/work-items/",
 ];
 
-const COMMAND_REQUIRED = ["description", "agent"];
+const COMMAND_REQUIRED = ["description"];
 const AGENT_REQUIRED   = ["description", "mode", "temperature", "tools"];
 const AGENT_TOOL_KEYS  = ["write", "edit", "bash"];
 
 const KNOWN_AGENTS = [
-  "flow-critic",
-  "flow-debugger",
   "flow-executor",
   "flow-planner",
-  "flow-researcher",
-  "flow-verifier",
+  "flow-reviewer",
 ];
 
-const CONFIG_REQUIRED_KEYS = ["flow_version", "runtime", "mode", "depth", "workflow", "models", "git", "destructive_tier"];
-const CONFIG_WORKFLOW_KEYS = ["research", "plan_check", "node_repair", "node_repair_budget", "parallel_execution", "verifier"];
+
 
 function readFile(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -117,8 +108,6 @@ module.exports = {
   AGENT_REQUIRED,
   AGENT_TOOL_KEYS,
   KNOWN_AGENTS,
-  CONFIG_REQUIRED_KEYS,
-  CONFIG_WORKFLOW_KEYS,
   readFile,
   getFiles,
   extractInlineYamlBlocks,

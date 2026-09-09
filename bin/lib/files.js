@@ -2,7 +2,7 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 const { resolveSafePath } = require('./path-resolver');
-const { output, exitErr, getCwd } = require('./_cli-utils');
+const { output, exitErr, getCwd, getFlagValue } = require('./_cli-utils');
 
 const WALK_SKIP_DIRS = new Set(['node_modules', '.git', 'vendor', '.next', 'dist', 'build', '.cache', '__pycache__']);
 
@@ -29,8 +29,7 @@ function cmdFilesCheck(args) {
   const cwd = getCwd(args);
   const lineCount = args.includes('--line-count');
   const touch = args.includes('--touch');
-  const newerIdx = args.indexOf('--newer');
-  const newerRef = newerIdx >= 0 ? args[newerIdx + 1] : null;
+  const newerRef = getFlagValue(args, '--newer', { required: false });
 
   const knownValuedFlags = new Set(['--cwd', '--newer']);
   const paths = [];
@@ -40,9 +39,11 @@ function cmdFilesCheck(args) {
     paths.push(args[i]);
   }
 
+  if (paths.length === 0) exitErr('INVALID_INPUT', 'files check requires at least one path');
+
   if (touch) {
     const results = paths.map(p => {
-      const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
+      const resolved = resolveSafePath(cwd, p);
       const existed = fs.existsSync(resolved);
       if (!existed) {
         try {
@@ -57,7 +58,7 @@ function cmdFilesCheck(args) {
   }
 
   if (newerRef) {
-    const refResolved = path.isAbsolute(newerRef) ? newerRef : resolveSafePath(cwd, newerRef);
+    const refResolved = resolveSafePath(cwd, newerRef);
     let refTime = 0;
     try {
       refTime = fs.statSync(refResolved).mtimeMs;
@@ -67,7 +68,7 @@ function cmdFilesCheck(args) {
 
     const results = [];
     for (const p of paths) {
-      const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
+      const resolved = resolveSafePath(cwd, p);
       try {
         const stat = fs.statSync(resolved);
         if (stat.isDirectory()) {
@@ -84,7 +85,7 @@ function cmdFilesCheck(args) {
   }
 
   const results = paths.map(p => {
-    const resolved = path.isAbsolute(p) ? p : resolveSafePath(cwd, p);
+    const resolved = resolveSafePath(cwd, p);
     let exists = false;
     let readable = false;
     try {
