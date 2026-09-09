@@ -184,9 +184,12 @@ async function run() {
       const agents = readFile(AGENTS_MD);
       if (!agents.includes("<!-- flow:generated:start -->")) { fail("AGENTS.md missing <!-- flow:generated:start --> marker"); return; }
       if (!agents.includes("<!-- flow:generated:end -->")) { fail("AGENTS.md missing <!-- flow:generated:end --> marker"); return; }
+      if (!agents.includes("Pi uses structured `flow_tools` operations") || !agents.includes("Never mix Pi operation/field names with CLI commands/flags")) {
+        fail("AGENTS.md missing the runtime-specific Flow tool invocation rule"); return;
+      }
       const lines = agents.split("\n").length;
       if (lines >= 80) { fail(`AGENTS.md scaffold should be <80 lines, got ${lines}`); return; }
-      pass(`AGENTS.md marker present, ${lines} lines (<80)`);
+      pass(`AGENTS.md marker and Flow tool invocation rule present, ${lines} lines (<80)`);
     } catch (e) { fail(`AGENTS.md read failed: ${e.message}`); }
   })();
   (function () {

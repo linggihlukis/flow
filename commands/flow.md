@@ -44,6 +44,8 @@ The installer supplies the host-native binding for this command:
 
 [flow-delegation-binding]
 
+Always use the installed CLI command syntax and flags as defined. Do not convert CLI commands to Pi operation names like `task_validate` or `files_check`. Always pass `--cwd .`; include `--actor` only where the documented command requires it. If validation fails, correct the arguments rather than retrying the same call.
+
 The binding is an integration boundary, not a second Flow protocol. It must preserve the same role order, self-contained child messages, result handling, and fail-closed behavior described below.
 
 ## Lifecycle

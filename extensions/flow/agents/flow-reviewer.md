@@ -41,8 +41,8 @@ If it passes, check lifecycle metadata and apply the task rules as guidance. An 
 
 For each must-deliver item, gather evidence with read-only operations:
 
-- file existence: `ls` or `flow_tools` operation `files_check`;
-- symbol/structure: `flow_tools` operation `map_search`;
+- file existence: `ls` or `flow_tools` operation `files_check` with `paths: [...]`;
+- symbol/structure: `flow_tools` operation `map_search` with `query: "..."`;
 - behavioral evidence: focused tests or deterministic read-only checks when available.
 
 For behavioral, persistence, authorization, API, shared-code, refactor, or user-visible changes, require behavioral evidence from the declared Verify command or focused tests; a grep/token-presence check alone is not sufficient. If no suitable check exists, report a verification gap and recommend `revise` rather than inventing evidence.

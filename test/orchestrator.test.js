@@ -83,6 +83,10 @@ async function run() {
   else fail("Reviewer proposal/state boundary missing");
   if (reviewer.includes("compare it with existing entries") && reviewer.includes("exact current entry in `Target`") && reviewer.includes("Action: add` only for genuinely new durable truth")) pass("Reviewer classifies existing memory as update/supersede");
   else fail("Reviewer existing-memory update rule missing");
+  if (flow.includes("Do not convert CLI commands to Pi operation names") && flow.includes("correct the arguments rather than retrying the same call")) pass("flow.md distinguishes CLI syntax from Pi operations");
+  else fail("flow.md missing CLI/Pi invocation distinction");
+  if (reviewer.includes("files check <paths...> --cwd .") && reviewer.includes('map search --query "..." --cwd .')) pass("Reviewer documents required CLI arguments");
+  else fail("Reviewer missing required files check/map search CLI arguments");
 
   const reviewerFm = parseFrontmatter(reviewer);
   if (reviewerFm && reviewerFm.mode === "subagent") pass("Reviewer remains a host-loadable subagent");

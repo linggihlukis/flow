@@ -47,6 +47,11 @@ Fixed-role delegation through `flow_agent` is required for every child stage. Th
 
 Pi binding: call the `flow_agent` tool with `role` set to `flow-planner`, `flow-executor`, or `flow-reviewer` and one self-contained `task` per child. Use `flow_tools` for deterministic Flow operations. If `flow_agent` is unavailable or rejected, stop and report the host capability failure; do not substitute inline work. Do not use Pi's generic `subagent` tool or any other delegation mechanism for Flow roles.
 
+`flow_tools` uses structured fields, never CLI flags or raw command strings. For example:
+- `task_validate`: `{"operation": "task_validate", "workItem": "001"}`
+- `files_check`: `{"operation": "files_check", "paths": [".flow/work-items/work-item-001/work-item.md"]}`
+Never supply `cwd`, `actor`, `approval`, or protected-branch overrides. On validation errors, correct the reported fields instead of repeating the same call.
+
 The binding is an integration boundary, not a second Flow protocol. It must preserve the same role order, self-contained child messages, result handling, and fail-closed behavior described below.
 
 ## Git Execution Context

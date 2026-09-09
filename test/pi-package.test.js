@@ -136,6 +136,11 @@ async function run() {
     check(flowPrompt.includes("flow_agent"), pass, fail,
       "Pi /flow delegates through flow_agent",
       "Pi /flow must delegate through flow_agent");
+    check(flowPrompt.includes('{"operation": "task_validate", "workItem": "001"}')
+      && flowPrompt.includes('{"operation": "files_check", "paths": [".flow/work-items/work-item-001/work-item.md"]}')
+      && flowPrompt.includes("Never supply `cwd`, `actor`, `approval`"), pass, fail,
+      "Pi /flow documents structured Flow tool calls and injected fields",
+      "Pi /flow must document structured Flow tool calls and injected fields");
     check(flowPrompt.includes("There is no inline fallback and no sequential fallback"), pass, fail,
       "Pi /flow keeps the no-fallback rule",
       "Pi /flow lost the no-fallback rule");
@@ -179,6 +184,11 @@ async function run() {
       `${name} uses flow_tools instead of raw CLI paths`,
       `${name} still contains raw CLI invocations`);
   }
+  const reviewerPrompt = readFile(path.join(AGENTS_DIR, "flow-reviewer.md"));
+  check(reviewerPrompt.includes("`files_check` with `paths: [...]")
+    && reviewerPrompt.includes('`map_search` with `query: "..."`'), pass, fail,
+    "Pi Reviewer documents required read-only operation fields",
+    "Pi Reviewer must document files_check paths and map_search query");
 
   const agentsTs = readFile(path.join(EXT_DIR, "agents.ts"));
   for (const name of expectedAgents) {

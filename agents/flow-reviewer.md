@@ -49,8 +49,8 @@ If it passes, check lifecycle metadata and apply the task rules as guidance. An 
 
 For each must-deliver item, gather evidence with read-only operations:
 
-- file existence: `ls` or `node bin/flow-tools.js files check`;
-- symbol/structure: `node bin/flow-tools.js map search`;
+- file existence: `ls` or `node bin/flow-tools.js files check <paths...> --cwd .`;
+- symbol/structure: `node bin/flow-tools.js map search --query "..." --cwd .`;
 - behavioral evidence: focused tests or deterministic read-only checks when available.
 
 For behavioral, persistence, authorization, API, shared-code, refactor, or user-visible changes, require behavioral evidence from the declared Verify command or focused tests; a grep/token-presence check alone is not sufficient. If no suitable check exists, report a verification gap and recommend `revise` rather than inventing evidence.
