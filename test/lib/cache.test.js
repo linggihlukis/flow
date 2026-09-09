@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 "use strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { LRUCache, globalCache } = require("../../bin/lib/cache");
+const { globalCache } = require("../../bin/lib/cache");
 
 let failures = 0;
 const c = { reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m", red: "\x1b[31m" };
 const pass = (m) => console.log(`  ${c.green}✓${c.reset} ${m}`);
 const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; };
+
+// Derive the class via the singleton — production only exposes globalCache
+const LRUCache = globalCache.constructor;
 
 // ─── Happy path: cache hit ───────────────────────────────────────────────────
 {
@@ -48,16 +49,6 @@ const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; }
   cache.get("a", f, load); // calls=4 — 'a' evicted, reload
   console.assert(calls === 4, `expected 4 calls after eviction, got ${calls}`);
   pass("eviction discards oldest entry");
-}
-
-// ─── Clear ───────────────────────────────────────────────────────────────────
-{
-  const cache = new LRUCache(16);
-  const load = () => 1;
-  cache.get("x", __filename, load);
-  cache.clear();
-  console.assert(cache.size === 0, "size should be 0 after clear");
-  pass("clear empties cache");
 }
 
 // ─── Missing file path ───────────────────────────────────────────────────────

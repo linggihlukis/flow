@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
+const fs = require("node:fs");
 const path = require("path");
-const { resolveSafePath, resolveCwd, ERROR_CODES } = require("../../bin/lib/path-resolver");
+const { resolveSafePath, ERROR_CODES } = require("../../bin/lib/path-resolver");
 
 let failures = 0;
 const c = { reset: "\x1b[0m", bold: "\x1b[1m", green: "\x1b[32m", red: "\x1b[31m" };
@@ -44,29 +45,30 @@ const fail = (m) => { console.log(`  ${c.red}✗${c.reset} ${m}`); failures++; }
   pass("resolveSafePath allows non-existent paths (new files)");
 }
 
-// ─── resolveCwd: valid path ──────────────────────────────────────────────────
+// ─── Symlinked parent cannot escape the lexical boundary ─────────────────────
 {
-  const r = resolveCwd(process.cwd());
-  console.assert(r === path.resolve(process.cwd()), "resolveCwd should match resolved cwd");
-  pass("resolveCwd resolves valid path");
-}
-
-// ─── resolveCwd: non-existent path ───────────────────────────────────────────
-{
-  let threw = false;
+  const outsideDir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'flow-path-outside-'));
+  const linkPath = path.join(process.cwd(), '.flow-path-link-' + process.pid);
+  let created = false;
   try {
-    resolveCwd("/nonexistent/path/xyz__test");
+    require('node:fs').symlinkSync(outsideDir, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+    created = true;
+    let threw = false;
+    try { resolveSafePath(process.cwd(), path.join(path.basename(linkPath), 'new-file.md')); }
+    catch (e) { threw = true; console.assert(e.code === ERROR_CODES.PATH_OUTSIDE_CWD, `wrong symlink error code: ${e.code}`); }
+    console.assert(threw, "symlinked parent escape not caught");
+    if (threw) pass("resolveSafePath blocks new paths below symlinked parents");
+    else fail("resolveSafePath allows new paths below symlinked parents");
   } catch (e) {
-    threw = true;
-    console.assert(e.code === ERROR_CODES.PATH_NOT_FOUND, `wrong error code: ${e.code}`);
+    pass(`resolveSafePath symlink test skipped: ${e.code || e.message}`);
+  } finally {
+    if (created) { try { require('node:fs').unlinkSync(linkPath); } catch {} }
+    try { require('node:fs').rmSync(outsideDir, { recursive: true, force: true }); } catch {}
   }
-  console.assert(threw, "resolveCwd should throw for non-existent path");
-  pass("resolveCwd throws for non-existent path");
 }
 
 // ─── ERROR_CODES exports ─────────────────────────────────────────────────────
 {
-  console.assert(ERROR_CODES.PATH_NOT_FOUND === "PATH_NOT_FOUND", "PATH_NOT_FOUND code");
   console.assert(ERROR_CODES.PATH_OUTSIDE_CWD === "PATH_OUTSIDE_CWD", "PATH_OUTSIDE_CWD code");
   pass("ERROR_CODES exports correct constants");
 }

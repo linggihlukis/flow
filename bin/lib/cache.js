@@ -32,7 +32,6 @@ class LRUCache {
   }
 
   invalidate(key) { this._map.delete(key); }
-  clear()         { this._map.clear(); }
   get size()      { return this._map.size; }
 }
 
